@@ -1,0 +1,67 @@
+{
+  "name": "shranix-krushi-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise-Grade Desktop ERP for the Agricultural Ecosystem",
+  "author": "SHRANIX Technologies",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "pnpm run --filter @shranix/database build && pnpm run --filter @shranix/backend --filter @shranix/frontend build",
+    "build:frontend": "pnpm run --filter @shranix/frontend build",
+    "build:backend": "pnpm run --filter @shranix/backend build",
+    "lint": "pnpm run --recursive lint",
+    "lint:fix": "pnpm run --recursive lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "typecheck": "pnpm run --recursive typecheck",
+    "test": "pnpm run --recursive test",
+    "test:coverage": "pnpm run --recursive test:coverage",
+    "test:e2e": "pnpm run --filter @shranix/backend test:e2e",
+    "clean": "pnpm run --recursive clean",
+    "db:generate": "pnpm run --filter @shranix/database db:generate",
+    "db:migrate": "pnpm run --filter @shranix/database db:migrate",
+    "db:seed": "pnpm run --filter @shranix/database db:seed",
+    "db:studio": "pnpm run --filter @shranix/database db:studio",
+    "prepare": "husky",
+    "commit": "cz"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.12.0",
+    "@typescript-eslint/parser": "^8.12.0",
+    "commitlint": "^19.5.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.0",
+    "eslint-plugin-import": "^2.31.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.3.0",
+    "prettier-plugin-tailwindcss": "^0.6.0",
+    "turbo": "^2.10.7",
+    "typescript": "^5.6.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,9 @@
+# SHRANIX Krushi ERP - pnpm Workspace
+# Only explicitly listed directories are included in the workspace.
+packages:
+  - "frontend"
+  - "backend"
+  - "desktop"
+  - "database"
+  - "shared"
+  - "scripts"

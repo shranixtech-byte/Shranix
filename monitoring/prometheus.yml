@@ -1,0 +1,59 @@
+# ═══════════════════════════════════════════════════════════════════
+# SHRANIX Krushi ERP — Prometheus Configuration
+# ═══════════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'shranix-erp'
+
+# ── Alerting (placeholder) ─────────────────────────────────────
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# ── Rule Files ──────────────────────────────────────────────────
+rule_files:
+  # - 'alerts.yml'
+
+# ── Scrape Configuration ───────────────────────────────────────
+scrape_configs:
+  - job_name: 'shranix-backend'
+    scrape_interval: 10s
+    metrics_path: '/health/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets:
+          - 'backend:3000'
+        labels:
+          service: 'backend'
+          environment: 'production'
+
+  - job_name: 'shranix-postgres'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'postgres-exporter:9187'
+        labels:
+          service: 'postgres'
+          environment: 'production'
+
+  - job_name: 'shranix-redis'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'redis-exporter:9121'
+        labels:
+          service: 'redis'
+          environment: 'production'
+
+  - job_name: 'shranix-node'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'
+        labels:
+          service: 'node'
+          environment: 'production'

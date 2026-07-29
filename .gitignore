@@ -1,0 +1,111 @@
+# =============================================================================
+# SHRANIX Krushi ERP — .gitignore
+# =============================================================================
+
+# --- Dependencies ---
+node_modules/
+.pnp
+.pnp.js
+jspm_packages/
+
+# --- Build Output ---
+dist/
+build/
+out/
+release/
+*.tsbuildinfo
+
+# --- Desktop Build Artifacts ---
+desktop/build/
+desktop/out/
+desktop/release/
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.snap
+*.deb
+*.rpm
+
+# --- Environment & Secrets ---
+.env
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+*.cert
+secrets/
+credentials/
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- IDE & Editor ---
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# --- Testing ---
+coverage/
+.nyc_output/
+*.test.ts.snap
+test-results/
+playwright-report/
+
+# --- Database ---
+database/*.sqlite
+database/*.db
+database/*.db-journal
+database/pgdata/
+
+# --- Temp & Cache ---
+.tmp/
+.temp/
+.cache/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+.next/
+turbo/
+.gatsby/
+
+# --- OS Files ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Misc ---
+*.bak
+*.orig
+*.tgz
+*.zip
+*.gz (except for distribution)
+# Windows device names
+backend/nul
+database/nul
+frontend/nul
+# Windows NUL files
+**/nul
+nul
+database/src/nul

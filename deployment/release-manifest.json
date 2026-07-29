@@ -1,0 +1,76 @@
+{
+  "version": "1.0.0",
+  "releaseName": "SHRANIX Krushi ERP v1.0",
+  "releaseDate": "2026-07-25",
+  "buildInfo": {
+    "backend": {
+      "package": "@shranix/backend",
+      "version": "1.0.0",
+      "entryPoint": "backend/dist/main.js"
+    },
+    "frontend": {
+      "package": "@shranix/frontend",
+      "version": "1.0.0",
+      "entryPoint": "frontend/dist/index.html"
+    },
+    "database": {
+      "package": "@shranix/database",
+      "version": "1.0.0",
+      "migrationDir": "database/migrations"
+    }
+  },
+  "dependencies": {
+    "node": ">=18.x",
+    "pnpm": ">=8.x",
+    "database": "PostgreSQL 14+ / SQLite 3.x",
+    "cache": "Redis 6+",
+    "storage": "Local / MinIO / S3"
+  },
+  "modules": [
+    { "name": "Authentication & RBAC", "status": "production" },
+    { "name": "Master Data Management", "status": "production" },
+    { "name": "Inventory Management", "status": "production" },
+    { "name": "Purchase Management", "status": "production" },
+    { "name": "Sales Management", "status": "production" },
+    { "name": "Financial Accounting", "status": "production" },
+    { "name": "General Ledger & Reporting", "status": "production" },
+    { "name": "GST & Tax Management", "status": "production" },
+    { "name": "Workflow & Approvals", "status": "production" },
+    { "name": "Document Management (DMS)", "status": "production" },
+    { "name": "AI Copilot & Insights", "status": "production" },
+    { "name": "Mobile/PWA Platform", "status": "production" },
+    { "name": "Multi-Company Management", "status": "production" },
+    { "name": "HR Foundation", "status": "production" },
+    { "name": "CRM & Sales Pipeline", "status": "production" },
+    { "name": "Fixed Assets", "status": "production" },
+    { "name": "Enterprise Integrations", "status": "production" },
+    { "name": "Governance & Compliance", "status": "production" },
+    { "name": "Reporting & Business Intelligence", "status": "production" }
+  ],
+  "security": {
+    "authentication": "JWT with refresh tokens",
+    "authorization": "RBAC with granular permissions",
+    "rateLimiting": "ThrottlerGuard (configurable)",
+    "csrfProtection": "CSRF guard + service",
+    "securityHeaders": "Helmet.js",
+    "inputValidation": "class-validator + custom ValidationPipe",
+    "auditLogging": "Database audit_logs table",
+    "cors": "Whitelist-based origin validation"
+  },
+  "infrastructure": {
+    "containerization": "Docker + Docker Compose",
+    "reverseProxy": "Nginx (HTTPS ready)",
+    "ci-cd": "GitHub Actions",
+    "monitoring": "Health endpoints /liveness /readiness",
+    "logging": "Structured JSON via nestjs-pino",
+    "backup": "Automated database + file backup scripts",
+    "storage": "Local filesystem (S3/MinIO ready)"
+  },
+  "testSummary": {
+    "backendUnitTests": "80+ tests across auth, users, roles, AI",
+    "frontendUnitTests": "80+ tests across PWA, mobile, services",
+    "integrationTests": "Health, storage, notification",
+    "e2eTests": "Auth E2E (requires live database)"
+  },
+  "releaseNotes": "Initial production release of SHRANIX Krushi ERP v1.0. Full enterprise ERP suite with 19 production modules, AI copilot, mobile PWA, workflow engine, DMS, and comprehensive financial management."
+}

@@ -1,0 +1,38 @@
+[package]
+name = "shranix-krushi-erp"
+version = "1.0.0"
+description = "SHRANIX Krushi ERP - Enterprise Agriculture Management Software"
+authors = ["SHRANIX Technologies"]
+license = "Proprietary"
+repository = "https://github.com/shranix/krushi-erp"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "shranix_krushi_erp_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = ["isolation"] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-clipboard = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+log = "0.4"
+env_logger = "0.11"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

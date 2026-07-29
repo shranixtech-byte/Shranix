@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      tag:
+        description: 'Docker image tag to deploy'
+        required: true
+        default: latest
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_HOST }} ${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy with Docker Compose
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "
+            cd /opt/shranix-erp &&
+            export TAG=${{ inputs.tag }} &&
+            export DATABASE_URL='${{ secrets.DATABASE_URL }}' &&
+            export JWT_SECRET='${{ secrets.JWT_SECRET }}' &&
+            export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}' &&
+            export MINIO_ACCESS_KEY='${{ secrets.MINIO_ACCESS_KEY }}' &&
+            export MINIO_SECRET_KEY='${{ secrets.MINIO_SECRET_KEY }}' &&
+            export SMTP_HOST='${{ secrets.SMTP_HOST }}' &&
+            export SMTP_USER='${{ secrets.SMTP_USER }}' &&
+            export SMTP_PASS='${{ secrets.SMTP_PASS }}' &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml pull &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --remove-orphans &&
+            docker system prune -f
+          "
+
+  rollback:
+    name: Rollback ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    if: ${{ github.event.inputs.rollback == 'true' }}
+    steps:
+      - name: Rollback to previous version
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "
+            cd /opt/shranix-erp &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml down &&
+            export TAG=previous &&
+            docker compose -f docker-compose.yml -f docker-compose.production.yml up -d
+          "

@@ -1,0 +1,40 @@
+{
+  "name": "@shranix/database",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "echo 'No lint config yet'",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('.turbo',{recursive:true,force:true})\"",
+    "db:generate": "drizzle-kit generate --config=./drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config=./drizzle.config.ts",
+    "db:push": "drizzle-kit push --config=./drizzle.config.ts",
+    "db:studio": "drizzle-kit studio --config=./drizzle.config.ts",
+    "db:seed": "tsx src/seeds/run.ts",
+    "db:rollback": "echo 'Manual rollback: revert migration file and run db:migrate'"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "argon2": "^0.45.1",
+    "dotenv": "^16.4.0",
+    "drizzle-kit": "^0.28.0",
+    "drizzle-orm": "^0.36.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

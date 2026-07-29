@@ -1,0 +1,1 @@
+{"version":3,"file":"WelcomeBanner.d.ts","sourceRoot":"","sources":["WelcomeBanner.tsx"],"names":[],"mappings":"AAsBA,UAAU,kBAAkB;IAC1B,QAAQ,EAAE,MAAM,CAAC;IACjB,WAAW,CAAC,EAAE,MAAM,CAAC;IACrB,aAAa,CAAC,EAAE,MAAM,CAAC;CACxB;AAKD,wBAAgB,aAAa,CAAC,EAAE,QAAQ,EAAE,WAA+B,EAAE,aAA2B,EAAE,EAAE,kBAAkB,+BAuE3H"}

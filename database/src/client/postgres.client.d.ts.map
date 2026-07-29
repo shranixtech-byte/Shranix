@@ -1,0 +1,1 @@
+{"version":3,"file":"postgres.client.d.ts","sourceRoot":"","sources":["postgres.client.ts"],"names":[],"mappings":"AAAA,OAAO,QAAQ,MAAM,UAAU,CAAC;AAChC,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,WAAW,CAAC;AAIhD,wBAAgB,oBAAoB,CAAC,MAAM,EAAE,cAAc,GAAG,QAAQ,CAAC,GAAG,CAYzE;AAED,wBAAgB,iBAAiB,IAAI,QAAQ,CAAC,GAAG,CAKhD;AAED,wBAAsB,mBAAmB,IAAI,OAAO,CAAC,IAAI,CAAC,CAKzD"}

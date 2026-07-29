@@ -1,0 +1,205 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 142 76% 20%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142 76% 20%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 142 50% 45%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142 50% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* ── Slightly larger base font for better readability across the app ── */
+  html {
+    font-size: 17px;
+  }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3.5 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-all duration-200;
+  }
+  .sidebar-link-active {
+    @apply sidebar-link bg-blue-600/15 text-blue-400 shadow-sm border border-blue-500/10;
+  }
+  .sidebar-link-inactive {
+    @apply sidebar-link text-slate-300/60 hover:bg-slate-700/30 hover:text-white hover:border hover:border-slate-600/20;
+  }
+
+  /* ── Premium Card Styles ── */
+  .premium-card {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 dark:border-slate-800 dark:bg-slate-900;
+  }
+  .premium-card-hover {
+    @apply premium-card hover:shadow-lg hover:shadow-slate-200/60 hover:-translate-y-0.5 dark:hover:shadow-slate-900/60;
+  }
+
+  /* ── Glass Effect ── */
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20 shadow-lg dark:bg-slate-900/70 dark:border-slate-700/20;
+  }
+  .glass-dark {
+    @apply bg-slate-900/80 backdrop-blur-xl border border-white/[0.06] shadow-lg;
+  }
+
+  /* ── Gradient Text ── */
+  .gradient-text-emerald {
+    @apply bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent;
+  }
+  .gradient-text-blue {
+    @apply bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent;
+  }
+
+  .page-header {
+    @apply mb-6 flex items-center justify-between;
+  }
+  .page-title {
+    @apply text-2xl font-semibold text-foreground;
+  }
+  .card-hover {
+    @apply transition-shadow duration-200 hover:shadow-md;
+  }
+}
+
+/* ── Sidebar Navy Blue Theme ── */
+.sidebar-navy {
+  background: linear-gradient(to bottom, #0B1A33, #1B2D52, #0B1A33) !important;
+}
+.sidebar-navy-hover {
+  background-color: #1B2D52 !important;
+}
+
+/* ── Custom Scrollbar for Sidebar ── */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Floating Leaves Animation ── */
+@keyframes leafFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+    opacity: 0.4;
+  }
+  25% {
+    transform: translateY(-15px) rotate(4deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-25px) rotate(8deg);
+    opacity: 0.6;
+  }
+  75% {
+    transform: translateY(-10px) rotate(2deg);
+    opacity: 0.5;
+  }
+}
+
+/* ── Animated Gradient Border ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Premium Card Entrance ── */
+@keyframes cardEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Fade In Up (smooth cubic-bezier) ── */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Subtle border glow entrance ── */
+@keyframes borderGlow {
+  0% {
+    border-color: rgba(22, 163, 74, 0);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.10);
+  }
+  50% {
+    border-color: rgba(22, 163, 74, 0.15);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  100% {
+    border-color: rgba(255,255,255,0.18);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.30);
+  }
+}

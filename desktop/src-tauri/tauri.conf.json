@@ -1,0 +1,120 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "SHRANIX Krushi ERP",
+  "version": "1.0.0",
+  "identifier": "com.shranix.krushi-erp",
+  "build": {
+    "beforeDevCommand": "cd ../frontend && pnpm dev",
+    "devUrl": "http://localhost:4000",
+    "beforeBuildCommand": "cd ../frontend && pnpm build",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "SHRANIX Krushi ERP",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "visible": false,
+        "shadow": true,
+        "transparent": false,
+        "url": "http://localhost:4000"
+      },
+      {
+        "label": "splashscreen",
+        "title": "SHRANIX Krushi ERP",
+        "width": 480,
+        "height": 320,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "visible": true,
+        "transparent": false,
+        "url": "/splash"
+      }
+    ],
+    "trayIcon": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": true,
+      "tooltip": "SHRANIX Krushi ERP"
+    },
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-eval'; connect-src 'self' http://localhost:4001 https://api.shranix.com https://updates.shranix.com; img-src 'self' data: asset:; media-src 'self'",
+      "allowlist": ["all"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "targets": ["deb", "appimage", "msi", "nsis", "dmg"],
+    "windows": {
+      "wix": {
+        "language": "en-US",
+        "template": "main.wxs"
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signing": {
+        "identity": "-"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libappindicator3-1"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "ENTER_YOUR_PUBLIC_KEY_HERE",
+      "endpoints": [
+        "https://updates.shranix.com/api/updates/{{target}}/{{current_version}}"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    },
+    "shell": {
+      "open": true,
+      "scope": [
+        {
+          "name": "mailto",
+          "url": "mailto:*"
+        },
+        {
+          "name": "https",
+          "url": "https://*"
+        }
+      ]
+    },
+    "deep-link": {
+      "schemes": ["shranix-krushi-erp"]
+    },
+    "fs": {
+      "scope": {
+        "allow": ["$APPDATA/**", "$DOCUMENT/**", "$DESKTOP/**"],
+        "deny": ["$APPDATA/com.shranix.krushi-erp/config.json"]
+      }
+    }
+  }
+}

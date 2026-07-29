@@ -1,0 +1,91 @@
+import { Module } from '@nestjs/common';
+
+import { AuditService } from '../common/services/audit.service';
+import { DatabaseService } from '../database/database.service';
+import { WorkflowModule } from '../workflow/workflow.module';
+
+import {
+  PurchaseOrdersController,
+  PurchaseQuotationsController,
+  GrnController,
+  PurchaseInvoicesController,
+  PurchaseReturnsController,
+  SupplierPriceListController,
+  PurchaseApprovalsController,
+  PurchaseSettingsController,
+  SuppliersController,
+  PurchaseRequisitionsController,
+  PurchaseDashboardController,
+  PurchaseReportsController,
+  PurchaseSearchController,
+} from './controllers';
+import {
+  PurchaseOrdersService,
+  PurchaseQuotationsService,
+  GrnService,
+  PurchaseInvoicesService,
+  PurchaseReturnsService,
+  SupplierPriceListService,
+  PurchaseApprovalsService,
+  PurchaseSettingsService,
+  SuppliersService,
+  PurchaseRequisitionsService,
+  PurchaseDashboardService,
+  PurchaseReportsService,
+  PurchaseSearchService,
+  StockPostingService,
+} from './services';
+
+@Module({
+  imports: [WorkflowModule],
+  controllers: [
+    PurchaseOrdersController,
+    PurchaseQuotationsController,
+    GrnController,
+    PurchaseInvoicesController,
+    PurchaseReturnsController,
+    SupplierPriceListController,
+    PurchaseApprovalsController,
+    PurchaseSettingsController,
+    SuppliersController,
+    PurchaseRequisitionsController,
+    PurchaseDashboardController,
+    PurchaseReportsController,
+    PurchaseSearchController,
+  ],
+  providers: [
+    PurchaseOrdersService,
+    PurchaseQuotationsService,
+    GrnService,
+    PurchaseInvoicesService,
+    PurchaseReturnsService,
+    SupplierPriceListService,
+    PurchaseApprovalsService,
+    PurchaseSettingsService,
+    SuppliersService,
+    PurchaseRequisitionsService,
+    PurchaseDashboardService,
+    PurchaseReportsService,
+    PurchaseSearchService,
+    StockPostingService,
+    DatabaseService,
+    AuditService,
+  ],
+  exports: [
+    PurchaseOrdersService,
+    PurchaseQuotationsService,
+    GrnService,
+    PurchaseInvoicesService,
+    PurchaseReturnsService,
+    SupplierPriceListService,
+    PurchaseApprovalsService,
+    PurchaseSettingsService,
+    SuppliersService,
+    PurchaseRequisitionsService,
+    PurchaseDashboardService,
+    PurchaseReportsService,
+    PurchaseSearchService,
+    StockPostingService,
+  ],
+})
+export class PurchaseModule {}

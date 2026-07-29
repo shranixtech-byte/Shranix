@@ -1,0 +1,12 @@
+dist
+build
+node_modules
+coverage
+.turbo
+*.config.ts
+*.config.js
+public
+.next
+out
+*.d.ts
+*.d.ts.map

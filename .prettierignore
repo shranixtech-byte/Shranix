@@ -1,0 +1,10 @@
+dist
+build
+node_modules
+coverage
+.turbo
+public
+.next
+out
+*.lock
+CHANGELOG.md

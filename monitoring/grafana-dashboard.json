@@ -1,0 +1,115 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "SHRANIX Krushi ERP — Production Overview",
+  "uid": "shranix-erp-overview",
+  "version": 1,
+  "schemaVersion": 36,
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "30s",
+  "panels": [
+    {
+      "title": "API Uptime",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "time() - process_start_time_seconds{job=\"shranix-backend\"}",
+          "legendFormat": "Uptime (s)"
+        }
+      ]
+    },
+    {
+      "title": "Memory Usage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{job=\"shranix-backend\"} / 1024 / 1024",
+          "legendFormat": "Memory (MB)"
+        }
+      ],
+      "max": 512
+    },
+    {
+      "title": "Active Requests",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"shranix-backend\"}[5m])",
+          "legendFormat": "Requests/s"
+        }
+      ]
+    },
+    {
+      "title": "Database Connections",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "pg_stat_database_numbackends{datname=\"shranix_erp\"}",
+          "legendFormat": "Connections"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"shranix-backend\", status=~\"5..\"}[5m])",
+          "legendFormat": "5xx Errors"
+        }
+      ]
+    },
+    {
+      "title": "Request Duration (p99)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "title": "Active Users",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "count by (status) (up{job=\"shranix-backend\"})",
+          "legendFormat": "Active"
+        }
+      ]
+    },
+    {
+      "title": "Queue Depth",
+      "type": "graph",
+      "gridPos": { "h": 4, "w": 8, "x": 4, "y": 12 },
+      "targets": [
+        {
+          "expr": "redis_queue_depth{job=\"shranix-redis\"}",
+          "legendFormat": "Queue"
+        }
+      ]
+    },
+    {
+      "title": "Disk Usage",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "node_filesystem_avail_bytes{mountpoint=\"/data\"} / node_filesystem_size_bytes{mountpoint=\"/data\"} * 100",
+          "legendFormat": "Free %"
+        }
+      ]
+    }
+  ],
+  "tags": ["shranix", "erp", "production"],
+  "time": { "from": "now-6h", "to": "now" }
+}

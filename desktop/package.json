@@ -1,0 +1,17 @@
+{
+  "name": "@shranix/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Tauri dev requires Rust toolchain - run locally with Rust installed'",
+    "build": "echo 'Tauri build requires Rust toolchain - run locally with Rust installed'",
+    "typecheck": "echo 'Typecheck requires Rust toolchain - run locally'",
+    "clean": "node -e \"fs.rmSync('.turbo',{recursive:true,force:true});try{fs.rmSync('src-tauri/target',{recursive:true,force:true})}catch(e){}\""
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.2.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}
