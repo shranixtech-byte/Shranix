@@ -23,6 +23,33 @@ import {
   StockOpeningRepository,
   ItemImagesRepository,
   InventorySettingsRepository,
+  WarehouseZonesRepository,
+  WarehouseRacksRepository,
+  WarehouseShelvesRepository,
+  WarehouseBinsRepository,
+  UOMConversionsRepository,
+  ProductAttributesRepository,
+  ItemPackagingRepository,
+  BatchMasterRepository,
+  BatchLotRepository,
+  BatchGenealogyRepository,
+  SerialMasterRepository,
+  SerialHistoryRepository,
+  SerialWarrantyRepository,
+  SerialInstallationRepository,
+  SerialServiceRepository,
+  SerialRMARepository,
+  SerialRelationshipRepository,
+  SerialDocumentRepository,
+  InvStockLedgerRepository,
+  InvStockBalanceRepository,
+  InvStockReservationRepository,
+  StockTransfersRepository,
+  TransferItemsRepository,
+  StockAdjustmentsRepository,
+  AdjustmentItemsRepository,
+  PhysicalCountHeadersRepository,
+  PhysicalCountItemsRepository,
   PurchaseOrdersRepository,
   POItemsRepository,
   PurchaseQuotationsRepository,
@@ -52,6 +79,15 @@ import {
   CustomerPriceListRepository,
   SalesApprovalsRepository,
   SalesSettingsRepository,
+  ApprovalHistoryRepository,
+  ApprovalCommentsRepository,
+  ApprovalNotificationsRepository,
+  ApprovalMatricesRepository,
+  ApprovalRulesRepository,
+  CreditProfilesRepository,
+  CreditOverridesRepository,
+  CreditNotesRepository,
+  DebitNotesRepository,
   AccountGroupsRepository,
   ChartOfAccountsRepository,
   LedgerMasterRepository,
@@ -128,6 +164,33 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly stockOpening: StockOpeningRepository;
   public readonly itemImages: ItemImagesRepository;
   public readonly inventorySettings: InventorySettingsRepository;
+  public readonly warehouseZones: WarehouseZonesRepository;
+  public readonly warehouseRacks: WarehouseRacksRepository;
+  public readonly warehouseShelves: WarehouseShelvesRepository;
+  public readonly warehouseBins: WarehouseBinsRepository;
+  public readonly uomConversions: UOMConversionsRepository;
+  public readonly productAttributes: ProductAttributesRepository;
+  public readonly itemPackaging: ItemPackagingRepository;
+  public readonly batchMaster: BatchMasterRepository;
+  public readonly batchLots: BatchLotRepository;
+  public readonly batchGenealogy: BatchGenealogyRepository;
+  public readonly serialMaster: SerialMasterRepository;
+  public readonly serialHistory: SerialHistoryRepository;
+  public readonly serialWarranty: SerialWarrantyRepository;
+  public readonly serialInstallation: SerialInstallationRepository;
+  public readonly serialService: SerialServiceRepository;
+  public readonly serialRMA: SerialRMARepository;
+  public readonly serialRelationship: SerialRelationshipRepository;
+  public readonly serialDocument: SerialDocumentRepository;
+  public readonly invStockLedger: InvStockLedgerRepository;
+  public readonly invStockBalance: InvStockBalanceRepository;
+  public readonly invStockReservation: InvStockReservationRepository;
+  public readonly stockTransfers: StockTransfersRepository;
+  public readonly transferItems: TransferItemsRepository;
+  public readonly stockAdjustments: StockAdjustmentsRepository;
+  public readonly adjustmentItems: AdjustmentItemsRepository;
+  public readonly physicalCountHeaders: PhysicalCountHeadersRepository;
+  public readonly physicalCountItems: PhysicalCountItemsRepository;
 
   // Purchase
   public readonly purchaseOrders: PurchaseOrdersRepository;
@@ -155,6 +218,17 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly customerPriceList: CustomerPriceListRepository;
   public readonly salesApprovals: SalesApprovalsRepository;
   public readonly salesSettings: SalesSettingsRepository;
+
+  // ⭐ Phase 1: Persisted Approval & Credit Repos
+  public readonly approvalHistory: ApprovalHistoryRepository;
+  public readonly approvalComments: ApprovalCommentsRepository;
+  public readonly approvalNotifications: ApprovalNotificationsRepository;
+  public readonly approvalMatrices: ApprovalMatricesRepository;
+  public readonly approvalRules: ApprovalRulesRepository;
+  public readonly creditProfiles: CreditProfilesRepository;
+  public readonly creditOverrides: CreditOverridesRepository;
+  public readonly creditNotes: CreditNotesRepository;
+  public readonly debitNotes: DebitNotesRepository;
 
   // Finance
   public readonly accountGroups: AccountGroupsRepository;
@@ -271,6 +345,34 @@ export class DatabaseService implements OnApplicationShutdown {
     this.itemImages = new ItemImagesRepository(db as any, isPostgres);
     this.inventorySettings = new InventorySettingsRepository(db as any, isPostgres);
 
+    this.warehouseZones = new WarehouseZonesRepository(db as any, isPostgres);
+    this.warehouseRacks = new WarehouseRacksRepository(db as any, isPostgres);
+    this.warehouseShelves = new WarehouseShelvesRepository(db as any, isPostgres);
+    this.warehouseBins = new WarehouseBinsRepository(db as any, isPostgres);
+    this.uomConversions = new UOMConversionsRepository(db as any, isPostgres);
+    this.productAttributes = new ProductAttributesRepository(db as any, isPostgres);
+    this.itemPackaging = new ItemPackagingRepository(db as any, isPostgres);
+    this.batchMaster = new BatchMasterRepository(db as any, isPostgres);
+    this.batchLots = new BatchLotRepository(db as any, isPostgres);
+    this.batchGenealogy = new BatchGenealogyRepository(db as any, isPostgres);
+    this.serialMaster = new SerialMasterRepository(db as any, isPostgres);
+    this.serialHistory = new SerialHistoryRepository(db as any, isPostgres);
+    this.serialWarranty = new SerialWarrantyRepository(db as any, isPostgres);
+    this.serialInstallation = new SerialInstallationRepository(db as any, isPostgres);
+    this.serialService = new SerialServiceRepository(db as any, isPostgres);
+    this.serialRMA = new SerialRMARepository(db as any, isPostgres);
+    this.serialRelationship = new SerialRelationshipRepository(db as any, isPostgres);
+    this.serialDocument = new SerialDocumentRepository(db as any, isPostgres);
+    this.invStockLedger = new InvStockLedgerRepository(db as any, isPostgres);
+    this.invStockBalance = new InvStockBalanceRepository(db as any, isPostgres);
+    this.invStockReservation = new InvStockReservationRepository(db as any, isPostgres);
+    this.stockTransfers = new StockTransfersRepository(db as any, isPostgres);
+    this.transferItems = new TransferItemsRepository(db as any, isPostgres);
+    this.stockAdjustments = new StockAdjustmentsRepository(db as any, isPostgres);
+    this.adjustmentItems = new AdjustmentItemsRepository(db as any, isPostgres);
+    this.physicalCountHeaders = new PhysicalCountHeadersRepository(db as any, isPostgres);
+    this.physicalCountItems = new PhysicalCountItemsRepository(db as any, isPostgres);
+
     // Purchase
     this.purchaseOrders = new PurchaseOrdersRepository(db as any, isPostgres);
     this.poItems = new POItemsRepository(db as any, isPostgres);
@@ -305,6 +407,17 @@ export class DatabaseService implements OnApplicationShutdown {
     this.customerPriceList = new CustomerPriceListRepository(db as any, isPostgres);
     this.salesApprovals = new SalesApprovalsRepository(db as any, isPostgres);
     this.salesSettings = new SalesSettingsRepository(db as any, isPostgres);
+
+    // ⭐ Phase 1: Persisted Approval & Credit Repos
+    this.approvalHistory = new ApprovalHistoryRepository(db as any, isPostgres);
+    this.approvalComments = new ApprovalCommentsRepository(db as any, isPostgres);
+    this.approvalNotifications = new ApprovalNotificationsRepository(db as any, isPostgres);
+    this.approvalMatrices = new ApprovalMatricesRepository(db as any, isPostgres);
+    this.approvalRules = new ApprovalRulesRepository(db as any, isPostgres);
+    this.creditProfiles = new CreditProfilesRepository(db as any, isPostgres);
+    this.creditOverrides = new CreditOverridesRepository(db as any, isPostgres);
+    this.creditNotes = new CreditNotesRepository(db as any, isPostgres);
+    this.debitNotes = new DebitNotesRepository(db as any, isPostgres);
 
     // Finance
     this.accountGroups = new AccountGroupsRepository(db as any, isPostgres);

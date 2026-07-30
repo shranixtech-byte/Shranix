@@ -1,6 +1,12 @@
 export interface PaginationParams {
   page: number;
   pageSize: number;
+  /** @deprecated Use EnterpriseQuery.search instead */
+  search?: string;
+  /** @deprecated Use EnterpriseQuery.sortBy instead */
+  sortBy?: string;
+  /** @deprecated Use EnterpriseQuery.sortOrder instead */
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface PaginatedResult<T> {
@@ -21,3 +27,16 @@ export interface FilterParams {
 }
 
 export type TransactionCallback<T> = (tx: unknown) => Promise<T>;
+
+// ═════════════════════════════════════════════════════════
+// ENTERPRISE REPOSITORY FOUNDATION
+// ═════════════════════════════════════════════════════════
+export type {
+  FilterOperator,
+  FilterCondition,
+  SortConfig,
+  EnterpriseQuery,
+  getPageSize,
+  getPage,
+} from './enterprise';
+

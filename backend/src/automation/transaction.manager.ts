@@ -12,6 +12,8 @@ export interface TransactionContext {
   id: string;
   startedAt: Date;
   operations: number;
+  /** The drizzle transaction object. Use this for all DB operations within the transaction. */
+  tx: any;
 }
 
 @Injectable()
@@ -22,6 +24,9 @@ export class TransactionManager {
 
   /**
    * Execute a function within a database transaction with automatic rollback on error.
+   * The callback receives a `context` with a `tx` property — the drizzle transaction object.
+   * ALL database operations within the callback MUST use `context.tx` to participate
+   * in the transaction. If ANY operation throws, EVERYTHING is rolled back.
    */
   async executeInTransaction<T>(
     fn: (context: TransactionContext) => Promise<T>,
@@ -32,6 +37,7 @@ export class TransactionManager {
       id: crypto.randomUUID(),
       startedAt: new Date(),
       operations: 0,
+      tx: null,
     };
 
     // Access the underlying drizzle-orm db instance
@@ -43,35 +49,31 @@ export class TransactionManager {
     }
 
     try {
-      // For SQLite: transactions are handled via db.transaction()
-      // For PostgreSQL: transactions via db.transaction() or pg pool
       if (typeof drizzleDb.transaction === 'function') {
         return await drizzleDb.transaction(async (tx: any) => {
-          // Wrap tx to track operations
+          // Store the transaction on the drizzle db object so repositories can pick it up
+          (drizzleDb as any).__currentTx = tx;
+
           const txContext: TransactionContext = {
             ...context,
             operations: 0,
+            tx,
           };
-
-          // Patch the database service to use the transaction-aware db
-          const originalDb = (this.database as any)._currentTx;
-          (this.database as any)._currentTx = tx;
 
           try {
             const result = await fn(txContext);
-            txContext.operations = (txContext as any).ops || 0;
             return result;
           } finally {
-            (this.database as any)._currentTx = originalDb;
+            // Clean up the transaction reference
+            (drizzleDb as any).__currentTx = null;
           }
         });
       }
 
-      // Fallback: run without transaction wrapper
       this.logger.warn('Database does not support transactions, running without');
       return fn(context);
     } catch (error) {
-      this.logger.error(`Transaction failed: ${(error as Error).message}`);
+      this.logger.error(`Transaction ${context.id} failed: ${(error as Error).message}. ALL changes rolled back.`);
       throw error;
     }
   }

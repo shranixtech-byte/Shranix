@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { AutomationModule } from '../automation/automation.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import {
@@ -35,9 +36,12 @@ import {
   PurchaseSearchService,
   StockPostingService,
 } from './services';
+import { PurchasePostingEngineService } from './purchase-postings.service';
+import { PurchaseDebitNoteService } from './debit-note.service';
+import { PurchaseDebitNoteController, PurchasePostingController } from './controllers';
 
 @Module({
-  imports: [WorkflowModule],
+  imports: [WorkflowModule, AutomationModule],
   controllers: [
     PurchaseOrdersController,
     PurchaseQuotationsController,
@@ -52,6 +56,8 @@ import {
     PurchaseDashboardController,
     PurchaseReportsController,
     PurchaseSearchController,
+    PurchaseDebitNoteController,
+    PurchasePostingController,
   ],
   providers: [
     PurchaseOrdersService,
@@ -68,6 +74,9 @@ import {
     PurchaseReportsService,
     PurchaseSearchService,
     StockPostingService,
+    { provide: 'STOCK_POSTING_SERVICE', useExisting: StockPostingService },
+    PurchasePostingEngineService,
+    PurchaseDebitNoteService,
     DatabaseService,
     AuditService,
   ],
@@ -86,6 +95,8 @@ import {
     PurchaseReportsService,
     PurchaseSearchService,
     StockPostingService,
+    PurchasePostingEngineService,
+    PurchaseDebitNoteService,
   ],
 })
 export class PurchaseModule {}

@@ -179,6 +179,37 @@ import {
   CreateCustomerPage,
   EditCustomerPage,
 } from '@/pages/sales';
+import {
+  SalesReportsDashboardPage,
+  SalesRegisterReport,
+  InvoiceRegisterReport,
+  CustomerLedgerReport,
+  ProductSalesReport,
+  OutstandingReport,
+  GstReport,
+  PaymentReport,
+  ProfitAnalysisReport,
+  ExportCenter,
+} from '@/pages/sales/reports';
+import {
+  ApprovalsPage,
+  ApprovalDashboard,
+  ApprovalSettings,
+} from '@/pages/sales/approvals';
+import {
+  CreditDashboardPage,
+  CreditCustomersPage,
+  AgeingReportPage,
+  RecoveryDashboardPage,
+  CreditHoldDashboardPage,
+  ReminderEnginePage,
+} from '@/pages/sales/credit';
+import {
+  CreateReturnPage,
+  CreditNotesPage,
+  DebitNotesPage,
+  ReturnReportsPage,
+} from '@/pages/sales/returns';
 import { ApprovalDashboardPage, PendingTasksDashboardPage, MyTasksDashboardPage, EscalationDashboardPage } from '@/pages/workflow';
 
 const routes: RouteObject[] = [
@@ -293,14 +324,41 @@ const routes: RouteObject[] = [
       { path: 'sales/orders', element: <SalesOrdersPage /> },
       { path: 'sales/delivery-challans', element: <DeliveryChallansPage /> },
       { path: 'sales/invoices', element: <SalesInvoicesPage /> },
-      { path: 'sales/invoices/new', element: <CreateSalesInvoicePage /> },
+      { path: 'sales/invoices/create', element: <CreateSalesInvoicePage /> },
       { path: 'sales/returns', element: <SalesReturnsPage /> },
       { path: 'sales/customer-prices', element: <CustomerPriceListPage /> },
-      { path: 'sales/approvals', element: <SalesApprovalsPage /> },
+      { path: 'sales/approvals/legacy', element: <SalesApprovalsPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/create', element: <CreateCustomerPage /> },
       { path: 'customers/:id/edit', element: <EditCustomerPage /> },
       { path: 'sales/settings', element: <SalesSettingsPage /> },
+      // ── Sales Reports ────────────────────────────
+      { path: 'sales/reports/dashboard', element: <SalesReportsDashboardPage /> },
+      { path: 'sales/reports/register', element: <SalesRegisterReport /> },
+      { path: 'sales/reports/invoices', element: <InvoiceRegisterReport /> },
+      { path: 'sales/reports/customer-ledger', element: <CustomerLedgerReport /> },
+      { path: 'sales/reports/products', element: <ProductSalesReport /> },
+      { path: 'sales/reports/outstanding', element: <OutstandingReport /> },
+      { path: 'sales/reports/gst', element: <GstReport /> },
+      { path: 'sales/reports/payment', element: <PaymentReport /> },
+      { path: 'sales/reports/profit', element: <ProfitAnalysisReport /> },
+      { path: 'sales/reports/export', element: <ExportCenter /> },
+      // ── Sales Approval Workflow (Step 11) ────────────
+      { path: 'sales/approvals', element: <ApprovalsPage /> },
+      { path: 'sales/approvals/dashboard', element: <ApprovalDashboard /> },
+      { path: 'sales/approvals/settings', element: <ApprovalSettings /> },
+      // ── Sales Credit Control (Step 12) ────────────
+      { path: 'sales/credit/dashboard', element: <CreditDashboardPage /> },
+      { path: 'sales/credit/customers', element: <CreditCustomersPage /> },
+      { path: 'sales/credit/ageing', element: <AgeingReportPage /> },
+      { path: 'sales/credit/recovery', element: <RecoveryDashboardPage /> },
+      { path: 'sales/credit/credit-hold', element: <CreditHoldDashboardPage /> },
+      { path: 'sales/credit/reminders', element: <ReminderEnginePage /> },
+      // ── Sales Returns Engine (Step 13) ────────────
+      { path: 'sales/returns/create', element: <CreateReturnPage /> },
+      { path: 'sales/returns/credit-notes', element: <CreditNotesPage /> },
+      { path: 'sales/returns/debit-notes', element: <DebitNotesPage /> },
+      { path: 'sales/returns/reports', element: <ReturnReportsPage /> },
       // ── Finance Modules ────────────────────────────
       { path: 'finance/dashboard', element: <Navigate to="/" replace /> },
       { path: 'finance/account-groups', element: <AccountGroupsPage /> },

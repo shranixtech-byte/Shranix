@@ -14,6 +14,15 @@ import {
   sqliteCustomerPriceList, pgCustomerPriceList,
   sqliteSalesApprovals, pgSalesApprovals,
   sqliteSalesSettings, pgSalesSettings,
+  sqliteApprovalHistory, pgApprovalHistory,
+  sqliteApprovalComments, pgApprovalComments,
+  sqliteApprovalNotifications, pgApprovalNotifications,
+  sqliteApprovalMatrices, pgApprovalMatrices,
+  sqliteApprovalRules, pgApprovalRules,
+  sqliteCreditProfiles, pgCreditProfiles,
+  sqliteCreditOverrides, pgCreditOverrides,
+  sqliteCreditNotes, pgCreditNotes,
+  sqliteDebitNotes, pgDebitNotes,
 } from '../schema/sales';
 
 export class SalesQuotationsRepository extends MasterDataRepository<any> {
@@ -54,4 +63,35 @@ export class SalesApprovalsRepository extends MasterDataRepository<any> {
 }
 export class SalesSettingsRepository extends MasterDataRepository<any> {
   constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteSalesSettings, pgSalesSettings, db, isPostgres); }
+}
+
+// ═════════════════════════════════════════════════════════
+// NEW: Persisted repositories (Phase 1 Critical Fixes)
+// ═════════════════════════════════════════════════════════
+export class ApprovalHistoryRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteApprovalHistory, pgApprovalHistory, db, isPostgres); }
+}
+export class ApprovalCommentsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteApprovalComments, pgApprovalComments, db, isPostgres); }
+}
+export class ApprovalNotificationsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteApprovalNotifications, pgApprovalNotifications, db, isPostgres); }
+}
+export class ApprovalMatricesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteApprovalMatrices, pgApprovalMatrices, db, isPostgres); }
+}
+export class ApprovalRulesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteApprovalRules, pgApprovalRules, db, isPostgres); }
+}
+export class CreditProfilesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteCreditProfiles, pgCreditProfiles, db, isPostgres); }
+}
+export class CreditOverridesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteCreditOverrides, pgCreditOverrides, db, isPostgres); }
+}
+export class CreditNotesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteCreditNotes, pgCreditNotes, db, isPostgres); }
+}
+export class DebitNotesRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) { super(sqliteDebitNotes, pgDebitNotes, db, isPostgres); }
 }

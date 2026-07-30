@@ -1,9 +1,14 @@
-import { asc, desc, type SQL, type SQLWrapper } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, gt, inArray, like, lte, lt, ne, notInArray, or, type SQL } from 'drizzle-orm';
+import type { AnyColumn } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import type { PaginatedResult, PaginationParams, FilterParams } from '../types/index';
+import type { PaginatedResult, PaginationParams, FilterParams, FilterCondition, SortConfig, EnterpriseQuery } from '../types/index';
 
 export type AnyTable = PgTable | SQLiteTable;
+
+// ═════════════════════════════════════════════════════════
+// LEGACY HELPERS (backward compatible)
+// ═════════════════════════════════════════════════════════
 
 export function buildSortOrder(
   table: AnyTable,
@@ -12,10 +17,7 @@ export function buildSortOrder(
 ): SQL[] | undefined {
   if (!sortBy) return undefined;
 
-  const column = Object.entries(table).find(
-    ([key]) => key === sortBy,
-  )?.[1] as SQLWrapper | undefined;
-
+  const column = (table as any)[sortBy] as AnyColumn | undefined;
   if (!column) return undefined;
 
   return sortOrder === 'desc' ? [desc(column)] : [asc(column)];
@@ -28,9 +30,16 @@ export function buildSearchCondition(
 ): SQL | undefined {
   if (!search || searchFields.length === 0) return undefined;
 
-  // This is a foundation — actual search implementation
-  // will be database-specific (ILIKE for PostgreSQL, LIKE for SQLite)
-  return undefined;
+  const pattern = `%${search}%`;
+  const conditions = searchFields
+    .map((field) => {
+      const col = (table as any)[field] as AnyColumn | undefined;
+      return col ? like(col, pattern) : undefined;
+    })
+    .filter((c): c is SQL => c !== undefined);
+
+  if (conditions.length === 0) return undefined;
+  return or(...conditions);
 }
 
 export function paginateResult<T>(
@@ -74,3 +83,142 @@ export function buildFilterConditions(
 
   return conditions;
 }
+
+// ═════════════════════════════════════════════════════════
+// ENTERPRISE QUERY BUILDERS
+// ═════════════════════════════════════════════════════════
+
+/**
+ * Convert a FilterCondition to a drizzle SQL condition.
+ */
+export function buildFilterCondition(
+  table: Record<string, AnyColumn>,
+  filter: FilterCondition,
+): SQL | undefined {
+  const column = table[filter.field];
+  if (!column) return undefined;
+
+  switch (filter.operator) {
+    case 'eq':
+      return eq(column, filter.value as string | number | boolean);
+    case 'neq':
+      return ne(column, filter.value as string | number | boolean);
+    case 'gt':
+      return gt(column, filter.value as string | number | Date);
+    case 'gte':
+      return gte(column, filter.value as string | number | Date);
+    case 'lt':
+      return lt(column, filter.value as string | number | Date);
+    case 'lte':
+      return lte(column, filter.value as string | number | Date);
+    case 'like':
+      return like(column, `%${String(filter.value)}%`);
+    case 'startsWith':
+      return like(column, `${String(filter.value)}%`);
+    case 'endsWith':
+      return like(column, `%${String(filter.value)}`);
+    case 'in':
+      return Array.isArray(filter.value)
+        ? inArray(column, filter.value as (string | number)[])
+        : undefined;
+    case 'notIn':
+      return Array.isArray(filter.value)
+        ? notInArray(column, filter.value as (string | number)[])
+        : undefined;
+    case 'between': {
+      if (!Array.isArray(filter.value) || filter.value.length !== 2) return undefined;
+      return and(
+        gte(column, filter.value[0] as string | number | Date),
+        lte(column, filter.value[1] as string | number | Date),
+      );
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Build an array of drizzle ORDER BY clauses from SortConfigs.
+ */
+export function buildOrderByClauses(
+  table: Record<string, AnyColumn>,
+  sorts?: SortConfig[],
+  sortBy?: string,
+  sortOrder?: 'asc' | 'desc',
+): SQL[] {
+  const clauses: SQL[] = [];
+
+  if (sorts) {
+    for (const s of sorts) {
+      const col = table[s.field];
+      if (col) {
+        clauses.push(s.order === 'desc' ? desc(col) : asc(col));
+      }
+    }
+  }
+
+  // If sortBy is also provided, append it
+  if (sortBy) {
+    const col = table[sortBy];
+    if (col) {
+      clauses.push(sortOrder === 'desc' ? desc(col) : asc(col));
+    }
+  }
+
+  return clauses;
+}
+
+/**
+ * Build WHERE conditions from an EnterpriseQuery.
+ * Returns [conditionsArray, hasSearch] where conditionsArray can be spread into and().
+ */
+export function buildEnterpriseConditions(
+  table: Record<string, AnyColumn>,
+  query: EnterpriseQuery,
+  baseConditions: SQL[] = [],
+): SQL[] {
+  const conditions = [...baseConditions];
+
+  // Search condition
+  if (query.search && query.searchFields && query.searchFields.length > 0) {
+    const pattern = `%${query.search}%`;
+    const searchConds = query.searchFields
+      .map((field) => {
+        const col = table[field];
+        return col ? like(col, pattern) : undefined;
+      })
+      .filter((c): c is SQL => c !== undefined);
+    if (searchConds.length > 0) {
+      conditions.push(or(...searchConds) as SQL);
+    }
+  }
+
+  // Filter conditions
+  if (query.filters && query.filters.length > 0) {
+    for (const filter of query.filters) {
+      const cond = buildFilterCondition(table, filter);
+      if (cond) conditions.push(cond);
+    }
+  }
+
+  // isActive filter
+  if (query.isActive !== undefined) {
+    const col = table['isActive'];
+    if (col) {
+      conditions.push(eq(col, query.isActive));
+    }
+  }
+
+  return conditions;
+}
+
+/**
+ * Extract pagination params from an EnterpriseQuery.
+ */
+export function extractPagination(query: EnterpriseQuery, defaultPageSize: number = 50): PaginationParams {
+  return {
+    page: query.page ?? 1,
+    pageSize: query.pageSize ?? defaultPageSize,
+  };
+}
+

@@ -302,7 +302,7 @@ export class PostingEngineService {
         await db.salesInvoices.update(payload.invoiceId, {
           status: 'posted',
           updatedAt: timestamp,
-        } as any);
+        });
         this.logger.log(`1/10 ✓ Invoice ${payload.invoiceNumber} status updated to posted`);
       } catch (e: any) {
         errors.push(`Invoice header update failed: ${e.message}`);
@@ -320,13 +320,13 @@ export class PostingEngineService {
             search: batch.batchNo,
             page: 1,
             pageSize: 1,
-          } as any);
+          });
           const stockRecord = existing?.data?.[0];
           if (stockRecord) {
             await db.warehouseStock.update(stockRecord.id, {
               quantity: Math.max(0, (stockRecord.quantity || 0) - batch.soldQty),
               updatedAt: timestamp,
-            } as any);
+            });
           }
           this.logger.log(`3/10 ✓ Batch ${batch.batchNo} allocated: -${batch.soldQty}`);
         } catch (e: any) {
@@ -352,7 +352,7 @@ export class PostingEngineService {
             unitCost: stock.unitCost,
             totalCost: stock.totalCost,
             createdAt: timestamp,
-          } as any);
+          });
           this.logger.log(`4/10 ✓ Stock movement recorded for ${stock.productName}`);
         } catch (e: any) {
           errors.push(`Stock movement failed for ${stock.productName}: ${e.message}`);
@@ -373,7 +373,7 @@ export class PostingEngineService {
           runningBalance: payload.customerLedger.closingBalance,
           financialYear: payload.invoiceDate.slice(0, 7),
           createdAt: timestamp,
-        } as any);
+        });
         this.logger.log(`5/10 ✓ Customer ledger entry created for ${payload.customerName}`);
       } catch (e: any) {
         errors.push(`Customer ledger failed: ${e.message}`);
@@ -397,7 +397,7 @@ export class PostingEngineService {
             partyId: payload.customerId,
             createdBy: userId,
             createdAt: timestamp,
-          } as any);
+          });
           journalEntryCount++;
         } catch (e: any) {
           errors.push(`Journal entry failed: ${e.message}`);
@@ -424,7 +424,7 @@ export class PostingEngineService {
             transactionType: 'OUTPUT',
             partyId: payload.customerId,
             createdAt: timestamp,
-          } as any);
+          });
         } catch (e: any) {
           errors.push(`GST entry failed: ${e.message}`);
           throw new ConflictException(`GST entry failed: ${e.message}`);
@@ -445,7 +445,7 @@ export class PostingEngineService {
           balanceAmount: payload.customerLedger.outstanding,
           paymentMode: 'multiple',
           createdAt: timestamp,
-        } as any);
+        });
         this.logger.log(`8/10 ✓ Payment entry created`);
       } catch (e: any) {
         errors.push(`Payment entry failed: ${e.message}`);
@@ -457,10 +457,8 @@ export class PostingEngineService {
         await db.auditLogs.create({
           ...payload.auditLog,
           resource: 'sales_invoice',
-          resourceId: payload.invoiceId,
           action: 'post',
-          createdAt: timestamp,
-        } as any);
+        });
         this.logger.log(`9/10 ✓ Audit log created`);
       } catch (e: any) {
         errors.push(`Audit log failed: ${e.message}`);
@@ -478,7 +476,7 @@ export class PostingEngineService {
             invoiceId: payload.invoiceId,
             isRead: false,
             createdAt: timestamp,
-          } as any);
+          });
         }
         this.logger.log(`10/10 ✓ ${payload.events.length} notifications created`);
       } catch (e: any) {

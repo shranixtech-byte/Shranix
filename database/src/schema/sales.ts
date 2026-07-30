@@ -14,7 +14,7 @@ export const sqliteSalesQuotations = sqliteTableBase('shranix_sales_quotations',
   customerId: sqliteText('customer_id').notNull(),
   quoteDate: sqliteText('quote_date').notNull(),
   validTill: sqliteText('valid_till'),
-  status: sqliteText('status').notNull().default('draft'), // draft, submitted, approved, rejected, expired, converted
+  status: sqliteText('status').notNull().default('draft'),
   subTotal: sqliteReal('sub_total').notNull().default(0),
   discountPercent: sqliteReal('discount_percent').notNull().default(0),
   discountAmount: sqliteReal('discount_amount').notNull().default(0),
@@ -109,7 +109,7 @@ export const sqliteSalesOrders = sqliteTableBase('shranix_sales_orders', {
   deliveryDate: sqliteText('delivery_date'),
   warehouseId: sqliteText('warehouse_id'),
   branchId: sqliteText('branch_id'),
-  status: sqliteText('status').notNull().default('draft'), // draft, submitted, approved, partially_delivered, delivered, cancelled
+  status: sqliteText('status').notNull().default('draft'),
   subTotal: sqliteReal('sub_total').notNull().default(0),
   discountPercent: sqliteReal('discount_percent').notNull().default(0),
   discountAmount: sqliteReal('discount_amount').notNull().default(0),
@@ -207,7 +207,7 @@ export const sqliteDeliveryChallans = sqliteTableBase('shranix_delivery_challans
   customerId: sqliteText('customer_id').notNull(),
   warehouseId: sqliteText('warehouse_id'),
   dispatchDate: sqliteText('dispatch_date').notNull(),
-  dispatchType: sqliteText('dispatch_type').notNull().default('full'), // full, partial
+  dispatchType: sqliteText('dispatch_type').notNull().default('full'),
   vehicleNo: sqliteText('vehicle_no'),
   vehicleType: sqliteText('vehicle_type'),
   driverName: sqliteText('driver_name'),
@@ -215,7 +215,7 @@ export const sqliteDeliveryChallans = sqliteTableBase('shranix_delivery_challans
   transporterName: sqliteText('transporter_name'),
   lrNo: sqliteText('lr_no'),
   lrDate: sqliteText('lr_date'),
-  status: sqliteText('status').notNull().default('pending'), // pending, dispatched, delivered, cancelled
+  status: sqliteText('status').notNull().default('pending'),
   notes: sqliteText('notes'),
   financialYearId: sqliteText('financial_year_id'),
   createdBy: sqliteText('created_by'),
@@ -291,7 +291,7 @@ export const sqliteSalesInvoices = sqliteTableBase('shranix_sales_invoices', {
   customerInvoiceNo: sqliteText('customer_invoice_no'),
   invoiceDate: sqliteText('invoice_date').notNull(),
   dueDate: sqliteText('due_date'),
-  status: sqliteText('status').notNull().default('draft'), // draft, submitted, approved, paid, partially_paid, cancelled
+  status: sqliteText('status').notNull().default('draft'),
   subTotal: sqliteReal('sub_total').notNull().default(0),
   discountPercent: sqliteReal('discount_percent').notNull().default(0),
   discountAmount: sqliteReal('discount_amount').notNull().default(0),
@@ -300,7 +300,7 @@ export const sqliteSalesInvoices = sqliteTableBase('shranix_sales_invoices', {
   grandTotal: sqliteReal('grand_total').notNull().default(0),
   paidAmount: sqliteReal('paid_amount').notNull().default(0),
   balanceAmount: sqliteReal('balance_amount').notNull().default(0),
-  paymentStatus: sqliteText('payment_status').notNull().default('unpaid'), // unpaid, partial, paid
+  paymentStatus: sqliteText('payment_status').notNull().default('unpaid'),
   notes: sqliteText('notes'),
   financialYearId: sqliteText('financial_year_id'),
   createdBy: sqliteText('created_by'),
@@ -387,7 +387,7 @@ export const sqliteSalesReturns = sqliteTableBase('shranix_sales_returns', {
   customerId: sqliteText('customer_id').notNull(),
   returnDate: sqliteText('return_date').notNull(),
   returnReason: sqliteText('return_reason'),
-  status: sqliteText('status').notNull().default('draft'), // draft, submitted, approved, rejected
+  status: sqliteText('status').notNull().default('draft'),
   subTotal: sqliteReal('sub_total').notNull().default(0),
   taxAmount: sqliteReal('tax_amount').notNull().default(0),
   grandTotal: sqliteReal('grand_total').notNull().default(0),
@@ -460,7 +460,26 @@ export const pgReturnItems = pgTableBase('shranix_return_items', {
 });
 
 // ═════════════════════════════════════════════════════════
-// 6. CUSTOMER PRICE LIST
+// 6. SALES SETTINGS
+// ═════════════════════════════════════════════════════════
+export const sqliteSalesSettings = sqliteTableBase('shranix_sales_settings', {
+  ...sqliteBase,
+  key: sqliteText('key').notNull(),
+  value: sqliteText('value').notNull(),
+  group: sqliteText('group'),
+  description: sqliteText('description'),
+});
+
+export const pgSalesSettings = pgTableBase('shranix_sales_settings', {
+  ...pgBase,
+  key: pgText('key').notNull(),
+  value: pgText('value').notNull(),
+  group: pgText('group'),
+  description: pgText('description'),
+});
+
+// ═════════════════════════════════════════════════════════
+// 7. CUSTOMER PRICE LIST
 // ═════════════════════════════════════════════════════════
 export const sqliteCustomerPriceList = sqliteTableBase('shranix_customer_price_list', {
   ...sqliteBase,
@@ -491,15 +510,33 @@ export const pgCustomerPriceList = pgTableBase('shranix_customer_price_list', {
 }, (table) => ({ customerPriceIdx: pgUniqueIndex('customer_price_idx').on(table.customerId, table.itemId) }));
 
 // ═════════════════════════════════════════════════════════
-// 7. SALES APPROVAL WORKFLOW
+// 8. SALES APPROVALS (DB-persisted)
 // ═════════════════════════════════════════════════════════
 export const sqliteSalesApprovals = sqliteTableBase('shranix_sales_approvals', {
   ...sqliteBase,
-  documentType: sqliteText('document_type').notNull(), // quotation, order, invoice, return
+  documentType: sqliteText('document_type').notNull(),
   documentId: sqliteText('document_id').notNull(),
-  requestedBy: sqliteText('requested_by').notNull(),
+  documentNumber: sqliteText('document_number'),
+  customerId: sqliteText('customer_id'),
+  customerName: sqliteText('customer_name'),
+  amount: sqliteReal('amount').notNull().default(0),
+  discountAmount: sqliteReal('discount_amount').notNull().default(0),
+  discountPercent: sqliteReal('discount_percent').notNull().default(0),
+  gstAmount: sqliteReal('gst_amount').notNull().default(0),
+  createdBy: sqliteText('created_by').notNull(),
+  createdByName: sqliteText('created_by_name'),
+  currentLevel: sqliteInteger('current_level').notNull().default(1),
+  totalLevels: sqliteInteger('total_levels').notNull().default(1),
+  status: sqliteText('status').notNull().default('pending'),
+  priority: sqliteText('priority').notNull().default('medium'),
+  risk: sqliteText('risk').notNull().default('low'),
+  creditStatus: sqliteText('credit_status').notNull().default('normal'),
+  assignedTo: sqliteText('assigned_to'),
+  assignedToName: sqliteText('assigned_to_name'),
+  isOverdue: sqliteInteger('is_overdue', { mode: 'boolean' }).notNull().default(false),
+  dueDate: sqliteText('due_date'),
+  requestedBy: sqliteText('requested_by'),
   approvedBy: sqliteText('approved_by'),
-  status: sqliteText('status').notNull().default('pending'), // pending, approved, rejected
   approvalDate: sqliteText('approval_date'),
   comments: sqliteText('comments'),
   approvalLevel: sqliteInteger('approval_level').notNull().default(1),
@@ -509,59 +546,301 @@ export const pgSalesApprovals = pgTableBase('shranix_sales_approvals', {
   ...pgBase,
   documentType: pgText('document_type').notNull(),
   documentId: pgUuid('document_id').notNull(),
-  requestedBy: pgUuid('requested_by').notNull(),
-  approvedBy: pgUuid('approved_by'),
+  documentNumber: pgText('document_number'),
+  customerId: pgUuid('customer_id'),
+  customerName: pgText('customer_name'),
+  amount: pgReal('amount').notNull().default(0),
+  discountAmount: pgReal('discount_amount').notNull().default(0),
+  discountPercent: pgReal('discount_percent').notNull().default(0),
+  gstAmount: pgReal('gst_amount').notNull().default(0),
+  createdBy: pgUuid('created_by').notNull(),
+  createdByName: pgText('created_by_name'),
+  currentLevel: pgInteger('current_level').notNull().default(1),
+  totalLevels: pgInteger('total_levels').notNull().default(1),
   status: pgText('status').notNull().default('pending'),
+  priority: pgText('priority').notNull().default('medium'),
+  risk: pgText('risk').notNull().default('low'),
+  creditStatus: pgText('credit_status').notNull().default('normal'),
+  assignedTo: pgUuid('assigned_to'),
+  assignedToName: pgText('assigned_to_name'),
+  isOverdue: pgBoolean('is_overdue').notNull().default(false),
+  dueDate: pgTimestamp('due_date', { withTimezone: true }),
+  requestedBy: pgUuid('requested_by'),
+  approvedBy: pgUuid('approved_by'),
   approvalDate: pgTimestamp('approval_date', { withTimezone: true }),
   comments: pgText('comments'),
   approvalLevel: pgInteger('approval_level').notNull().default(1),
 });
 
 // ═════════════════════════════════════════════════════════
-// 8. SALES SETTINGS
+// ⭐ Phase 1: NEW DB-persisted tables
 // ═════════════════════════════════════════════════════════
-export const sqliteSalesSettings = sqliteTableBase('shranix_sales_settings', {
-  ...sqliteBase,
-  companyId: sqliteText('company_id'),
-  autoQuoteNumber: sqliteInteger('auto_quote_number', { mode: 'boolean' }).notNull().default(true),
-  quotePrefix: sqliteText('quote_prefix').notNull().default('SQ-'),
-  quoteNextNumber: sqliteInteger('quote_next_number').notNull().default(1),
-  autoOrderNumber: sqliteInteger('auto_order_number', { mode: 'boolean' }).notNull().default(true),
-  orderPrefix: sqliteText('order_prefix').notNull().default('SO-'),
-  orderNextNumber: sqliteInteger('order_next_number').notNull().default(1),
-  challanPrefix: sqliteText('challan_prefix').notNull().default('DC-'),
-  challanNextNumber: sqliteInteger('challan_next_number').notNull().default(1),
-  autoInvoiceNumber: sqliteInteger('auto_invoice_number', { mode: 'boolean' }).notNull().default(true),
-  invoicePrefix: sqliteText('invoice_prefix').notNull().default('SI-'),
-  invoiceNextNumber: sqliteInteger('invoice_next_number').notNull().default(1),
-  returnPrefix: sqliteText('return_prefix').notNull().default('SR-'),
-  returnNextNumber: sqliteInteger('return_next_number').notNull().default(1),
-  requireApproval: sqliteInteger('require_approval', { mode: 'boolean' }).notNull().default(false),
-  approvalLevels: sqliteInteger('approval_levels').notNull().default(1),
-  gstEnabled: sqliteInteger('gst_enabled', { mode: 'boolean' }).notNull().default(true),
-  roundOffDecimals: sqliteInteger('round_off_decimals').notNull().default(2),
-  defaultPaymentTerms: sqliteText('default_payment_terms').notNull().default('30 days'),
-}, (table) => ({ salesSettingsCompanyIdx: uniqueIndex('sales_settings_company_idx').on(table.companyId) }));
 
-export const pgSalesSettings = pgTableBase('shranix_sales_settings', {
+// Approval History
+export const sqliteApprovalHistory = sqliteTableBase('shranix_approval_history', {
+  id: sqliteText('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  approvalId: sqliteText('approval_id').notNull(),
+  action: sqliteText('action').notNull(),
+  actionBy: sqliteText('action_by').notNull(),
+  actionByName: sqliteText('action_by_name'),
+  fromStatus: sqliteText('from_status'),
+  toStatus: sqliteText('to_status').notNull(),
+  level: sqliteInteger('level').notNull().default(0),
+  comment: sqliteText('comment'),
+  timestamp: sqliteText('timestamp').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const pgApprovalHistory = pgTableBase('shranix_approval_history', {
+  id: pgUuid('id').primaryKey().defaultRandom(),
+  approvalId: pgUuid('approval_id').notNull(),
+  action: pgText('action').notNull(),
+  actionBy: pgUuid('action_by').notNull(),
+  actionByName: pgText('action_by_name'),
+  fromStatus: pgText('from_status'),
+  toStatus: pgText('to_status').notNull(),
+  level: pgInteger('level').notNull().default(0),
+  comment: pgText('comment'),
+  timestamp: pgTimestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Approval Comments
+export const sqliteApprovalComments = sqliteTableBase('shranix_approval_comments', {
+  id: sqliteText('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  approvalId: sqliteText('approval_id').notNull(),
+  userId: sqliteText('user_id').notNull(),
+  userName: sqliteText('user_name'),
+  comment: sqliteText('comment').notNull(),
+  isInternal: sqliteInteger('is_internal', { mode: 'boolean' }).notNull().default(false),
+  createdAt: sqliteText('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const pgApprovalComments = pgTableBase('shranix_approval_comments', {
+  id: pgUuid('id').primaryKey().defaultRandom(),
+  approvalId: pgUuid('approval_id').notNull(),
+  userId: pgUuid('user_id').notNull(),
+  userName: pgText('user_name'),
+  comment: pgText('comment').notNull(),
+  isInternal: pgBoolean('is_internal').notNull().default(false),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Approval Notifications
+export const sqliteApprovalNotifications = sqliteTableBase('shranix_approval_notifications', {
+  id: sqliteText('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  approvalId: sqliteText('approval_id').notNull(),
+  recipientId: sqliteText('recipient_id').notNull(),
+  recipientRole: sqliteText('recipient_role'),
+  type: sqliteText('type').notNull(),
+  message: sqliteText('message').notNull(),
+  isRead: sqliteInteger('is_read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: sqliteText('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const pgApprovalNotifications = pgTableBase('shranix_approval_notifications', {
+  id: pgUuid('id').primaryKey().defaultRandom(),
+  approvalId: pgUuid('approval_id').notNull(),
+  recipientId: pgUuid('recipient_id').notNull(),
+  recipientRole: pgText('recipient_role'),
+  type: pgText('type').notNull(),
+  message: pgText('message').notNull(),
+  isRead: pgBoolean('is_read').notNull().default(false),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Approval Matrices
+export const sqliteApprovalMatrices = sqliteTableBase('shranix_approval_matrices', {
+  ...sqliteBase,
+  name: sqliteText('name').notNull(),
+  documentType: sqliteText('document_type').notNull(),
+  levels: sqliteText('levels').notNull().default('single'),
+  levelCount: sqliteInteger('level_count').notNull().default(1),
+  approvers: sqliteText('approvers'),
+  isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
+});
+
+export const pgApprovalMatrices = pgTableBase('shranix_approval_matrices', {
   ...pgBase,
-  companyId: pgUuid('company_id'),
-  autoQuoteNumber: pgBoolean('auto_quote_number').notNull().default(true),
-  quotePrefix: pgText('quote_prefix').notNull().default('SQ-'),
-  quoteNextNumber: pgInteger('quote_next_number').notNull().default(1),
-  autoOrderNumber: pgBoolean('auto_order_number').notNull().default(true),
-  orderPrefix: pgText('order_prefix').notNull().default('SO-'),
-  orderNextNumber: pgInteger('order_next_number').notNull().default(1),
-  challanPrefix: pgText('challan_prefix').notNull().default('DC-'),
-  challanNextNumber: pgInteger('challan_next_number').notNull().default(1),
-  autoInvoiceNumber: pgBoolean('auto_invoice_number').notNull().default(true),
-  invoicePrefix: pgText('invoice_prefix').notNull().default('SI-'),
-  invoiceNextNumber: pgInteger('invoice_next_number').notNull().default(1),
-  returnPrefix: pgText('return_prefix').notNull().default('SR-'),
-  returnNextNumber: pgInteger('return_next_number').notNull().default(1),
-  requireApproval: pgBoolean('require_approval').notNull().default(false),
-  approvalLevels: pgInteger('approval_levels').notNull().default(1),
-  gstEnabled: pgBoolean('gst_enabled').notNull().default(true),
-  roundOffDecimals: pgInteger('round_off_decimals').notNull().default(2),
-  defaultPaymentTerms: pgText('default_payment_terms').notNull().default('30 days'),
-}, (table) => ({ salesSettingsCompanyIdx: pgUniqueIndex('sales_settings_company_idx').on(table.companyId) }));
+  name: pgText('name').notNull(),
+  documentType: pgText('document_type').notNull(),
+  levels: pgText('levels').notNull().default('single'),
+  levelCount: pgInteger('level_count').notNull().default(1),
+  approvers: pgText('approvers'),
+  isActive: pgBoolean('is_active').notNull().default(true),
+});
+
+// Approval Rules
+export const sqliteApprovalRules = sqliteTableBase('shranix_approval_rules', {
+  ...sqliteBase,
+  documentType: sqliteText('document_type').notNull(),
+  field: sqliteText('field').notNull(),
+  operator: sqliteText('operator').notNull(),
+  value: sqliteText('value').notNull(),
+  value2: sqliteText('value2'),
+  approverRole: sqliteText('approver_role').notNull(),
+  approvalLevel: sqliteInteger('approval_level').notNull().default(1),
+  priority: sqliteInteger('priority').notNull().default(1),
+  isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
+});
+
+export const pgApprovalRules = pgTableBase('shranix_approval_rules', {
+  ...pgBase,
+  documentType: pgText('document_type').notNull(),
+  field: pgText('field').notNull(),
+  operator: pgText('operator').notNull(),
+  value: pgText('value').notNull(),
+  value2: pgText('value2'),
+  approverRole: pgText('approver_role').notNull(),
+  approvalLevel: pgInteger('approval_level').notNull().default(1),
+  priority: pgInteger('priority').notNull().default(1),
+  isActive: pgBoolean('is_active').notNull().default(true),
+});
+
+// Credit Profiles
+export const sqliteCreditProfiles = sqliteTableBase('shranix_credit_profiles', {
+  ...sqliteBase,
+  customerId: sqliteText('customer_id').notNull(),
+  customerName: sqliteText('customer_name'),
+  customerCode: sqliteText('customer_code'),
+  creditLimit: sqliteReal('credit_limit').notNull().default(0),
+  creditDays: sqliteInteger('credit_days').notNull().default(0),
+  securityDeposit: sqliteReal('security_deposit').notNull().default(0),
+  openingBalance: sqliteReal('opening_balance').notNull().default(0),
+  outstanding: sqliteReal('outstanding').notNull().default(0),
+  availableCredit: sqliteReal('available_credit').notNull().default(0),
+  blockedAmount: sqliteReal('blocked_amount').notNull().default(0),
+  overdueAmount: sqliteReal('overdue_amount').notNull().default(0),
+  maxInvoiceAmount: sqliteReal('max_invoice_amount').notNull().default(0),
+  preferredPaymentMode: sqliteText('preferred_payment_mode').notNull().default('credit'),
+  creditRating: sqliteText('credit_rating').notNull().default('A'),
+  riskCategory: sqliteText('risk_category').notNull().default('low'),
+  healthScore: sqliteInteger('health_score').notNull().default(100),
+  isBlocked: sqliteInteger('is_blocked', { mode: 'boolean' }).notNull().default(false),
+  blockReason: sqliteText('block_reason'),
+  warningLevel: sqliteText('warning_level').notNull().default('green'),
+  lastPaymentDate: sqliteText('last_payment_date'),
+  averagePaymentDays: sqliteInteger('average_payment_days').notNull().default(0),
+});
+
+export const pgCreditProfiles = pgTableBase('shranix_credit_profiles', {
+  ...pgBase,
+  customerId: pgUuid('customer_id').notNull(),
+  customerName: pgText('customer_name'),
+  customerCode: pgText('customer_code'),
+  creditLimit: pgReal('credit_limit').notNull().default(0),
+  creditDays: pgInteger('credit_days').notNull().default(0),
+  securityDeposit: pgReal('security_deposit').notNull().default(0),
+  openingBalance: pgReal('opening_balance').notNull().default(0),
+  outstanding: pgReal('outstanding').notNull().default(0),
+  availableCredit: pgReal('available_credit').notNull().default(0),
+  blockedAmount: pgReal('blocked_amount').notNull().default(0),
+  overdueAmount: pgReal('overdue_amount').notNull().default(0),
+  maxInvoiceAmount: pgReal('max_invoice_amount').notNull().default(0),
+  preferredPaymentMode: pgText('preferred_payment_mode').notNull().default('credit'),
+  creditRating: pgText('credit_rating').notNull().default('A'),
+  riskCategory: pgText('risk_category').notNull().default('low'),
+  healthScore: pgInteger('health_score').notNull().default(100),
+  isBlocked: pgBoolean('is_blocked').notNull().default(false),
+  blockReason: pgText('block_reason'),
+  warningLevel: pgText('warning_level').notNull().default('green'),
+  lastPaymentDate: pgTimestamp('last_payment_date', { withTimezone: true }),
+  averagePaymentDays: pgInteger('average_payment_days').notNull().default(0),
+});
+
+// Credit Overrides
+export const sqliteCreditOverrides = sqliteTableBase('shranix_credit_overrides', {
+  ...sqliteBase,
+  customerId: sqliteText('customer_id').notNull(),
+  overrideBy: sqliteText('override_by').notNull(),
+  overrideByName: sqliteText('override_by_name'),
+  overrideRole: sqliteText('override_role').notNull(),
+  reason: sqliteText('reason').notNull(),
+  oldLimit: sqliteReal('old_limit').notNull().default(0),
+  newLimit: sqliteReal('new_limit').notNull().default(0),
+  approvedBy: sqliteText('approved_by'),
+  timestamp: sqliteText('timestamp').notNull().$defaultFn(() => new Date().toISOString()),
+});
+
+export const pgCreditOverrides = pgTableBase('shranix_credit_overrides', {
+  ...pgBase,
+  customerId: pgUuid('customer_id').notNull(),
+  overrideBy: pgUuid('override_by').notNull(),
+  overrideByName: pgText('override_by_name'),
+  overrideRole: pgText('override_role').notNull(),
+  reason: pgText('reason').notNull(),
+  oldLimit: pgReal('old_limit').notNull().default(0),
+  newLimit: pgReal('new_limit').notNull().default(0),
+  approvedBy: pgUuid('approved_by'),
+  timestamp: pgTimestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Credit Notes
+export const sqliteCreditNotes = sqliteTableBase('shranix_credit_notes', {
+  ...sqliteBase,
+  creditNoteNumber: sqliteText('credit_note_number').notNull(),
+  financialYear: sqliteText('financial_year'),
+  customerId: sqliteText('customer_id').notNull(),
+  originalInvoiceId: sqliteText('original_invoice_id'),
+  originalInvoiceNumber: sqliteText('original_invoice_number'),
+  referenceDate: sqliteText('reference_date'),
+  returnAmount: sqliteReal('return_amount').notNull().default(0),
+  cgstTotal: sqliteReal('cgst_total').notNull().default(0),
+  sgstTotal: sqliteReal('sgst_total').notNull().default(0),
+  igstTotal: sqliteReal('igst_total').notNull().default(0),
+  cessTotal: sqliteReal('cess_total').notNull().default(0),
+  roundOff: sqliteReal('round_off').notNull().default(0),
+  narration: sqliteText('narration'),
+  status: sqliteText('status').notNull().default('draft'),
+  createdBy: sqliteText('created_by'),
+});
+
+export const pgCreditNotes = pgTableBase('shranix_credit_notes', {
+  ...pgBase,
+  creditNoteNumber: pgText('credit_note_number').notNull(),
+  financialYear: pgText('financial_year'),
+  customerId: pgUuid('customer_id').notNull(),
+  originalInvoiceId: pgUuid('original_invoice_id'),
+  originalInvoiceNumber: pgText('original_invoice_number'),
+  referenceDate: pgTimestamp('reference_date', { withTimezone: true }),
+  returnAmount: pgReal('return_amount').notNull().default(0),
+  cgstTotal: pgReal('cgst_total').notNull().default(0),
+  sgstTotal: pgReal('sgst_total').notNull().default(0),
+  igstTotal: pgReal('igst_total').notNull().default(0),
+  cessTotal: pgReal('cess_total').notNull().default(0),
+  roundOff: pgReal('round_off').notNull().default(0),
+  narration: pgText('narration'),
+  status: pgText('status').notNull().default('draft'),
+  createdBy: pgUuid('created_by'),
+});
+
+// Debit Notes
+export const sqliteDebitNotes = sqliteTableBase('shranix_debit_notes', {
+  ...sqliteBase,
+  debitNoteNumber: sqliteText('debit_note_number').notNull(),
+  financialYear: sqliteText('financial_year'),
+  customerId: sqliteText('customer_id').notNull(),
+  originalInvoiceId: sqliteText('original_invoice_id'),
+  originalInvoiceNumber: sqliteText('original_invoice_number'),
+  debitNoteDate: sqliteText('debit_note_date'),
+  debitType: sqliteText('debit_type').notNull(),
+  amount: sqliteReal('amount').notNull().default(0),
+  gstAmount: sqliteReal('gst_amount').notNull().default(0),
+  narration: sqliteText('narration'),
+  status: sqliteText('status').notNull().default('draft'),
+  createdBy: sqliteText('created_by'),
+});
+
+export const pgDebitNotes = pgTableBase('shranix_debit_notes', {
+  ...pgBase,
+  debitNoteNumber: pgText('debit_note_number').notNull(),
+  financialYear: pgText('financial_year'),
+  customerId: pgUuid('customer_id').notNull(),
+  originalInvoiceId: pgUuid('original_invoice_id'),
+  originalInvoiceNumber: pgText('original_invoice_number'),
+  debitNoteDate: pgTimestamp('debit_note_date', { withTimezone: true }),
+  debitType: pgText('debit_type').notNull(),
+  amount: pgReal('amount').notNull().default(0),
+  gstAmount: pgReal('gst_amount').notNull().default(0),
+  narration: pgText('narration'),
+  status: pgText('status').notNull().default('draft'),
+  createdBy: pgUuid('created_by'),
+});

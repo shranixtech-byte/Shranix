@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 interface LogoProps {
-  variant?: 'default' | 'compact' | 'icon-only';
+  variant?: 'default' | 'compact' | 'icon-only' | 'sidebar';
   className?: string;
 }
 
@@ -31,10 +31,34 @@ export function Logo({ variant = 'default', className }: LogoProps) {
         <img
           src="/logo.png"
           alt="SHRANIX"
-          className="h-8 w-8 object-contain"
-          width={32}
-          height={32}
+          className="h-10 w-10 object-contain"
+          width={40}
+          height={40}
         />
+      </div>
+    );
+  }
+
+  if (variant === 'sidebar') {
+    return (
+      <div className={cn('flex flex-col items-center gap-1.5', className)}>
+        <div className="flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="SHRANIX"
+            className="h-14 w-14 object-contain"
+            width={56}
+            height={56}
+          />
+        </div>
+        <div className="flex flex-col items-center gap-0">
+          <span className="text-[15px] font-bold tracking-wider text-white" style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 700 }}>
+            SHRANIX TECHNOLOGIES
+          </span>
+          <span className="text-[10px] font-medium tracking-[0.12em] text-blue-400/70 uppercase" style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 500 }}>
+            KRUSHI ERP
+          </span>
+        </div>
       </div>
     );
   }

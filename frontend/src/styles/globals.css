@@ -133,6 +133,108 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ── Premium Sidebar Redesign Classes ── */
+.sidebar-premium {
+  background: #0C2338 !important;
+}
+.sidebar-premium-bg {
+  background: #071A2F !important;
+}
+.sidebar-premium-active {
+  background: linear-gradient(135deg, #1E88E5, #1565C0) !important;
+  box-shadow: 0 4px 15px rgba(30, 136, 229, 0.3) !important;
+}
+.sidebar-premium-hover {
+  background: #163D63 !important;
+}
+.sidebar-premium-text {
+  color: #FFFFFF !important;
+}
+.sidebar-premium-secondary {
+  color: #A7B4C8 !important;
+}
+
+/* ── Sidebar Menu Item ── */
+.sidebar-menu-item {
+  height: 48px;
+  border-radius: 12px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  color: #A7B4C8;
+  transition: all 200ms ease;
+  cursor: pointer;
+  position: relative;
+}
+.sidebar-menu-item:hover {
+  background: #163D63;
+  color: #FFFFFF;
+}
+.sidebar-menu-item:hover .sidebar-menu-icon {
+  color: #FFFFFF;
+  transform: scale(1.05);
+}
+.sidebar-menu-item.active {
+  background: linear-gradient(135deg, #1E88E5, #1565C0);
+  color: #FFFFFF;
+  box-shadow: 0 4px 15px rgba(30, 136, 229, 0.3);
+}
+.sidebar-menu-item.active .sidebar-menu-icon {
+  color: #FFFFFF;
+}
+.sidebar-menu-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: #A7B4C8;
+  transition: all 200ms ease;
+}
+
+/* ── Sidebar Submenu ── */
+.sidebar-submenu-item {
+  height: 40px;
+  border-radius: 10px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  color: #8899B0;
+  transition: all 200ms ease;
+  cursor: pointer;
+  position: relative;
+}
+.sidebar-submenu-item:hover {
+  background: #163D63;
+  color: #E0E6ED;
+}
+.sidebar-submenu-item.active {
+  background: linear-gradient(135deg, #1E88E5, #1565C0);
+  color: #FFFFFF;
+  box-shadow: 0 4px 15px rgba(30, 136, 229, 0.3);
+}
+
+/* ── Sidebar Scrollbar (premium) ── */
+.sidebar-scrollbar-premium::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scrollbar-premium::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar-premium::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+.sidebar-scrollbar-premium::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 /* ── Floating Leaves Animation ── */
 @keyframes leafFloat {
   0%, 100% {

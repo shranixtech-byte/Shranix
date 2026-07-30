@@ -403,22 +403,22 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
         </button>
 
         {showUserMenu && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border bg-popover p-1.5 shadow-xl">
-            <div className="border-b px-2.5 py-2">
-              <p className="text-sm font-medium">{user ? `${user.firstName} ${user.lastName}` : 'User'}</p>
+          <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border/80 bg-white p-1.5 shadow-xl dark:bg-slate-900 dark:shadow-black/40">
+            <div className="border-b border-border/50 px-2.5 py-2">
+              <p className="text-sm font-medium text-foreground">{user ? `${user.firstName} ${user.lastName}` : 'User'}</p>
               <p className="text-xs text-muted-foreground">{user?.email || ''}</p>
             </div>
             <div className="mt-1 space-y-0.5">
               <Link
                 to="/settings"
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-muted"
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
               >
                 <Settings className="h-4 w-4" />
                 Settings
               </Link>
               <button
                 onClick={logout}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/60"
               >
                 <LogOut className="h-4 w-4" />
                 Sign Out

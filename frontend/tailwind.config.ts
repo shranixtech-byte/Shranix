@@ -53,6 +53,15 @@ const config: Config = {
           'gradient-from': '#0B1A33',
           'gradient-to': '#1B2D52',
         },
+        sidebar2: {
+          DEFAULT: '#0C2338',
+          foreground: '#FFFFFF',
+          'primary-text': '#FFFFFF',
+          'secondary-text': '#A7B4C8',
+          active: '#1E88E5',
+          hover: '#163D63',
+          bg: '#071A2F',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -62,6 +71,7 @@ const config: Config = {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+        poppins: ['Poppins', 'sans-serif'],
       },
       // fade-in and slide-in keyframes removed — they conflict with
       // the tailwindcss-animate plugin which provides the same utility

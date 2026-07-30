@@ -62,8 +62,37 @@ export {
   sqliteHsnCodes, pgHsnCodes,
   sqliteStockOpening, pgStockOpening,
   sqliteItemImages, pgItemImages,
+  sqliteWarehouseZones, pgWarehouseZones,
+  sqliteWarehouseRacks, pgWarehouseRacks,
+  sqliteWarehouseShelves, pgWarehouseShelves,
+  sqliteWarehouseBins, pgWarehouseBins,
+  sqliteUOMConversions, pgUOMConversions,
+  sqliteBatchMaster, pgBatchMaster,
+  sqliteBatchLots, pgBatchLots,
+  sqliteBatchGenealogy, pgBatchGenealogy,
+  sqliteProductAttributes, pgProductAttributes,
+  sqliteItemPackaging, pgItemPackaging,
+  sqliteSerialMaster, pgSerialMaster,
+  sqliteSerialHistory, pgSerialHistory,
+  sqliteSerialWarranty, pgSerialWarranty,
+  sqliteSerialInstallation, pgSerialInstallation,
+  sqliteSerialService, pgSerialService,
+  sqliteSerialRMA, pgSerialRMA,
+  sqliteSerialRelationship, pgSerialRelationship,
+  sqliteSerialDocument, pgSerialDocument,
+  sqliteInvStockLedger, pgInvStockLedger,
+  sqliteInvStockBalance, pgInvStockBalance,
+  sqliteInvStockReservation, pgInvStockReservation,
+  sqliteStockTransfers, pgStockTransfers,
+  sqliteTransferItems, pgTransferItems,
+  sqliteStockAdjustments, pgStockAdjustments,
+  sqliteAdjustmentItems, pgAdjustmentItems,
   sqliteInventorySettings, pgInventorySettings,
 } from './inventory';
+export {
+  sqlitePhysicalCountHeaders, pgPhysicalCountHeaders,
+  sqlitePhysicalCountItems, pgPhysicalCountItems,
+} from './physical-count';
 
 export {
   sqlitePurchaseOrders, pgPurchaseOrders,
@@ -98,6 +127,15 @@ export {
   sqliteCustomerPriceList, pgCustomerPriceList,
   sqliteSalesApprovals, pgSalesApprovals,
   sqliteSalesSettings, pgSalesSettings,
+  sqliteApprovalHistory, pgApprovalHistory,
+  sqliteApprovalComments, pgApprovalComments,
+  sqliteApprovalNotifications, pgApprovalNotifications,
+  sqliteApprovalMatrices, pgApprovalMatrices,
+  sqliteApprovalRules, pgApprovalRules,
+  sqliteCreditProfiles, pgCreditProfiles,
+  sqliteCreditOverrides, pgCreditOverrides,
+  sqliteCreditNotes, pgCreditNotes,
+  sqliteDebitNotes, pgDebitNotes,
 } from './sales';
 
 export {

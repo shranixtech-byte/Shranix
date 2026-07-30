@@ -238,24 +238,34 @@ export const pgCategories = pgTableBase('shranix_categories', {
 }));
 
 // ═════════════════════════════════════════════════════════
-// 7. BRANDS
+// 7. BRANDS (Enterprise Brand Master)
 // ═════════════════════════════════════════════════════════
 export const sqliteBrands = sqliteTableBase('shranix_brands', {
   ...sqliteBase,
   name: sqliteText('name').notNull(),
+  brandCode: sqliteText('brand_code'),
   description: sqliteText('description'),
+  manufacturer: sqliteText('manufacturer'),
+  country: sqliteText('country').notNull().default('India'),
+  logo: sqliteText('logo'),
   isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
 }, (table) => ({
   nameIdx: uniqueIndex('brands_name_idx').on(table.name),
+  codeIdx: uniqueIndex('brands_code_idx').on(table.brandCode),
 }));
 
 export const pgBrands = pgTableBase('shranix_brands', {
   ...pgBase,
   name: pgText('name').notNull(),
+  brandCode: pgText('brand_code'),
   description: pgText('description'),
+  manufacturer: pgText('manufacturer'),
+  country: pgText('country').notNull().default('India'),
+  logo: pgText('logo'),
   isActive: pgBoolean('is_active').notNull().default(true),
 }, (table) => ({
   nameIdx: pgUniqueIndex('brands_name_idx').on(table.name),
+  codeIdx: pgUniqueIndex('brands_code_idx').on(table.brandCode),
 }));
 
 // ═════════════════════════════════════════════════════════

@@ -180,3 +180,40 @@ export class CreateSalesSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() defaultPaymentTerms?: string;
 }
 export class UpdateSalesSettingsDto { @ApiPropertyOptional() @IsOptional() @IsBoolean() autoQuoteNumber?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() quotePrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() quoteNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() autoOrderNumber?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() orderPrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() orderNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsString() challanPrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() challanNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() autoInvoiceNumber?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() invoicePrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() invoiceNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsString() returnPrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() returnNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() requireApproval?: boolean; @ApiPropertyOptional() @IsOptional() @IsBoolean() gstEnabled?: boolean; }
+
+// ═════════════════════════════════════════════════════════
+// 9. CUSTOMERS
+// ═════════════════════════════════════════════════════════
+export class CreateCustomerDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() code?: string;
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
+}
+export class UpdateCustomerDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
+}

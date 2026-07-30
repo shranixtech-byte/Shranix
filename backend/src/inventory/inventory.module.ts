@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AutomationModule } from '../automation/automation.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import {
@@ -9,8 +10,31 @@ import {
   BatchStockController, StockMovementController, WarehouseLocationController,
   DamageRegisterController, RecallRegisterController, DistributorReturnController,
   ReplacementQueueController, SubCategoriesController, StockLedgerController,
-  StockTransferController, WarehouseDashboardController, WarehouseStockController, WarehouseSearchController,
+  StockTransferController, WarehouseDashboardController, WarehouseStockController,
+  WarehouseSearchController, WarehouseZonesController, WarehouseRacksController,
+  WarehouseShelvesController, WarehouseBinsController,
+  UOMConversionsController, ProductAttributesController, ItemPackagingController,
+  BatchMasterController, BatchLotController, BatchGenealogyController,
+  BatchTraceController, BatchDashboardController,
+  SerialMasterController, SerialWarrantyController, SerialHistoryController,
+  SerialRelationshipController, SerialRMAController, SerialServiceController,
+  SerialTraceController, SerialDashboardController,
 } from './controllers';
+import {
+  InventoryPostingController,
+  StockReservationController,
+  StockReversalController,
+  StockLedgerQueryController,
+} from './stock-ledger.controllers';
+import {
+  EnterpriseTransferController,
+} from './stock-transfer.controllers';
+import {
+  EnterpriseAdjustmentController,
+} from './stock-adjustment.controllers';
+import {
+  PhysicalCountController,
+} from './physical-count.controllers';
 import {
   ItemsService, ItemVariantsService, ItemGroupsService,
   ItemPricingService, ItemBarcodesService, HsnCodesService,
@@ -19,10 +43,23 @@ import {
   DamageRegisterService, RecallRegisterService, DistributorReturnService,
   ReplacementQueueService, SubCategoriesService, StockLedgerService,
   StockTransferService, WarehouseService,
+  WarehouseZonesService, WarehouseRacksService, WarehouseShelvesService, WarehouseBinsService,
+  UOMConversionService, ProductAttributeService, ItemPackagingService,
+  BatchMasterService, BatchLotService, BatchTraceabilityService, BatchDashboardService,
+  SerialMasterService, SerialTraceabilityService, SerialDashboardService,
+  SerialWarrantyService, SerialHistoryService, SerialRelationshipService,
+  SerialRMAService, SerialServiceHistoryService,
+  InventoryPostingEngine,
+  StockReservationService,
+  StockReversalService,
+  StockLedgerQueryService,
+  EnterpriseTransferService,
+  EnterpriseAdjustmentService,
+  PhysicalCountService,
 } from './services';
 
 @Module({
-  imports: [WorkflowModule],
+  imports: [WorkflowModule, AutomationModule],
   controllers: [
     ItemsController, ItemVariantsController, ItemGroupsController,
     ItemPricingController, ItemBarcodesController, HsnCodesController,
@@ -31,7 +68,21 @@ import {
     DamageRegisterController, RecallRegisterController, DistributorReturnController,
     ReplacementQueueController, SubCategoriesController, StockLedgerController,
     StockTransferController, WarehouseDashboardController, WarehouseStockController,
-    WarehouseSearchController,
+    WarehouseSearchController, WarehouseZonesController, WarehouseRacksController,
+    WarehouseShelvesController, WarehouseBinsController,
+    UOMConversionsController, ProductAttributesController, ItemPackagingController,
+    BatchMasterController, BatchLotController,
+    BatchTraceController, BatchDashboardController,
+    SerialMasterController, SerialWarrantyController, SerialHistoryController,
+    SerialRelationshipController, SerialRMAController, SerialServiceController,
+    SerialTraceController, SerialDashboardController,
+    InventoryPostingController,
+    StockReservationController,
+    StockReversalController,
+    StockLedgerQueryController,
+    EnterpriseTransferController,
+    EnterpriseAdjustmentController,
+    PhysicalCountController,
   ],
   providers: [
     ItemsService, ItemVariantsService, ItemGroupsService,
@@ -41,6 +92,19 @@ import {
     DamageRegisterService, RecallRegisterService, DistributorReturnService,
     ReplacementQueueService, SubCategoriesService, StockLedgerService,
     StockTransferService, WarehouseService,
+    WarehouseZonesService, WarehouseRacksService, WarehouseShelvesService, WarehouseBinsService,
+    UOMConversionService, ProductAttributeService, ItemPackagingService,
+    BatchMasterService, BatchLotService, BatchTraceabilityService, BatchDashboardService,
+    SerialMasterService, SerialTraceabilityService, SerialDashboardService,
+    SerialWarrantyService, SerialHistoryService, SerialRelationshipService,
+    SerialRMAService, SerialServiceHistoryService,
+    InventoryPostingEngine,
+    StockReservationService,
+    StockReversalService,
+    StockLedgerQueryService,
+    EnterpriseTransferService,
+    EnterpriseAdjustmentService,
+    PhysicalCountService,
   ],
   exports: [
     ItemsService, ItemVariantsService, ItemGroupsService,
@@ -50,6 +114,17 @@ import {
     DamageRegisterService, RecallRegisterService, DistributorReturnService,
     ReplacementQueueService, SubCategoriesService, StockLedgerService,
     StockTransferService, WarehouseService,
+    WarehouseZonesService, WarehouseRacksService, WarehouseShelvesService, WarehouseBinsService,
+    SerialMasterService, SerialTraceabilityService, SerialDashboardService,
+    SerialWarrantyService, SerialHistoryService, SerialRelationshipService,
+    SerialRMAService, SerialServiceHistoryService,
+    InventoryPostingEngine,
+    StockReservationService,
+    StockReversalService,
+    StockLedgerQueryService,
+    EnterpriseTransferService,
+    EnterpriseAdjustmentService,
+    PhysicalCountService,
   ],
 })
 export class InventoryModule {}

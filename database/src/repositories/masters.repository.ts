@@ -1,4 +1,4 @@
-import { eq, and, isNull, count, like, or, desc } from 'drizzle-orm';
+import { eq, and, isNull, count, desc } from 'drizzle-orm';
 import crypto from 'node:crypto';
 import type { DatabaseClient } from '../client/index';
 import {
@@ -12,8 +12,8 @@ import {
   sqliteTaxGroups, pgTaxGroups,
   sqliteGSTRates, pgGSTRates,
 } from '../schema/masters';
-import type { PaginatedResult, PaginationParams } from '../types/index';
-import { paginateResult } from '../utils/query.helper';
+import type { PaginatedResult, PaginationParams, EnterpriseQuery } from '../types/index';
+import { paginateResult, buildEnterpriseConditions, buildOrderByClauses, extractPagination } from '../utils/query.helper';
 
 // ── Generic Master Record Interface ─────────────────────
 export interface MasterRecord {
@@ -43,59 +43,90 @@ export class MasterDataRepository<T extends MasterRecord> {
     return this.isPostgres ? this.pgTable : this.sqliteTable;
   }
 
+  /** Get the table as a column map for enterprise query builders */
+  private get tableColumns(): Record<string, any> {
+    return this.table as unknown as Record<string, any>;
+  }
+
   async findById(id: string): Promise<T | null> {
-    const rows = await (this.db as any)
+    const rows = await this.activeDb
       .select()
       .from(this.table)
       .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)));
     return rows.length > 0 ? (rows[0] as T) : null;
   }
 
-  async findAll(params: PaginationParams & { search?: string; isActive?: boolean } = { page: 1, pageSize: 50 }): Promise<PaginatedResult<T>> {
-    const { page, pageSize, search, isActive } = params;
+  /**
+   * Find all records with enterprise-grade pagination, filtering, sorting, and search.
+   *
+   * Backward compatible: old callers passing `{ page: 1, pageSize: 50 }` continue to work.
+   * Old callers using `search` or `isActive` also work.
+   * New enterprise features (searchFields, filters, sortBy, sortOrder, sorts) are all optional.
+   */
+  async findAll(
+    params: (PaginationParams & { search?: string; isActive?: boolean }) | EnterpriseQuery = { page: 1, pageSize: 50 },
+  ): Promise<PaginatedResult<T>> {
+    const columns = this.tableColumns;
+
+    // Extract pagination
+    const { page, pageSize } = extractPagination(params as EnterpriseQuery);
     const offset = (page - 1) * pageSize;
-    const conditions: any[] = [isNull(this.table.deletedAt)];
 
-    if (isActive !== undefined) {
-      conditions.push(eq(this.table.isActive, isActive));
+    // Base conditions: soft-delete filter
+    const baseConds: any[] = [isNull(this.table.deletedAt)];
+
+    // Build enterprise conditions (supports search, searchFields, filters, isActive)
+    const eqParams = params as EnterpriseQuery;
+    const conditions = buildEnterpriseConditions(columns, eqParams, baseConds);
+
+    // Legacy isActive support (already handled by buildEnterpriseConditions via eqParams.isActive)
+    // Search is also handled by buildEnterpriseConditions via eqParams.search/searchFields
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Build ORDER BY
+    let orderByClauses = buildOrderByClauses(columns, eqParams.sorts, eqParams.sortBy, eqParams.sortOrder);
+
+    // Default order: createdAt DESC
+    if (orderByClauses.length === 0) {
+      orderByClauses = [desc(this.table.createdAt)];
     }
 
-    let whereClause = and(...conditions);
+    // Column projection: if fields specified, select only those columns
+    const selectFields = eqParams.fields && eqParams.fields.length > 0
+      ? Object.fromEntries(eqParams.fields.map((f) => [f, columns[f]]).filter(([, v]) => v))
+      : undefined;
 
-    // Build search conditions for name and code fields
-    if (search) {
-      const searchPattern = `%${search}%`;
-      const searchConditions: any[] = [];
-      if (this.table.name) searchConditions.push(like(this.table.name, searchPattern));
-      if (this.table.code) searchConditions.push(like(this.table.code, searchPattern));
-      if (this.table.shortName) searchConditions.push(like(this.table.shortName, searchPattern));
-      if (searchConditions.length > 0) {
-        whereClause = and(whereClause, or(...searchConditions));
-      }
-    }
+    const selectBuilder = selectFields
+      ? this.activeDb.select(selectFields)
+      : this.activeDb.select();
 
     const [rows, countResult] = await Promise.all([
-      (this.db as any)
-        .select()
+      selectBuilder
         .from(this.table)
         .where(whereClause)
-        .orderBy(desc(this.table.createdAt))
+        .orderBy(...orderByClauses)
         .limit(pageSize)
         .offset(offset),
-      (this.db as any)
+      this.activeDb
         .select({ value: count() })
         .from(this.table)
         .where(whereClause),
     ]);
     const total = Number(countResult[0]?.value ?? 0);
-    return paginateResult(rows as T[], total, params);
+    return paginateResult(rows as T[], total, { page, pageSize });
+  }
+
+  /** Get the active db (transaction-aware if inside a transaction) */
+  private get activeDb(): any {
+    return (this.db as any).__currentTx || this.db;
   }
 
   async create(data: Partial<T>): Promise<T> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     const values = { ...data, id, createdAt: now, updatedAt: now, deletedAt: null, isDeleted: false } as any;
-    await (this.db as any).insert(this.table).values(values);
+    await this.activeDb.insert(this.table).values(values);
     return values as T;
   }
 
@@ -103,13 +134,13 @@ export class MasterDataRepository<T extends MasterRecord> {
     const existing = await this.findById(id);
     if (!existing) return null;
     const updateData = { ...data, updatedAt: new Date().toISOString() };
-    await (this.db as any).update(this.table).set(updateData).where(eq(this.table.id, id));
+    await this.activeDb.update(this.table).set(updateData).where(eq(this.table.id, id));
     return { ...existing, ...updateData } as T;
   }
 
   async softDelete(id: string): Promise<void> {
     const now = new Date().toISOString();
-    await (this.db as any)
+    await this.activeDb
       .update(this.table)
       .set({ deletedAt: now, isDeleted: true, updatedAt: now })
       .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)));
@@ -117,7 +148,7 @@ export class MasterDataRepository<T extends MasterRecord> {
 
   async restore(id: string): Promise<void> {
     const now = new Date().toISOString();
-    await (this.db as any)
+    await this.activeDb
       .update(this.table)
       .set({ deletedAt: null, isDeleted: false, updatedAt: now })
       .where(eq(this.table.id, id));
@@ -132,7 +163,7 @@ export class MasterDataRepository<T extends MasterRecord> {
         }
       }
     }
-    const result = await (this.db as any)
+    const result = await this.activeDb
       .select({ value: count() })
       .from(this.table)
       .where(and(...whereConditions));

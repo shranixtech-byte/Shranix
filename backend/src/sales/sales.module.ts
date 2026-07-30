@@ -15,6 +15,11 @@ import {
   SalesApprovalsController,
   SalesSettingsController,
 } from './controllers';
+import { SalesReportsController } from './reports.controller';
+import { SalesApprovalController } from './approval.controller';
+import { SalesCreditController } from './credit.controller';
+import { SalesReturnEngineController } from './return.controller';
+import { CustomersController } from './customers.controller';
 import {
   SalesQuotationsService,
   SalesOrdersService,
@@ -25,6 +30,11 @@ import {
   SalesApprovalsService,
   SalesSettingsService,
 } from './services';
+import { CustomersService } from './customers.service';
+import { SalesReportsService } from './reports.service';
+import { SalesApprovalEngineService } from './approval-engine.service';
+import { SalesCreditEngineService } from './credit-engine.service';
+import { SalesReturnEngineService } from './return-engine.service';
 import { PostingEngineService } from './posting-engine.service';
 
 @Module({
@@ -38,6 +48,11 @@ import { PostingEngineService } from './posting-engine.service';
     CustomerPriceListController,
     SalesApprovalsController,
     SalesSettingsController,
+    SalesReportsController,
+    SalesApprovalController,
+    SalesCreditController,
+    SalesReturnEngineController,
+    CustomersController,
   ],
   providers: [
     SalesQuotationsService,
@@ -48,6 +63,11 @@ import { PostingEngineService } from './posting-engine.service';
     CustomerPriceListService,
     SalesApprovalsService,
     SalesSettingsService,
+    CustomersService,
+    SalesReportsService,
+    SalesApprovalEngineService,
+    SalesCreditEngineService,
+    SalesReturnEngineService,
     PostingEngineService,
     DatabaseService,
     AuditService,

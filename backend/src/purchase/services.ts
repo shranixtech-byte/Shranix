@@ -1,9 +1,12 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
 import { BaseMasterService } from '../masters/base-master.service';
+import { PurchaseDebitNoteService } from './debit-note.service';
+import type { EnterpriseQuery } from '@shranix/database';
 
 @Injectable()
 export class PurchaseOrdersService extends BaseMasterService {    constructor(
@@ -26,47 +29,57 @@ export class StockPostingService {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly transactionManager: TransactionManager,
   ) {}
 
   async postFromGrn(grn: any, userId?: string) {
     this.logger.log(`Auto-posting stock for GRN: ${grn.grnNumber} (${grn.id})`);
 
-    let items: any[] = [];
-    try {
-      const itemsResult = await this.database.grnItems.findAll({ page: 1, pageSize: 1000 });
-      items = (itemsResult.data || []).filter((i: any) => i.grnId === grn.id);
-    } catch (e) {
-      this.logger.warn(`Could not fetch GRN items: ${(e as Error).message}`);
-    }
-
-    for (const item of items) {
-      const acceptedQty = item.acceptedQuantity || item.receivedQuantity || 0;
-      if (acceptedQty <= 0) continue;
-
-      const warehouseId = item.warehouseId || grn.warehouseId;
-      if (!warehouseId) {
-        this.logger.warn(`No warehouse for GRN item ${item.id}, skipping`);
-        continue;
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      let items: any[] = [];
+      try {
+        const grnItemsQuery: EnterpriseQuery = {
+          page: 1, pageSize: 500,
+          fields: ['id', 'itemId', 'poItemId', 'acceptedQuantity', 'receivedQuantity', 'warehouseId', 'batchNo', 'mfgDate', 'expDate', 'rate', 'purchaseRate'],
+          filters: [{ field: 'grnId', operator: 'eq', value: grn.id }],
+        };
+        const itemsResult = await this.database.grnItems.findAll(grnItemsQuery);
+        items = itemsResult.data || [];
+      } catch (e) {
+        this.logger.warn(`Could not fetch GRN items: ${(e as Error).message}`);
       }
 
-      const batchNo = item.batchNo || `BATCH-${Date.now().toString(36).toUpperCase()}`;
+      for (const item of items) {
+        const acceptedQty = item.acceptedQuantity || item.receivedQuantity || 0;
+        if (acceptedQty <= 0) continue;
 
-      try {
-        const dbAny = this.database as any;
-        const existingBatchResult = await dbAny.batchStock?.findAll({ page: 1, pageSize: 1, search: batchNo });
+        const warehouseId = item.warehouseId || grn.warehouseId;
+        if (!warehouseId) {
+          this.logger.warn(`No warehouse for GRN item ${item.id}, skipping`);
+          continue;
+        }
+
+        const batchNo = item.batchNo || `BATCH-${Date.now().toString(36).toUpperCase()}`;
+
+        // Batch stock update
+        const batchStock = (this.database as unknown as Record<string, unknown>)['batchStock'] as {
+          findAll: (p: any) => Promise<{ data: any[] }>;
+          update: (id: string, d: any) => Promise<any>;
+          create: (d: any) => Promise<any>;
+        };
+        const existingBatchResult = await batchStock?.findAll({ page: 1, pageSize: 1, search: batchNo });
         const existingBatches = existingBatchResult?.data || [];
         const existingBatch = existingBatches.find((b: any) => b.batchNo === batchNo && b.itemId === item.itemId);
         if (existingBatch) {
-          await dbAny.batchStock?.update(existingBatch.id, { quantity: (existingBatch.quantity || 0) + acceptedQty });
+          await batchStock?.update(existingBatch.id, { quantity: (existingBatch.quantity || 0) + acceptedQty });
         } else {
-          await dbAny.batchStock?.create({
+          await batchStock?.create({
             itemId: item.itemId, batchNo, mfgDate: item.mfgDate || null, expDate: item.expDate || null,
             quantity: acceptedQty, rate: item.rate || 0, warehouseId, isActive: true,
           });
         }
-      } catch (e) { this.logger.warn(`Batch issue: ${(e as Error).message}`); }
 
-      try {
+        // Warehouse stock update
         const existingStockResult = await this.database.warehouseStock?.findAll({ page: 1, pageSize: 100 });
         const existingStocks = existingStockResult?.data || [];
         const existingStock = existingStocks.find((s: any) => s.warehouseId === warehouseId && s.itemId === item.itemId);
@@ -75,9 +88,8 @@ export class StockPostingService {
         } else {
           await this.database.warehouseStock?.create({ itemId: item.itemId, batchNo, warehouseId, quantity: acceptedQty, reservedQuantity: 0 });
         }
-      } catch (e) { this.logger.warn(`Stock update issue: ${(e as Error).message}`); }
 
-      try {
+        // Stock ledger
         await this.database.stockLedger?.create({
           itemId: item.itemId, batchNo, warehouseId, transactionType: 'purchase_receipt',
           documentRef: grn.grnNumber, documentType: 'grn', quantity: acceptedQty,
@@ -85,44 +97,50 @@ export class StockPostingService {
           amount: (item.rate || 0) * acceptedQty, createdBy: userId,
           remarks: `Auto-posted from GRN ${grn.grnNumber}`,
         });
-      } catch (e) { this.logger.warn(`Ledger issue: ${(e as Error).message}`); }
 
-      if (item.poItemId) {
-        try {
+        // PO item received quantity update
+        if (item.poItemId) {
           const poItem = await this.database.poItems?.findById(item.poItemId);
           if (poItem) await this.database.poItems?.update(item.poItemId, { receivedQuantity: (poItem.receivedQuantity || 0) + acceptedQty });
-        } catch (e) { this.logger.warn(`PO item update issue: ${(e as Error).message}`); }
+        }
       }
-    }
 
-    if (this.audit && userId) await this.audit.log({
-      userId, event: 'stock_posted' as any, resource: 'grn',
-      action: 'stock_posting', details: { grnId: grn.id, grnNumber: grn.grnNumber },
+      if (this.audit && userId) await this.audit.log({
+        userId, event: 'stock_posted', resource: 'grn',
+        action: 'stock_posting', details: { grnId: grn.id, grnNumber: grn.grnNumber },
+      });
+
+      this.logger.log(`Stock posting complete for GRN: ${grn.grnNumber}`);
+      return { success: true, message: `Stock posted for GRN ${grn.grnNumber}` };
     });
-
-    this.logger.log(`Stock posting complete for GRN: ${grn.grnNumber}`);
   }
 
   async reverseFromReturn(returnRecord: any, userId?: string) {
     this.logger.log(`Reversing stock for Return: ${returnRecord.returnNumber}`);
-    let items: any[] = [];
-    try {
-      const res = await this.database.purchaseReturnItems?.findAll({ page: 1, pageSize: 1000 });
-      items = (res?.data || []).filter((i: any) => i.returnId === returnRecord.id);
-    } catch {}
 
-    for (const item of items) {
-      const qty = item.quantity || 0;
-      if (qty <= 0 || !item.warehouseId) continue;
-
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      let items: any[] = [];
       try {
+        const returnItemsQuery: EnterpriseQuery = {
+          page: 1, pageSize: 500,
+          fields: ['id', 'itemId', 'batchNo', 'warehouseId', 'quantity', 'rate', 'amount'],
+          filters: [{ field: 'returnId', operator: 'eq', value: returnRecord.id }],
+        };
+        const res = await this.database.purchaseReturnItems?.findAll(returnItemsQuery);
+        items = res?.data || [];
+      } catch (e) {
+        this.logger.warn(`Could not fetch return items: ${(e as Error).message}`);
+      }
+
+      for (const item of items) {
+        const qty = item.quantity || 0;
+        if (qty <= 0 || !item.warehouseId) continue;
+
         const existingStockResult = await this.database.warehouseStock?.findAll({ page: 1, pageSize: 100 });
         const existingStocks = existingStockResult?.data || [];
         const existingStock = existingStocks.find((s: any) => s.warehouseId === item.warehouseId && s.itemId === item.itemId);
         if (existingStock) await this.database.warehouseStock?.update(existingStock.id, { quantity: Math.max(0, (existingStock.quantity || 0) - qty) });
-      } catch {}
 
-      try {
         await this.database.stockLedger?.create({
           itemId: item.itemId, batchNo: item.batchNo, warehouseId: item.warehouseId,
           transactionType: 'purchase_return', documentRef: returnRecord.returnNumber, documentType: 'purchase_return',
@@ -130,9 +148,11 @@ export class StockPostingService {
           amount: -(item.rate || 0) * qty, createdBy: userId,
           remarks: `Auto-reversed from Return ${returnRecord.returnNumber}`,
         });
-      } catch {}
-    }
-    this.logger.log(`Stock reversal complete for Return: ${returnRecord.returnNumber}`);
+      }
+
+      this.logger.log(`Stock reversal complete for Return: ${returnRecord.returnNumber}`);
+      return { success: true, message: `Stock reversed for Return ${returnRecord.returnNumber}` };
+    });
   }
 }
 
@@ -151,9 +171,14 @@ export class GrnService extends BaseMasterService {
     // Business rule: Check GRN does not exceed ordered quantity
     if (header.poId && items && Array.isArray(items)) {
       try {
-        const poItems = await this.db.poItems.findAll({ page: 1, pageSize: 1000 });
+        const poItemsQuery: EnterpriseQuery = {
+          page: 1, pageSize: 500,
+          fields: ['id', 'itemId', 'poId', 'quantity', 'rate', 'description'],
+          filters: [{ field: 'poId', operator: 'eq', value: header.poId }],
+        };
+        const poItems = await this.db.poItems.findAll(poItemsQuery);
         for (const item of items) {
-          const poItem = (poItems.data || []).find((pi: any) => pi.poId === header.poId && pi.itemId === item.itemId);
+          const poItem = (poItems.data || []).find((pi: any) => pi.itemId === item.itemId);
           if (poItem && item.receivedQuantity > poItem.quantity) {
             throw new BadRequestException(
               `GRN quantity ${item.receivedQuantity} exceeds ordered quantity ${poItem.quantity} for item ${item.itemId}`
@@ -236,6 +261,8 @@ export class PurchaseReturnsService extends BaseMasterService {
     audit: AuditService,
     private readonly db: DatabaseService,
     private readonly stockPostingService?: StockPostingService,
+    @Inject(forwardRef(() => PurchaseDebitNoteService))
+    private readonly debitNoteService?: PurchaseDebitNoteService,
   ) { super(database.purchaseReturns, 'PurchaseReturn', audit, 'returnNumber'); }
 
   async create(data: any, userId?: string) {
@@ -270,13 +297,18 @@ export class PurchaseReturnsService extends BaseMasterService {
     if (!ret) {throw new NotFoundException('Purchase return not found');}
     if (ret.status === 'approved') {throw new BadRequestException('Return already approved');}
 
-    await this.update(id, { status: 'approved', approvedBy: userId, approvedAt: new Date().toISOString() }, userId);
+    // Auto-create debit note (which includes stock reversal + accounting + GST reversal)
+    if (this.debitNoteService && userId) {
+      const dnResult = await this.debitNoteService.createDebitNoteFromReturn(id, userId);
+      const updatedReturn = await this.findById(id);
+      return { ...dnResult, returnRecord: updatedReturn };
+    }
 
-    // Auto reverse stock
+    // Fallback: legacy mode — just approve + stock reversal
+    await this.update(id, { status: 'approved', approvedBy: userId, approvedAt: new Date().toISOString() }, userId);
     if (this.stockPostingService) {
       await this.stockPostingService.reverseFromReturn(ret, userId);
     }
-
     return this.findById(id);
   }
 }
@@ -305,34 +337,30 @@ export class SuppliersService extends BaseMasterService {
   constructor(database: DatabaseService, audit: AuditService) { super(database.suppliers, 'Supplier', audit, 'code'); }
 }
 
-@Injectable()
-export class PurchaseRequisitionsService extends BaseMasterService {
+@Injectable()export class PurchaseRequisitionsService extends BaseMasterService {
   constructor(
     database: DatabaseService,
     audit: AuditService,
-) { super(database.purchaseRequisitions, 'PurchaseRequisition', audit, 'prNumber'); }
+    private readonly db: DatabaseService,
+  ) { super(database.purchaseRequisitions, 'PurchaseRequisition', audit, 'prNumber'); }
 
   async create(data: any, userId?: string) {
     const { items, ...header } = data;
     const req = await super.create(header, userId);
-    if (items && Array.isArray(items)) {
-      const db = (this.repository as any).db;
-      if (db) {
-        for (const item of items) {
-          try {
-            const prItem = {
-              prId: req.id,
-              itemId: item.itemId,
-              variantId: item.variantId || null,
-              description: item.description || null,
-              quantity: item.quantity,
-              estimatedRate: item.estimatedRate || 0,
-              estimatedAmount: item.estimatedAmount || (item.estimatedRate || 0) * item.quantity,
-              remarks: item.remarks || null,
-            };
-            await db.insert('shranix_pr_items').values(prItem);
-          } catch {}
-        }
+    if (items && Array.isArray(items) && this.db.purchaseRequisitionItems) {
+      for (const item of items) {
+        try {
+          await this.db.purchaseRequisitionItems.create({
+            prId: req.id,
+            itemId: item.itemId,
+            variantId: item.variantId || null,
+            description: item.description || null,
+            quantity: item.quantity,
+            estimatedRate: item.estimatedRate || 0,
+            estimatedAmount: item.estimatedAmount || (item.estimatedRate || 0) * item.quantity,
+            remarks: item.remarks || null,
+          });
+        } catch {}
       }
     }
     return req;
@@ -344,33 +372,60 @@ export class PurchaseDashboardService {
   constructor(private readonly database: DatabaseService) {}
 
   async getDashboardData() {
-    let pendingPos = 0, pendingGrns = 0, todayReceipts = 0, monthValue = 0;
+    // ── Pending POs (DB-level status filter) ──
+    const pendingQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 1,
+      fields: ['id'],
+      filters: [{
+        field: 'status',
+        operator: 'in',
+        value: ['draft', 'submitted', 'approved', 'partially_received'],
+      }],
+    };
+    const pendingPosResult = await this.database.purchaseOrders.findAll(pendingQuery).catch(() => ({ total: 0 }));
+    const pendingPos = pendingPosResult.total || 0;
+
+    // ── Pending GRNs (DB-level status filter) ──
+    const pendingGrnsQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 1,
+      fields: ['id'],
+      filters: [{ field: 'status', operator: 'eq', value: 'pending' }],
+    };
+    const pendingGrnsResult = await this.database.grn.findAll(pendingGrnsQuery).catch(() => ({ total: 0 }));
+    const pendingGrns = pendingGrnsResult.total || 0;
+
+    // ── Today's Receipts (DB-level date filter) ──
+    const today = new Date().toISOString().split('T')[0];
+    const todayReceiptsQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 1,
+      fields: ['id'],
+      filters: [{ field: 'receivedDate', operator: 'startsWith', value: today }],
+    };
+    const todayReceiptsResult = await this.database.grn.findAll(todayReceiptsQuery).catch(() => ({ total: 0 }));
+    const todayReceipts = todayReceiptsResult.total || 0;
+
+    // ── Monthly Purchase Value (DB-level date range) ──
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    const monthStartStr = monthStart.toISOString().split('T')[0];
+    const monthPosQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 100,
+      fields: ['id', 'grandTotal', 'orderDate', 'supplierId', 'poNumber', 'status', 'createdAt'],
+      filters: [{ field: 'orderDate', operator: 'gte', value: monthStartStr }],
+    };
     let allPosData: any[] = [];
-    let allGrnData: any[] = [];
-
+    let monthValue = 0;
     try {
-      const posResult = await this.database.purchaseOrders.findAll({ page: 1, pageSize: 1000 });
-      allPosData = posResult.data || [];
-      pendingPos = allPosData.filter((po: any) => ['draft', 'submitted', 'approved', 'partially_received'].includes(po.status)).length;
-
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      const monthStartStr = monthStart.toISOString().split('T')[0];
-      monthValue = allPosData
-        .filter((po: any) => po.orderDate && po.orderDate >= monthStartStr)
-        .reduce((sum: number, po: any) => sum + (po.grandTotal || 0), 0);
+      const monthPosResult = await this.database.purchaseOrders.findAll(monthPosQuery);
+      allPosData = monthPosResult.data || [];
+      monthValue = allPosData.reduce((sum: number, po: any) => sum + (po.grandTotal || 0), 0);
     } catch {}
 
-    try {
-      const grnResult = await this.database.grn.findAll({ page: 1, pageSize: 1000 });
-      allGrnData = grnResult.data || [];
-      pendingGrns = allGrnData.filter((g: any) => g.status === 'pending').length;
-
-      const today = new Date().toISOString().split('T')[0];
-      todayReceipts = allGrnData.filter((g: any) => g.receivedDate && g.receivedDate.startsWith(today)).length;
-    } catch {}
-
-    // Top Suppliers
+    // ── Top Suppliers (from the monthly data set) ──
     const supplierCounts = new Map<string, { count: number; amount: number; name: string }>();
     for (const po of allPosData) {
       const sid = po.supplierId;
@@ -383,14 +438,19 @@ export class PurchaseDashboardService {
       .sort((a, b) => b[1].amount - a[1].amount).slice(0, 5)
       .map(([id, data]) => ({ id, name: data.name, count: data.count, amount: data.amount }));
 
-    // Recent Purchases
-    const recentPurchases = allPosData
-      .sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-      .slice(0, 10)
-      .map((po: any) => ({
-        id: po.id, poNumber: po.poNumber, supplierId: po.supplierId,
-        orderDate: po.orderDate, grandTotal: po.grandTotal, status: po.status,
-      }));
+    // ── Recent Purchases (DB-level sort + limit 10) ──
+    const recentQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 10,
+      fields: ['id', 'poNumber', 'supplierId', 'orderDate', 'grandTotal', 'status', 'createdAt'],
+      sorts: [{ field: 'createdAt', order: 'desc' }],
+      filters: [],
+    };
+    const recentResult = await this.database.purchaseOrders.findAll(recentQuery).catch(() => ({ data: [] }));
+    const recentPurchases = (recentResult.data || []).map((po: any) => ({
+      id: po.id, poNumber: po.poNumber, supplierId: po.supplierId,
+      orderDate: po.orderDate, grandTotal: po.grandTotal, status: po.status,
+    }));
 
     return {
       pendingPos, pendingGrns, todayReceipts, purchaseValue: monthValue,
@@ -403,35 +463,49 @@ export class PurchaseDashboardService {
 export class PurchaseReportsService {
   constructor(private readonly database: DatabaseService) {}
 
-  async getPurchaseRegister(page = 1, pageSize = 50, search?: string) { return this.database.purchaseOrders.findAll({ page, pageSize, search }); }
-  async getGrnRegister(page = 1, pageSize = 50, search?: string) { return this.database.grn.findAll({ page, pageSize, search }); }
+  async getPurchaseRegister(page = 1, pageSize = 50, search?: string) {
+    return this.database.purchaseOrders.findAll({ page, pageSize, search });
+  }
+
+  async getGrnRegister(page = 1, pageSize = 50, search?: string) {
+    return this.database.grn.findAll({ page, pageSize, search });
+  }
 
   async getSupplierWisePurchase(supplierId: string, page = 1, pageSize = 50) {
-    const allPos = await this.database.purchaseOrders.findAll({ page: 1, pageSize: 1000 }).catch(() => ({ data: [] }));
-    const filtered = (allPos.data || []).filter((po: any) => po.supplierId === supplierId);
-    const total = filtered.length;
-    const start = (page - 1) * pageSize;
-    return { data: filtered.slice(start, start + pageSize), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    const query: EnterpriseQuery = {
+      page, pageSize,
+      filters: [{ field: 'supplierId', operator: 'eq', value: supplierId }],
+    };
+    return this.database.purchaseOrders.findAll(query);
   }
 
   async getItemWisePurchase(itemId: string, page = 1, pageSize = 50) {
-    const allItems = await this.database.poItems.findAll({ page: 1, pageSize: 1000 }).catch(() => ({ data: [] }));
-    const filtered = (allItems.data || []).filter((i: any) => i.itemId === itemId);
-    const total = filtered.length;
-    const start = (page - 1) * pageSize;
-    return { data: filtered.slice(start, start + pageSize), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    const query: EnterpriseQuery = {
+      page, pageSize,
+      filters: [{ field: 'itemId', operator: 'eq', value: itemId }],
+    };
+    return this.database.poItems.findAll(query);
   }
 
   async getPendingPOs(page = 1, pageSize = 50) {
-    const allPos = await this.database.purchaseOrders.findAll({ page: 1, pageSize: 1000 }).catch(() => ({ data: [] }));
-    const pending = (allPos.data || []).filter((po: any) => ['draft', 'submitted', 'approved', 'partially_received'].includes(po.status));
-    const total = pending.length;
-    const start = (page - 1) * pageSize;
-    return { data: pending.slice(start, start + pageSize), total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    const query: EnterpriseQuery = {
+      page, pageSize,
+      filters: [{
+        field: 'status',
+        operator: 'in',
+        value: ['draft', 'submitted', 'approved', 'partially_received'],
+      }],
+    };
+    return this.database.purchaseOrders.findAll(query);
   }
 
-  async getPurchaseReturnReport(page = 1, pageSize = 50) { return this.database.purchaseReturns.findAll({ page, pageSize }).catch(() => ({ data: [], total: 0, totalPages: 0 })); }
-  async getGstPurchaseReport(page = 1, pageSize = 50) { return this.database.purchaseOrders.findAll({ page, pageSize }).catch(() => ({ data: [], total: 0, totalPages: 0 })); }
+  async getPurchaseReturnReport(page = 1, pageSize = 50) {
+    return this.database.purchaseReturns.findAll({ page, pageSize }).catch(() => ({ data: [], total: 0, totalPages: 0 }));
+  }
+
+  async getGstPurchaseReport(page = 1, pageSize = 50) {
+    return this.database.purchaseOrders.findAll({ page, pageSize }).catch(() => ({ data: [], total: 0, totalPages: 0 }));
+  }
 }
 
 @Injectable()
@@ -440,26 +514,47 @@ export class PurchaseSearchService {
 
   async search(query: string, page = 1, pageSize = 50) {
     const results: any[] = [];
+    const perRepoLimit = Math.min(20, pageSize);
 
-    const searchFns = [
-      { repo: this.database.purchaseOrders, type: 'purchase_order', labelFn: (r: any) => `PO: ${r.poNumber}` },
-      { repo: this.database.grn, type: 'grn', labelFn: (r: any) => `GRN: ${r.grnNumber}` },
-      { repo: this.database.suppliers, type: 'supplier', labelFn: (r: any) => `Supplier: ${r.name}` },
-      { repo: this.database.purchaseReturns, type: 'purchase_return', labelFn: (r: any) => `Return: ${r.returnNumber}` },
-      { repo: this.database.purchaseRequisitions, type: 'purchase_requisition', labelFn: (r: any) => `PR: ${r.prNumber}` },
-      { repo: this.database.purchaseInvoices, type: 'purchase_invoice', labelFn: (r: any) => `Invoice: ${r.invoiceNumber}` },
+    const searchFns: Array<{
+      repo: any;
+      type: string;
+      labelFn: (r: any) => string;
+      fields: string[];
+    }> = [
+      { repo: this.database.purchaseOrders, type: 'purchase_order', labelFn: (r: any) => `PO: ${r.poNumber}`, fields: ['id', 'poNumber', 'supplierId', 'grandTotal', 'status'] },
+      { repo: this.database.grn, type: 'grn', labelFn: (r: any) => `GRN: ${r.grnNumber}`, fields: ['id', 'grnNumber', 'supplierId', 'status'] },
+      { repo: this.database.suppliers, type: 'supplier', labelFn: (r: any) => `Supplier: ${r.name}`, fields: ['id', 'name', 'gstin', 'mobile', 'city'] },
+      { repo: this.database.purchaseReturns, type: 'purchase_return', labelFn: (r: any) => `Return: ${r.returnNumber}`, fields: ['id', 'returnNumber', 'supplierId', 'grandTotal', 'status'] },
+      { repo: this.database.purchaseRequisitions, type: 'purchase_requisition', labelFn: (r: any) => `PR: ${r.prNumber}`, fields: ['id', 'prNumber', 'department', 'status'] },
+      { repo: this.database.purchaseInvoices, type: 'purchase_invoice', labelFn: (r: any) => `Invoice: ${r.invoiceNumber}`, fields: ['id', 'invoiceNumber', 'supplierId', 'grandTotal', 'status'] },
     ];
 
     for (const sf of searchFns) {
       try {
         if (sf.repo) {
-          const result = await sf.repo.findAll({ page: 1, pageSize: 20, search: query });
+          const searchQuery: EnterpriseQuery = {
+            page: 1,
+            pageSize: perRepoLimit,
+            search: query,
+            searchFields: sf.fields,
+            fields: sf.fields,
+          };
+          const result = await sf.repo.findAll(searchQuery);
           if (result.data) {
             results.push(...result.data.map((r: any) => ({ ...r, _type: sf.type, _label: sf.labelFn(r) })));
           }
         }
       } catch {}
     }
+
+    // Sort by relevance: exact match first, then partial
+    const ql = query.toLowerCase();
+    results.sort((a: any, b: any) => {
+      const aMatch = (a._label || '').toLowerCase().includes(ql) ? 1 : 0;
+      const bMatch = (b._label || '').toLowerCase().includes(ql) ? 1 : 0;
+      return bMatch - aMatch;
+    });
 
     const total = results.length;
     const start = (page - 1) * pageSize;
