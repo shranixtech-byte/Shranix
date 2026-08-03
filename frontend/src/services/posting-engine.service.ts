@@ -1,5 +1,6 @@
-import { apiRequest } from './api-client';
 import type { InvoiceLineItem } from '@/pages/sales/product-selection-screen';
+
+import { apiRequest } from './api-client';
 
 // ═════════════════════════════════════════════════════════
 // TYPES (mirroring backend)
@@ -148,8 +149,12 @@ export interface TriggerPostingResult {
  */
 
 function getCostMethod(grandTotal: number): string {
-  if (grandTotal > 100000) return 'fifo';
-  if (grandTotal > 50000) return 'weighted_average';
+  if (grandTotal > 100000) {
+    return 'fifo';
+  }
+  if (grandTotal > 50000) {
+    return 'weighted_average';
+  }
   return 'average';
 }
 
@@ -198,37 +203,59 @@ export function preparePostingPayload(input: PreparePostingInput): PostingPayloa
     { field: 'duplicate_invoice', status: 'pass', message: 'Invoice number is unique' },
   ];
 
-  const batchNos = input.items.map(i => i.batchNo).filter(Boolean);
+  const batchNos = input.items.map((i) => i.batchNo).filter(Boolean);
   const duplicateBatches = batchNos.filter((b, i) => batchNos.indexOf(b) !== i);
   validations.push({
     field: 'duplicate_batch',
     status: duplicateBatches.length > 0 ? 'fail' : 'pass',
-    message: duplicateBatches.length > 0 ? `Duplicate batch: ${duplicateBatches.join(', ')}` : 'All batches unique',
+    message:
+      duplicateBatches.length > 0
+        ? `Duplicate batch: ${duplicateBatches.join(', ')}`
+        : 'All batches unique',
   });
 
-  const overStock = input.items.filter(i => i.quantity > i.availableStock);
+  const overStock = input.items.filter((i) => i.quantity > i.availableStock);
   validations.push({
     field: 'stock_mismatch',
     status: overStock.length > 0 ? 'fail' : 'pass',
-    message: overStock.length > 0 ? `${overStock.length} item(s) exceed available stock` : 'Stock sufficient',
+    message:
+      overStock.length > 0
+        ? `${overStock.length} item(s) exceed available stock`
+        : 'Stock sufficient',
   });
 
   const totalComputedGst = input.cgstTotal + input.sgstTotal + input.igstTotal + input.cessTotal;
-  const totalItemGst = input.items.reduce((s, i) => s + i.cgstAmount + i.sgstAmount + i.igstAmount + i.cessAmount, 0);
+  const totalItemGst = input.items.reduce(
+    (s, i) => s + i.cgstAmount + i.sgstAmount + i.igstAmount + i.cessAmount,
+    0,
+  );
   validations.push({
     field: 'gst_mismatch',
     status: Math.abs(totalComputedGst - totalItemGst) > 0.01 ? 'fail' : 'pass',
-    message: Math.abs(totalComputedGst - totalItemGst) > 0.01
-      ? `GST mismatch: header ${totalComputedGst} vs items ${totalItemGst}`
-      : 'GST values match',
+    message:
+      Math.abs(totalComputedGst - totalItemGst) > 0.01
+        ? `GST mismatch: header ${totalComputedGst} vs items ${totalItemGst}`
+        : 'GST values match',
   });
 
   if (input.totalPaid > input.grandTotal + 0.01) {
-    validations.push({ field: 'payment_mismatch', status: 'warn', message: `Overpayment: paid ${formatINR(input.totalPaid)} > grand total ${formatINR(input.grandTotal)}` });
+    validations.push({
+      field: 'payment_mismatch',
+      status: 'warn',
+      message: `Overpayment: paid ${formatINR(input.totalPaid)} > grand total ${formatINR(input.grandTotal)}`,
+    });
   } else if (input.totalPaid > 0 && input.totalPaid < input.grandTotal) {
-    validations.push({ field: 'payment_mismatch', status: 'warn', message: `Partial payment: paid ${formatINR(input.totalPaid)} of ${formatINR(input.grandTotal)}` });
+    validations.push({
+      field: 'payment_mismatch',
+      status: 'warn',
+      message: `Partial payment: paid ${formatINR(input.totalPaid)} of ${formatINR(input.grandTotal)}`,
+    });
   } else {
-    validations.push({ field: 'payment_mismatch', status: 'pass', message: 'Payment matches invoice total' });
+    validations.push({
+      field: 'payment_mismatch',
+      status: 'pass',
+      message: 'Payment matches invoice total',
+    });
   }
 
   // ── 2. Accounting Journal ─────────────────────────
@@ -237,112 +264,274 @@ export function preparePostingPayload(input: PreparePostingInput): PostingPayloa
   const taxableAmount = input.taxableAfterDiscount;
   const totalGst = input.cgstTotal + input.sgstTotal + input.igstTotal + input.cessTotal;
   const receivableAmount = taxableAmount + totalGst;
-  const cashAmount = input.paymentSplits.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0);
-  const bankAmount = input.paymentSplits.filter(p =>
-    ['bank_transfer', 'neft', 'rtgs', 'imps', 'cheque', 'card', 'upi'].includes(p.method),
-  ).reduce((s, p) => s + p.amount, 0);
+  const cashAmount = input.paymentSplits
+    .filter((p) => p.method === 'cash')
+    .reduce((s, p) => s + p.amount, 0);
+  const bankAmount = input.paymentSplits
+    .filter((p) =>
+      ['bank_transfer', 'neft', 'rtgs', 'imps', 'cheque', 'card', 'upi'].includes(p.method),
+    )
+    .reduce((s, p) => s + p.amount, 0);
 
   if (cashAmount === 0 && bankAmount === 0) {
-    entries.push({ accountName: `${input.customerName} - Sundry Debtor`, accountType: 'debit', amount: receivableAmount, narration: `Sales invoice ${input.invoiceNumber}` });
+    entries.push({
+      accountName: `${input.customerName} - Sundry Debtor`,
+      accountType: 'debit',
+      amount: receivableAmount,
+      narration: `Sales invoice ${input.invoiceNumber}`,
+    });
   }
-  if (cashAmount > 0) entries.push({ accountName: 'Cash Account', accountType: 'debit', amount: cashAmount, narration: `Cash payment for ${input.invoiceNumber}` });
-  if (bankAmount > 0) entries.push({ accountName: 'Bank Account', accountType: 'debit', amount: bankAmount, narration: `Bank payment for ${input.invoiceNumber}` });
-  entries.push({ accountName: 'Sales Account', accountType: 'credit', amount: taxableAmount, narration: `Sales - ${input.invoiceNumber}` });
-  if (input.cgstTotal > 0) entries.push({ accountName: 'CGST Output Account', accountType: 'credit', amount: input.cgstTotal, narration: `CGST on ${input.invoiceNumber}` });
-  if (input.sgstTotal > 0) entries.push({ accountName: 'SGST Output Account', accountType: 'credit', amount: input.sgstTotal, narration: `SGST on ${input.invoiceNumber}` });
-  if (input.igstTotal > 0) entries.push({ accountName: 'IGST Output Account', accountType: 'credit', amount: input.igstTotal, narration: `IGST on ${input.invoiceNumber}` });
-  if (input.cessTotal > 0) entries.push({ accountName: 'CESS Output Account', accountType: 'credit', amount: input.cessTotal, narration: `CESS on ${input.invoiceNumber}` });
-  if (input.itemDiscountTotal > 0) entries.push({ accountName: 'Discount Allowed Account', accountType: 'debit', amount: input.itemDiscountTotal, narration: `Discount on ${input.invoiceNumber}` });
+  if (cashAmount > 0) {
+    entries.push({
+      accountName: 'Cash Account',
+      accountType: 'debit',
+      amount: cashAmount,
+      narration: `Cash payment for ${input.invoiceNumber}`,
+    });
+  }
+  if (bankAmount > 0) {
+    entries.push({
+      accountName: 'Bank Account',
+      accountType: 'debit',
+      amount: bankAmount,
+      narration: `Bank payment for ${input.invoiceNumber}`,
+    });
+  }
+  entries.push({
+    accountName: 'Sales Account',
+    accountType: 'credit',
+    amount: taxableAmount,
+    narration: `Sales - ${input.invoiceNumber}`,
+  });
+  if (input.cgstTotal > 0) {
+    entries.push({
+      accountName: 'CGST Output Account',
+      accountType: 'credit',
+      amount: input.cgstTotal,
+      narration: `CGST on ${input.invoiceNumber}`,
+    });
+  }
+  if (input.sgstTotal > 0) {
+    entries.push({
+      accountName: 'SGST Output Account',
+      accountType: 'credit',
+      amount: input.sgstTotal,
+      narration: `SGST on ${input.invoiceNumber}`,
+    });
+  }
+  if (input.igstTotal > 0) {
+    entries.push({
+      accountName: 'IGST Output Account',
+      accountType: 'credit',
+      amount: input.igstTotal,
+      narration: `IGST on ${input.invoiceNumber}`,
+    });
+  }
+  if (input.cessTotal > 0) {
+    entries.push({
+      accountName: 'CESS Output Account',
+      accountType: 'credit',
+      amount: input.cessTotal,
+      narration: `CESS on ${input.invoiceNumber}`,
+    });
+  }
+  if (input.itemDiscountTotal > 0) {
+    entries.push({
+      accountName: 'Discount Allowed Account',
+      accountType: 'debit',
+      amount: input.itemDiscountTotal,
+      narration: `Discount on ${input.invoiceNumber}`,
+    });
+  }
 
   const roundOff = input.roundOff;
   if (Math.abs(roundOff) > 0.005) {
-    if (roundOff > 0) entries.push({ accountName: 'Round Off Account', accountType: 'credit', amount: Math.abs(roundOff), narration: `Round off - ${input.invoiceNumber}` });
-    else entries.push({ accountName: 'Round Off Account', accountType: 'debit', amount: Math.abs(roundOff), narration: `Round off - ${input.invoiceNumber}` });
+    if (roundOff > 0) {
+      entries.push({
+        accountName: 'Round Off Account',
+        accountType: 'credit',
+        amount: Math.abs(roundOff),
+        narration: `Round off - ${input.invoiceNumber}`,
+      });
+    } else {
+      entries.push({
+        accountName: 'Round Off Account',
+        accountType: 'debit',
+        amount: Math.abs(roundOff),
+        narration: `Round off - ${input.invoiceNumber}`,
+      });
+    }
   }
 
-  const totalDebit = Math.round(entries.filter(e => e.accountType === 'debit').reduce((s, e) => s + e.amount, 0) * 100) / 100;
-  const totalCredit = Math.round(entries.filter(e => e.accountType === 'credit').reduce((s, e) => s + e.amount, 0) * 100) / 100;
+  const totalDebit =
+    Math.round(
+      entries.filter((e) => e.accountType === 'debit').reduce((s, e) => s + e.amount, 0) * 100,
+    ) / 100;
+  const totalCredit =
+    Math.round(
+      entries.filter((e) => e.accountType === 'credit').reduce((s, e) => s + e.amount, 0) * 100,
+    ) / 100;
 
   const accounting: JournalPayload = {
-    entryNumber, entryDate: input.invoiceDate, voucherNumber: input.invoiceNumber,
-    voucherType: 'sales_invoice', narration: `Journal entry for sales invoice ${input.invoiceNumber}`,
-    entries, totalDebit, totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 0.01,
+    entryNumber,
+    entryDate: input.invoiceDate,
+    voucherNumber: input.invoiceNumber,
+    voucherType: 'sales_invoice',
+    narration: `Journal entry for sales invoice ${input.invoiceNumber}`,
+    entries,
+    totalDebit,
+    totalCredit,
+    balanced: Math.abs(totalDebit - totalCredit) < 0.01,
   };
 
   // ── 3. Customer Ledger ────────────────────────────
   const customerLedger: CustomerLedgerPayload = {
-    customerId: input.customerId, customerName: input.customerName,
-    openingBalance: 0, invoiceAmount: input.grandTotal, paymentAmount: input.totalPaid,
-    outstanding: input.balance, closingBalance: input.balance, runningBalance: input.balance,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    openingBalance: 0,
+    invoiceAmount: input.grandTotal,
+    paymentAmount: input.totalPaid,
+    outstanding: input.balance,
+    closingBalance: input.balance,
+    runningBalance: input.balance,
   };
 
   // ── 4. Stock Posting ──────────────────────────────
   const costMethod = getCostMethod(input.grandTotal);
-  const stockPostings: StockPostingPayload[] = input.items.map(item => ({
-    itemId: item.productId, productName: item.productName, sku: item.sku,
-    warehouse: item.warehouse || 'Main', quantity: item.quantity,
-    batchNo: item.batchNo || '—', expiryDate: item.expiryDate || '—',
-    costMethod, unitCost: Math.round(item.rate * 0.7 * 100) / 100,
+  const stockPostings: StockPostingPayload[] = input.items.map((item) => ({
+    itemId: item.productId,
+    productName: item.productName,
+    sku: item.sku,
+    warehouse: item.warehouse || 'Main',
+    quantity: item.quantity,
+    batchNo: item.batchNo || '—',
+    expiryDate: item.expiryDate || '—',
+    costMethod,
+    unitCost: Math.round(item.rate * 0.7 * 100) / 100,
     totalCost: Math.round(item.rate * 0.7 * item.quantity * 100) / 100,
     closingQty: Math.max(0, (item.availableStock || 0) - item.quantity),
   }));
 
   // ── 5. Batch Management ───────────────────────────
   const batchManagement: BatchManagementPayload[] = input.items
-    .filter(item => item.batchNo)
-    .map(item => {
+    .filter((item) => item.batchNo)
+    .map((item) => {
       const openingQty = item.availableStock || 0;
       const soldQty = item.quantity;
       const closingQty = Math.max(0, openingQty - soldQty);
       let status: 'healthy' | 'expiring_soon' | 'expired' = 'healthy';
       if (item.expiryDate) {
-        const daysUntilExpiry = Math.ceil((new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        if (daysUntilExpiry <= 0) status = 'expired';
-        else if (daysUntilExpiry <= 90) status = 'expiring_soon';
+        const daysUntilExpiry = Math.ceil(
+          (new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+        );
+        if (daysUntilExpiry <= 0) {
+          status = 'expired';
+        } else if (daysUntilExpiry <= 90) {
+          status = 'expiring_soon';
+        }
       }
-      return { batchNo: item.batchNo, expiryDate: item.expiryDate || '—', mfgDate: '—', openingQty, soldQty, closingQty, status };
+      return {
+        batchNo: item.batchNo,
+        expiryDate: item.expiryDate || '—',
+        mfgDate: '—',
+        openingQty,
+        soldQty,
+        closingQty,
+        status,
+      };
     });
 
   // ── 6. Costing ────────────────────────────────────
-  const costing: CostingPayload[] = input.items.map(item => {
+  const costing: CostingPayload[] = input.items.map((item) => {
     const unitCost = Math.round(item.rate * 0.7 * 100) / 100;
     const totalRevenue = item.amount;
     const totalCost = unitCost * item.quantity;
     const grossMargin = totalRevenue - totalCost;
-    const grossMarginPercent = totalRevenue > 0 ? Math.round((grossMargin / totalRevenue) * 10000) / 100 : 0;
-    return { method: costMethod, itemId: item.productId, productName: item.productName, sellingRate: item.rate, unitCost, quantity: item.quantity, totalRevenue, totalCost, grossMargin, grossMarginPercent };
+    const grossMarginPercent =
+      totalRevenue > 0 ? Math.round((grossMargin / totalRevenue) * 10000) / 100 : 0;
+    return {
+      method: costMethod,
+      itemId: item.productId,
+      productName: item.productName,
+      sellingRate: item.rate,
+      unitCost,
+      quantity: item.quantity,
+      totalRevenue,
+      totalCost,
+      grossMargin,
+      grossMarginPercent,
+    };
   });
 
   // ── 7. Audit Log ──────────────────────────────────
   const auditLog: AuditLogPayload = {
-    event: 'invoice_posted', userId: input.userId || 'system', userName: input.userEmail || 'System',
-    oldValue: 'draft', newValue: input.status, ip: '127.0.0.1', device: 'Web Browser', timestamp,
+    event: 'invoice_posted',
+    userId: input.userId || 'system',
+    userName: input.userEmail || 'System',
+    oldValue: 'draft',
+    newValue: input.status,
+    ip: '127.0.0.1',
+    device: 'Web Browser',
+    timestamp,
   };
 
   // ── 8. Approval ───────────────────────────────────
-  const hasFailures = validations.some(v => v.status === 'fail');
+  const hasFailures = validations.some((v) => v.status === 'fail');
   const approval: ApprovalPayload = {
-    documentType: 'sales_invoice', documentId: input.invoiceNumber,
+    documentType: 'sales_invoice',
+    documentId: input.invoiceNumber,
     status: hasFailures ? 'pending' : input.status === 'posted' ? 'posted' : 'pending',
-    requestedBy: input.userId || 'system', approvedBy: '', comments: hasFailures ? 'Pending approval' : 'Auto-approved',
+    requestedBy: input.userId || 'system',
+    approvedBy: '',
+    comments: hasFailures ? 'Pending approval' : 'Auto-approved',
     approvalLevel: hasFailures ? 2 : 1,
   };
 
   // ── 9. Events ─────────────────────────────────────
   const events: EventPayload[] = [
-    { event: 'created', invoiceNumber: input.invoiceNumber, customerId: input.customerId, grandTotal: input.grandTotal, timestamp: input.invoiceDate, triggeredBy: input.userId || 'system' },
-    ...(input.status === 'posted' ? [{ event: 'posted' as const, invoiceNumber: input.invoiceNumber, customerId: input.customerId, grandTotal: input.grandTotal, timestamp, triggeredBy: input.userId || 'system' }] : []),
+    {
+      event: 'created',
+      invoiceNumber: input.invoiceNumber,
+      customerId: input.customerId,
+      grandTotal: input.grandTotal,
+      timestamp: input.invoiceDate,
+      triggeredBy: input.userId || 'system',
+    },
+    ...(input.status === 'posted'
+      ? [
+          {
+            event: 'posted' as const,
+            invoiceNumber: input.invoiceNumber,
+            customerId: input.customerId,
+            grandTotal: input.grandTotal,
+            timestamp,
+            triggeredBy: input.userId || 'system',
+          },
+        ]
+      : []),
   ];
 
-  const canPost = validations.filter(v => v.status === 'fail').length === 0;
+  const canPost = validations.filter((v) => v.status === 'fail').length === 0;
 
   return {
-    invoiceId: input.invoiceNumber, invoiceNumber: input.invoiceNumber,
-    customerId: input.customerId, customerName: input.customerName,
-    invoiceDate: input.invoiceDate, grandTotal: input.grandTotal,
+    invoiceId: input.invoiceNumber,
+    invoiceNumber: input.invoiceNumber,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    invoiceDate: input.invoiceDate,
+    grandTotal: input.grandTotal,
     status: input.status,
-    validations, accounting, customerLedger, stockPostings, batchManagement, costing,
-    auditLog, approval, events, timestamp, canPost,
+    validations,
+    accounting,
+    customerLedger,
+    stockPostings,
+    batchManagement,
+    costing,
+    auditLog,
+    approval,
+    events,
+    timestamp,
+    canPost,
   };
 }
 
@@ -350,7 +539,10 @@ export function preparePostingPayload(input: PreparePostingInput): PostingPayloa
  * Trigger actual posting via backend API.
  * POST /api/v1/sales/invoices/:id/post
  */
-export async function triggerPosting(invoiceId: string, postingPayload: PostingPayload): Promise<TriggerPostingResult> {
+export async function triggerPosting(
+  invoiceId: string,
+  postingPayload: PostingPayload,
+): Promise<TriggerPostingResult> {
   return apiRequest<TriggerPostingResult>(`/sales/invoices/${invoiceId}/post`, {
     method: 'POST',
     body: JSON.stringify({ payload: postingPayload }),

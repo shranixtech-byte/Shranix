@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft, Building2, ChevronRight, X, UserCheck } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Check, ChevronDown, ChevronRight, X, UserCheck } from 'lucide-react';
+import { z } from 'zod';
 
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { Button } from '@/components/ui/Button';
@@ -11,72 +11,27 @@ import { FormCard } from '@/components/ui/FormCard';
 import { FormInput } from '@/components/ui/FormInput';
 import { FormSelect } from '@/components/ui/FormSelect';
 import { FormTextarea } from '@/components/ui/FormTextarea';
-import { apiRequest } from '@/services/api-client';
-import { cn } from '@/lib/utils';
-import { CustomerSelectionScreen, type CustomerRecord } from './customer-selection-screen';
-import { ProductSelectionScreen, type InvoiceLineItem } from './product-selection-screen';
-import { DiscountEngineScreen } from './discount-engine-screen';
-import { TaxPaymentEngineScreen } from './tax-payment-engine-screen';
-import { InvoicePostingEngineScreen } from './invoice-posting-engine-screen';
-import { InvoiceDocumentEngineScreen } from './invoice-document-engine-screen';
-import { InvoicePostingStep8Screen } from './invoice-posting-step8-screen';
 import { buildInvoicePayload, createSalesInvoice } from '@/services/sales.service';
 
-// ═════════════════════════════════════════════════════════
-// CONSTANTS
-// ═════════════════════════════════════════════════════════
+import { CustomerSelectionScreen, type CustomerRecord } from './customer-selection-screen';
+import { DiscountEngineScreen } from './discount-engine-screen';
+import {
+  CustomerCombobox,
+  INDIAN_STATES,
+  PAYMENT_TERMS,
+  computeDueDate,
+  computeFinancialYear,
+  fetchNextInvoiceNumber,
+} from './invoice-common';
+import { InvoiceDocumentEngineScreen } from './invoice-document-engine-screen';
+import { InvoicePostingEngineScreen } from './invoice-posting-engine-screen';
+import { InvoicePostingStep8Screen } from './invoice-posting-step8-screen';
+import { ProductSelectionScreen, type InvoiceLineItem } from './product-selection-screen';
+import { TaxPaymentEngineScreen } from './tax-payment-engine-screen';
 
-const INVOICE_PREFIX = 'INV'; // Configurable — read from settings later
-
-const INDIAN_STATES = [
-  { label: 'Andhra Pradesh', value: 'AP' },
-  { label: 'Arunachal Pradesh', value: 'AR' },
-  { label: 'Assam', value: 'AS' },
-  { label: 'Bihar', value: 'BR' },
-  { label: 'Chhattisgarh', value: 'CG' },
-  { label: 'Goa', value: 'GA' },
-  { label: 'Gujarat', value: 'GJ' },
-  { label: 'Haryana', value: 'HR' },
-  { label: 'Himachal Pradesh', value: 'HP' },
-  { label: 'Jharkhand', value: 'JH' },
-  { label: 'Karnataka', value: 'KA' },
-  { label: 'Kerala', value: 'KL' },
-  { label: 'Madhya Pradesh', value: 'MP' },
-  { label: 'Maharashtra', value: 'MH' },
-  { label: 'Manipur', value: 'MN' },
-  { label: 'Meghalaya', value: 'ML' },
-  { label: 'Mizoram', value: 'MZ' },
-  { label: 'Nagaland', value: 'NL' },
-  { label: 'Odisha', value: 'OD' },
-  { label: 'Punjab', value: 'PB' },
-  { label: 'Rajasthan', value: 'RJ' },
-  { label: 'Sikkim', value: 'SK' },
-  { label: 'Tamil Nadu', value: 'TN' },
-  { label: 'Telangana', value: 'TS' },
-  { label: 'Tripura', value: 'TR' },
-  { label: 'Uttar Pradesh', value: 'UP' },
-  { label: 'Uttarakhand', value: 'UK' },
-  { label: 'West Bengal', value: 'WB' },
-  { label: 'Andaman & Nicobar', value: 'AN' },
-  { label: 'Chandigarh', value: 'CH' },
-  { label: 'Dadra & Nagar Haveli', value: 'DN' },
-  { label: 'Daman & Diu', value: 'DD' },
-  { label: 'Delhi', value: 'DL' },
-  { label: 'Jammu & Kashmir', value: 'JK' },
-  { label: 'Ladakh', value: 'LA' },
-  { label: 'Lakshadweep', value: 'LD' },
-  { label: 'Puducherry', value: 'PY' },
-] as const satisfies readonly { label: string; value: string }[];
-
-const PAYMENT_TERMS = [
-  { label: 'Cash', value: 'cash' },
-  { label: 'Credit', value: 'credit' },
-  { label: '7 Days', value: '7_days' },
-  { label: '15 Days', value: '15_days' },
-  { label: '30 Days', value: '30_days' },
-  { label: '45 Days', value: '45_days' },
-  { label: 'Custom', value: 'custom' },
-] as const satisfies readonly { label: string; value: string }[];
+// Re-export shared combobox + types for backwards compatibility
+// (keeps any existing `import { CustomerCombobox } from './create-invoice-page'` working)
+export { CustomerCombobox, type CustomerOption } from './invoice-common';
 
 // ═════════════════════════════════════════════════════════
 // ZOD SCHEMA
@@ -104,350 +59,6 @@ const invoiceSchema = z.object({
 });
 
 export type InvoiceFormData = z.infer<typeof invoiceSchema>;
-
-// ═════════════════════════════════════════════════════════
-// HELPERS
-// ═════════════════════════════════════════════════════════
-
-const DAYS_MAP: Record<string, number> = {
-  cash: 0,
-  credit: 30,
-  '7_days': 7,
-  '15_days': 15,
-  '30_days': 30,
-  '45_days': 45,
-  custom: 0,
-};
-
-function computeFinancialYear(dateStr: string): string {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  if (month >= 4) {
-    return `${year}-${year + 1}`;
-  }
-  return `${year - 1}-${year}`;
-}
-
-function computeDueDate(dateStr: string, paymentTerm: string): string {
-  if (!dateStr || !paymentTerm) return '';
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '';
-  const days = paymentTerm in DAYS_MAP ? DAYS_MAP[paymentTerm] : 30;
-  if (days === 0) return dateStr;
-  const due = new Date(date);
-  due.setDate(due.getDate() + days);
-  return due.toISOString().split('T')[0];
-}
-
-/** Generate unique invoice number with timestamp suffix to prevent duplicates. */
-function generateInvoiceNumber(dateStr: string): string {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  // Use timestamp + random for uniqueness (no module-level counter)
-  const ts = Date.now().toString(36).slice(-5).toUpperCase();
-  const rand = Math.random().toString(36).slice(2, 5).toUpperCase();
-  return `${INVOICE_PREFIX}-${year}-${ts}${rand}`;
-}
-
-const CUSTOMER_MIN_SEARCH = 1;
-
-// ═════════════════════════════════════════════════════════
-// CUSTOMER COMBOBOX
-// ═════════════════════════════════════════════════════════
-
-interface CustomerOption {
-  id: string;
-  name: string;
-  gstin?: string;
-  city?: string;
-}
-
-interface CustomerComboboxProps {
-  value: string;
-  onChange: (id: string, name?: string) => void;
-  error?: string;
-}
-
-function CustomerCombobox({ value, onChange, error }: CustomerComboboxProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [shouldFetch, setShouldFetch] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const comboId = useRef(`customer-combo-${Math.random().toString(36).slice(2)}`);
-
-  // Persist the selected customer record so it shows even when not in current results
-  const [selectedCustomerRecord, setSelectedCustomerRecord] = useState<CustomerOption | null>(null);
-
-  // Update selectedCustomerRecord when value changes
-  useEffect(() => {
-    if (value) {
-      const found = customers.find((c) => c.id === value);
-      if (found) {
-        setSelectedCustomerRecord(found);
-      }
-    } else {
-      setSelectedCustomerRecord(null);
-    }
-  }, [value, customers]);
-
-  // Fetch customers only when shouldFetch is true (dropdown opened or search triggered)
-  useEffect(() => {
-    if (!shouldFetch) return;
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ page: '1', pageSize: '50' });
-        if (search.length >= CUSTOMER_MIN_SEARCH) {
-          params.set('search', search);
-        }
-        const res = await apiRequest<{ data: CustomerOption[] }>(`/customers?${params}`);
-        const list = Array.isArray(res) ? res : res?.data ?? [];
-        setCustomers(list);
-        setHighlightedIndex(-1);
-      } catch {
-        setCustomers([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, shouldFetch]);
-
-  const handleOpen = useCallback(() => {
-    setIsOpen(true);
-    setShouldFetch(true);
-    // Focus input after state update
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
-
-  const handleClose = useCallback(() => {
-    setIsOpen(false);
-    setSearch('');
-    setHighlightedIndex(-1);
-    inputRef.current?.blur();
-    // Keep shouldFetch true so results persist while closed (avoid flash)
-  }, []);
-
-  const handleSelect = useCallback(
-    (customer: CustomerOption) => {
-      onChange(customer.id, customer.name);
-      setSelectedCustomerRecord(customer);
-      setSearch('');
-      setIsOpen(false);
-      setHighlightedIndex(-1);
-      inputRef.current?.blur();
-    },
-    [onChange],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!isOpen) {
-        if (e.key === 'ArrowDown' || e.key === 'Enter') {
-          e.preventDefault();
-          handleOpen();
-        }
-        return;
-      }
-
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setHighlightedIndex((prev) =>
-            prev < customers.length - 1 ? prev + 1 : 0,
-          );
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setHighlightedIndex((prev) =>
-            prev > 0 ? prev - 1 : customers.length - 1,
-          );
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (highlightedIndex >= 0 && customers[highlightedIndex]) {
-            handleSelect(customers[highlightedIndex]);
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          handleClose();
-          break;
-        case 'Tab':
-          // Close on tab away
-          handleClose();
-          break;
-      }
-    },
-    [isOpen, customers, highlightedIndex, handleSelect, handleOpen, handleClose],
-  );
-
-  // Scroll highlighted item into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && listRef.current) {
-      const item = listRef.current.children[highlightedIndex] as HTMLElement | undefined;
-      item?.scrollIntoView({ block: 'nearest' });
-    }
-  }, [highlightedIndex]);
-
-  // Determine display name — fall back to selectedCustomerRecord if not in current results
-  const displayName = useMemo(() => {
-    if (!value) return null;
-    const fromCurrent = customers.find((c) => c.id === value);
-    return fromCurrent?.name ?? selectedCustomerRecord?.name ?? null;
-  }, [value, customers, selectedCustomerRecord]);
-
-  return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={comboId.current}
-        className="block text-sm font-medium text-slate-700 dark:text-slate-300"
-      >
-        Customer <span className="ml-0.5 text-red-500">*</span>
-      </label>
-      <div className="relative">
-        {/* Trigger / Input */}
-        <div
-          className={cn(
-            'flex h-[42px] w-full cursor-pointer items-center rounded-xl border bg-white px-3.5 text-sm transition-all duration-150',
-            'dark:bg-slate-800 dark:border-slate-600',
-            error
-              ? 'border-red-400 dark:border-red-500'
-              : 'border-slate-200',
-            isOpen && 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-400 dark:ring-emerald-400/20',
-          )}
-          onClick={handleOpen}
-        >
-          {isOpen ? (
-            <input
-              ref={inputRef}
-              id={comboId.current}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onBlur={() => setTimeout(handleClose, 200)}
-              placeholder={displayName ?? 'Search customer...'}
-              className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-              autoComplete="off"
-              aria-expanded={isOpen}
-              aria-autocomplete="list"
-              aria-controls={`${comboId.current}-list`}
-              aria-activedescendant={
-                highlightedIndex >= 0
-                  ? `${comboId.current}-option-${highlightedIndex}`
-                  : undefined
-              }
-              role="combobox"
-            />
-          ) : (
-            <span
-              className={cn(
-                'flex-1 truncate',
-                displayName
-                  ? 'text-slate-900 dark:text-slate-100'
-                  : 'text-slate-400 dark:text-slate-500',
-              )}
-            >
-              {displayName ?? 'Search customer...'}
-            </span>
-          )}
-          <span className="ml-2 shrink-0 text-slate-400">
-            {loading ? (
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-label="Loading customers">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </span>
-        </div>
-
-        {/* Dropdown */}
-        {isOpen && (
-          <div
-            id={`${comboId.current}-list`}
-            ref={listRef}
-            role="listbox"
-            aria-label="Customer list"
-            className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-black/5 dark:border-slate-600 dark:bg-slate-800"
-          >
-            {loading && customers.length === 0 && (
-              <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-slate-400">
-                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Loading customers...
-              </div>
-            )}
-            {!loading && customers.length === 0 && (
-              <div className="flex flex-col items-center gap-2 px-3 py-8 text-center text-sm text-slate-400">
-                <Building2 className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-                <span>No customers found</span>
-              </div>
-            )}
-            {customers.map((customer, index) => {
-              const isSelected = customer.id === value;
-              const isHighlighted = index === highlightedIndex;
-              return (
-                <button
-                  key={customer.id}
-                  id={`${comboId.current}-option-${index}`}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
-                    isHighlighted
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700',
-                    isSelected && 'bg-emerald-50 dark:bg-emerald-900/20',
-                  )}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleSelect(customer);
-                  }}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-                    {customer.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{customer.name}</p>
-                    {(customer.gstin || customer.city) && (
-                      <p className="truncate text-xs text-slate-400">
-                        {[customer.gstin, customer.city].filter(Boolean).join(' · ')}
-                      </p>
-                    )}
-                  </div>
-                  {isSelected && (
-                    <Check className="h-4 w-4 shrink-0 text-emerald-500" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      {error && (
-        <p id={`${comboId.current}-error`} className="text-xs text-red-500" role="alert">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ═════════════════════════════════════════════════════════
 // CREATE SALES INVOICE PAGE
@@ -488,16 +99,27 @@ export function CreateSalesInvoicePage() {
   const paymentTerms = watch('paymentTerms');
 
   // Auto-compute financial year, due date, and invoice number
+  // Number backend se aata hai: cash → SLCA26-001, credit (7/15/30/45 days, custom) → SLCR26-001
   useEffect(() => {
-    if (invoiceDate) {
-      const parsed = new Date(invoiceDate);
-      if (!isNaN(parsed.getTime())) {
-        setValue('financialYear', computeFinancialYear(invoiceDate));
-        const invNum = generateInvoiceNumber(invoiceDate);
-        setValue('invoiceNumber', invNum);
-      }
+    if (!invoiceDate) {
+      return;
     }
-  }, [invoiceDate, setValue]);
+    const parsed = new Date(invoiceDate);
+    if (isNaN(parsed.getTime())) {
+      return;
+    }
+    setValue('financialYear', computeFinancialYear(invoiceDate));
+    let cancelled = false;
+    const ptype = !paymentTerms || paymentTerms === 'cash' ? 'cash' : 'credit';
+    fetchNextInvoiceNumber(invoiceDate, ptype).then((num) => {
+      if (!cancelled) {
+        setValue('invoiceNumber', num);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [invoiceDate, paymentTerms, setValue]);
 
   // Auto-compute due date only for non-custom payment terms
   useEffect(() => {
@@ -536,8 +158,12 @@ export function CreateSalesInvoicePage() {
     (customer: CustomerRecord) => {
       setValue('customerId', customer.id);
       setValue('customerName', customer.name);
-      if (customer.city) setValue('placeOfSupply', customer.state || '');
-      if (customer.address) setValue('billingAddress', customer.address);
+      if (customer.city) {
+        setValue('placeOfSupply', customer.state || '');
+      }
+      if (customer.address) {
+        setValue('billingAddress', customer.address);
+      }
       setStep(3);
     },
     [setValue],
@@ -553,10 +179,7 @@ export function CreateSalesInvoicePage() {
   // ── Step 2: Customer Selection Screen ──────────────
   if (step === 2) {
     return (
-      <CustomerSelectionScreen
-        onSelect={handleCustomerSelected}
-        onCancel={() => setStep(1)}
-      />
+      <CustomerSelectionScreen onSelect={handleCustomerSelected} onCancel={() => setStep(1)} />
     );
   }
 
@@ -595,8 +218,14 @@ export function CreateSalesInvoicePage() {
         onItemsChange={setInvoiceItems}
         onComplete={(finalItems, discountState) => {
           // Calculate post-discount values
-          const itemsDiscount = finalItems.reduce((s, i) => s + (i.quantity * i.rate - i.taxableAmount), 0);
-          const gstTotal = finalItems.reduce((s, i) => s + i.cgstAmount + i.sgstAmount + i.igstAmount + i.cessAmount, 0);
+          const itemsDiscount = finalItems.reduce(
+            (s, i) => s + (i.quantity * i.rate - i.taxableAmount),
+            0,
+          );
+          const gstTotal = finalItems.reduce(
+            (s, i) => s + i.cgstAmount + i.sgstAmount + i.igstAmount + i.cessAmount,
+            0,
+          );
           const netAfterItems = finalItems.reduce((s, i) => s + i.amount, 0);
           // Apply invoice-level discount
           let invoiceDisc = 0;
@@ -607,7 +236,7 @@ export function CreateSalesInvoicePage() {
           } else if (discountState.invoiceDiscountMode === 'custom') {
             invoiceDisc = discountState.invoiceCustomAmount;
           }
-          const taxableLessDiscount = (netAfterItems - gstTotal) - invoiceDisc;
+          const taxableLessDiscount = netAfterItems - gstTotal - invoiceDisc;
           setInvoiceItems(finalItems);
           setItemDiscountTotal(itemsDiscount + invoiceDisc);
           setTaxableAfterDiscount(Math.max(0, taxableLessDiscount));
@@ -660,52 +289,66 @@ export function CreateSalesInvoicePage() {
     const igstTotal = invoiceItems.reduce((s, i) => s + i.igstAmount, 0);
     const cessTotal = invoiceItems.reduce((s, i) => s + i.cessAmount, 0);
     const roundOff = 0;
-    const grandTotal = taxableAfterDiscount + cgstTotal + sgstTotal + igstTotal + cessTotal + roundOff;
+    const grandTotal =
+      taxableAfterDiscount + cgstTotal + sgstTotal + igstTotal + cessTotal + roundOff;
     const roundedGrandTotal = Math.round(grandTotal);
 
-    const handleSaveToBackend = useCallback(async (
-      _payload: any,
-      action: 'draft' | 'post',
-    ) => {
-      const invoicePayload = buildInvoicePayload({
-        invoiceNumber: getValues('invoiceNumber') || '',
-        invoiceDate: getValues('invoiceDate') || '',
-        financialYear: getValues('financialYear') || '',
-        customerId: getValues('customerId') || '',
-        placeOfSupply: customerState,
-        billingAddress: getValues('billingAddress') || '',
-        salesPerson: getValues('salesPerson') || '',
-        notes: getValues('notes') || '',
-        paymentTerms: getValues('paymentTerms') || '',
-        dueDate: getValues('dueDate') || '',
-        items: invoiceItems,
+    const handleSaveToBackend = useCallback(
+      async (_payload: any, action: 'draft' | 'post') => {
+        const invoicePayload = buildInvoicePayload({
+          invoiceNumber: getValues('invoiceNumber') || '',
+          invoiceDate: getValues('invoiceDate') || '',
+          financialYear: getValues('financialYear') || '',
+          customerId: getValues('customerId') || '',
+          placeOfSupply: customerState,
+          billingAddress: getValues('billingAddress') || '',
+          salesPerson: getValues('salesPerson') || '',
+          notes: getValues('notes') || '',
+          paymentTerms: getValues('paymentTerms') || '',
+          dueDate: getValues('dueDate') || '',
+          items: invoiceItems,
+          grossTotal,
+          itemDiscountTotal,
+          taxableAfterDiscount,
+          gstCategory: step5Data?.gstCategory ?? 'intrastate',
+          cessType: step5Data?.cessType ?? 'percentage',
+          cessValue: step5Data?.cessValue ?? 0,
+          customerGstin: step5Data?.gstin ?? '',
+          paymentSplits: step5Data?.paymentSplits ?? [],
+          cgstTotal,
+          sgstTotal,
+          igstTotal,
+          cessTotal,
+          roundOff: roundedGrandTotal - grandTotal,
+          grandTotal: roundedGrandTotal,
+          isInterState,
+        });
+
+        // Add status
+        const payloadWithStatus = {
+          ...invoicePayload,
+          status: action === 'post' ? 'posted' : 'draft',
+        };
+
+        await createSalesInvoice(payloadWithStatus);
+      },
+      [
+        getValues,
+        customerState,
+        invoiceItems,
         grossTotal,
         itemDiscountTotal,
         taxableAfterDiscount,
-        gstCategory: step5Data?.gstCategory ?? 'intrastate',
-        cessType: step5Data?.cessType ?? 'percentage',
-        cessValue: step5Data?.cessValue ?? 0,
-        customerGstin: step5Data?.gstin ?? '',
-        paymentSplits: step5Data?.paymentSplits ?? [],
+        step5Data,
         cgstTotal,
         sgstTotal,
         igstTotal,
         cessTotal,
-        roundOff: roundedGrandTotal - grandTotal,
-        grandTotal: roundedGrandTotal,
+        grandTotal,
+        roundedGrandTotal,
         isInterState,
-      });
-
-      // Add status
-      const payloadWithStatus = {
-        ...invoicePayload,
-        status: action === 'post' ? 'posted' : 'draft',
-      };
-
-      await createSalesInvoice(payloadWithStatus);
-    }, [getValues, customerState, invoiceItems, grossTotal, itemDiscountTotal,
-        taxableAfterDiscount, step5Data, cgstTotal, sgstTotal, igstTotal,
-        cessTotal, grandTotal, roundedGrandTotal, isInterState]);
+      ],
+    );
 
     return (
       <InvoicePostingEngineScreen
@@ -835,7 +478,7 @@ export function CreateSalesInvoicePage() {
 
   // ── Step 1: Invoice Header Form ────────────────────
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="animate-in fade-in space-y-6 duration-300">
       {/* Breadcrumb */}
       <Breadcrumb
         items={[
@@ -857,16 +500,12 @@ export function CreateSalesInvoicePage() {
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-500 dark:bg-slate-600 dark:text-slate-300">
           2
         </div>
-        <span className="text-sm text-slate-400 dark:text-slate-500">
-          Customer Selection
-        </span>
+        <span className="text-sm text-slate-400 dark:text-slate-500">Customer Selection</span>
         <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-500 dark:bg-slate-600 dark:text-slate-300">
           3
         </div>
-        <span className="text-sm text-slate-400 dark:text-slate-500">
-          Products & Items
-        </span>
+        <span className="text-sm text-slate-400 dark:text-slate-500">Products & Items</span>
       </div>
 
       {/* Header */}
@@ -889,7 +528,7 @@ export function CreateSalesInvoicePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <Button variant="secondary" onClick={handleCancel} icon={<X className="h-4 w-4" />}>
             Cancel
           </Button>
@@ -936,7 +575,7 @@ export function CreateSalesInvoicePage() {
       <form
         id="invoice-form"
         onSubmit={handleSubmit(onHeaderValidated, onError)}
-        className="grid gap-6 md:gap-8 md:grid-cols-2"
+        className="grid gap-6 md:grid-cols-2 md:gap-8"
         noValidate
       >
         {/* Left Column — Invoice Details */}
@@ -949,7 +588,7 @@ export function CreateSalesInvoicePage() {
                 value={watch('invoiceNumber')}
                 readOnly
                 disabled
-                hint={`Auto-generated — ${INVOICE_PREFIX}-YYYY-NNNNN`}
+                hint="Auto-generated — SLCA26-001 (cash) / SLCR26-001 (credit)"
               />
 
               {/* Invoice Date */}
@@ -1033,7 +672,9 @@ export function CreateSalesInvoicePage() {
                     value={field.value}
                     onChange={(id, name) => {
                       field.onChange(id);
-                      if (name) setValue('customerName', name);
+                      if (name) {
+                        setValue('customerName', name);
+                      }
                     }}
                     error={errors.customerId?.message}
                   />

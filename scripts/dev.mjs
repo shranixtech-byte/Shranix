@@ -5,7 +5,7 @@
  * then starts frontend. Prevents race conditions and port conflicts.
  */
 
-import { spawn, execSync } from 'child_process';
+import { spawn, execSync, spawnSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
@@ -32,8 +32,13 @@ function killProcessOnPort(port) {
         const pid = parts[parts.length - 1];
         if (pid && !isNaN(parseInt(pid))) {
           try {
-            execSync(`taskkill //PID ${pid} //F`, { timeout: 3000 });
-            console.log(`  Killed PID ${pid} on port ${port}`);
+            // NOTE: `taskkill /PID x /F` ko bash mein template-string se mat chalao —
+            // Git Bash `/PID` ko path samajh kar mangle kar deta hai (`//PID` error).
+            // spawnSync + args array = koi shell nahi → arguments seedhe taskkill.exe ko jaate hain.
+            const kill = spawnSync('taskkill', ['/PID', String(pid), '/F'], { timeout: 3000, stdio: 'ignore' });
+            if (kill.status === 0) {
+              console.log(`  Killed PID ${pid} on port ${port}`);
+            }
           } catch {}
         }
       }

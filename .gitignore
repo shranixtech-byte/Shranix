@@ -71,6 +71,11 @@ database/*.sqlite
 database/*.db
 database/*.db-journal
 database/pgdata/
+# Backup snapshots (VACUUM INTO copies) — kabhi commit nahi hone chiye
+**/backups/*.db
+data/backups/
+backend/data/backups/
+database/data/backups/
 
 # --- Temp & Cache ---
 .tmp/
@@ -94,6 +99,11 @@ Thumbs.db
 
 # --- Docker ---
 docker-compose.override.yml
+
+# --- Test artifacts (invoice PDF/PNG renders, DB restore snapshots) ---
+scripts/invoice-*.pdf
+scripts/invoice-*.png
+**/*.db.bak-restore-*
 
 # --- Misc ---
 *.bak

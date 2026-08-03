@@ -12,36 +12,32 @@ interface ProtectedRouteProps {
  * ProtectedRoute validates authentication on every navigation.
  * - Shows LoadingScreen while checking session
  * - Redirects to /auth/login if not authenticated
- * - Attempts token refresh if session expires
+ * - NO silent session auto-restore: a fresh page load always lands on
+ *   the login page unless an in-memory session exists from this tab
  * - Passes `from` location for post-login redirect
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, refreshSession } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
   const [checking, setChecking] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    const check = async () => {
+    const check = () => {
       if (isLoading) {
         // AuthProvider is still initializing
         return;
       }
 
-      if (isAuthenticated) {
-        setAuthenticated(true);
-        setChecking(false);
-        return;
-      }
-
-      // Try to refresh the session
-      const valid = await refreshSession();
-      setAuthenticated(valid);
+      // Only an in-memory session (from a login in this tab) grants access.
+      // We deliberately DO NOT auto-refresh the session — every app start
+      // shows the login page instead of skipping straight to the dashboard.
+      setAuthenticated(isAuthenticated);
       setChecking(false);
     };
 
     check();
-  }, [isAuthenticated, isLoading, refreshSession]);
+  }, [isAuthenticated, isLoading]);
 
   // Show loading while checking
   if (isLoading || checking) {

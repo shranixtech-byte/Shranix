@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
+import type { FormField } from '@/pages/masters/master-data-page';
 import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from './CreateEditPage';
 import { FormInput } from './FormInput';
 import { FormSelect } from './FormSelect';
 import { FormTextarea } from './FormTextarea';
-import type { FormField } from '@/pages/masters/master-data-page';
 
 export interface DynamicFormPageProps {
   title: string;
@@ -15,6 +17,11 @@ export interface DynamicFormPageProps {
   module: string;
   listPath: string;
   sectionSize?: number;
+  /** Optional async defaults loader (e.g. prefill from /finance/settings).
+   *  Returned keys that match a form field name are applied as initial values. */
+  defaultsLoader?: () => Promise<Record<string, unknown>>;
+  /** Optional banner rendered above the form (e.g. default ledger/tax hint). */
+  banner?: React.ReactNode;
 }
 
 export function DynamicFormPage({
@@ -24,6 +31,8 @@ export function DynamicFormPage({
   formFields,
   module,
   listPath,
+  defaultsLoader,
+  banner,
 }: DynamicFormPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,16 +42,47 @@ export function DynamicFormPage({
   const [loading, setLoading] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Init form with defaults ──────────────────────────
+  // ── Init form with defaults (plus optional async settings defaults) ──
   useEffect(() => {
     const defaults: Record<string, unknown> = {};
     formFields.forEach((f) => {
-      if (f.type === 'boolean') defaults[f.name] = false;
-      else if (f.type === 'number') defaults[f.name] = 0;
-      else defaults[f.name] = '';
+      if (f.type === 'boolean') {
+        defaults[f.name] = false;
+      } else if (f.type === 'number') {
+        defaults[f.name] = 0;
+      } else {
+        defaults[f.name] = '';
+      }
     });
     setForm(defaults);
-  }, [formFields]);
+    if (defaultsLoader && !isEditing) {
+      defaultsLoader()
+        .then((extra) => {
+          if (!extra || typeof extra !== 'object') {
+            return;
+          }
+          const fieldNames = new Set(formFields.map((f) => f.name));
+          setForm((prev) => {
+            const merged = { ...prev };
+            for (const [k, v] of Object.entries(extra)) {
+              // Skip keys the user already edited (value diverged from the empty default)
+              if (
+                fieldNames.has(k) &&
+                v !== undefined &&
+                v !== null &&
+                (prev[k] === undefined || prev[k] === '' || prev[k] === 0 || prev[k] === false)
+              ) {
+                merged[k] = v;
+              }
+            }
+            return merged;
+          });
+        })
+        .catch(() => {
+          // Defaults are a convenience — never block the form on their failure
+        });
+    }
+  }, [formFields, defaultsLoader, isEditing]);
 
   // ── Load existing record if editing ──────────────────
   useEffect(() => {
@@ -51,7 +91,7 @@ export function DynamicFormPage({
       apiRequest<Record<string, unknown>>(`${apiPath}/${id}`)
         .then((data) => {
           if (data && typeof data === 'object') {
-            setForm((prev) => ({ ...prev, ...data } as Record<string, unknown>));
+            setForm((prev) => ({ ...prev, ...data }) as Record<string, unknown>);
           }
         })
         .catch((err) => setError((err as Error).message))
@@ -93,9 +133,7 @@ export function DynamicFormPage({
     sections.push({
       title: `${title} Details`,
       description: 'Basic information',
-      fields: (
-        <DynamicFields fields={firstHalf} form={form} update={update} />
-      ),
+      fields: <DynamicFields fields={firstHalf} form={form} update={update} />,
     });
   }
 
@@ -103,26 +141,27 @@ export function DynamicFormPage({
     sections.push({
       title: 'Additional Information',
       description: 'Extended details',
-      fields: (
-        <DynamicFields fields={secondHalf} form={form} update={update} />
-      ),
+      fields: <DynamicFields fields={secondHalf} form={form} update={update} />,
     });
   }
 
   return (
-    <CreateEditPage
-      title={title}
-      description={description}
-      module={module}
-      listPath={listPath}
-      sections={sections}
-      isEditing={isEditing}
-      loading={loading}
-      submitting={submitting}
-      error={error}
-      onSave={handleSave}
-      onCancel={() => navigate(listPath)}
-    />
+    <div className="space-y-4">
+      {banner && <div>{banner}</div>}
+      <CreateEditPage
+        title={title}
+        description={description}
+        module={module}
+        listPath={listPath}
+        sections={sections}
+        isEditing={isEditing}
+        loading={loading}
+        submitting={submitting}
+        error={error}
+        onSave={handleSave}
+        onCancel={() => navigate(listPath)}
+      />
+    </div>
   );
 }
 
@@ -171,7 +210,10 @@ function DynamicFields({
 
         if (field.type === 'boolean') {
           return (
-            <label key={key} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-600 dark:bg-slate-800">
+            <label
+              key={key}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-600 dark:bg-slate-800"
+            >
               <input
                 type="checkbox"
                 checked={Boolean(value)}
@@ -179,8 +221,12 @@ function DynamicFields({
                 className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
               <div>
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{field.label}</p>
-                <p className="text-xs text-slate-500">{field.placeholder || `Toggle ${field.label.toLowerCase()}`}</p>
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {field.label}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {field.placeholder || `Toggle ${field.label.toLowerCase()}`}
+                </p>
               </div>
             </label>
           );
@@ -194,7 +240,9 @@ function DynamicFields({
             placeholder={field.placeholder}
             type={field.type === 'number' ? 'number' : field.type === 'email' ? 'email' : 'text'}
             value={field.type === 'number' ? String(value ?? 0) : String(value ?? '')}
-            onChange={(e) => update(field.name, field.type === 'number' ? Number(e.target.value) : e.target.value)}
+            onChange={(e) =>
+              update(field.name, field.type === 'number' ? Number(e.target.value) : e.target.value)
+            }
           />
         );
       })}

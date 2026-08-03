@@ -1,11 +1,21 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+
 import { SalesApprovalEngineService } from './approval-engine.service';
 
 export type ReturnReason =
-  | 'damaged' | 'expired' | 'wrong_item' | 'transport_damage' | 'customer_cancelled'
-  | 'quality_issue' | 'duplicate_dispatch' | 'price_difference' | 'wrong_quantity' | 'other';
+  | 'damaged'
+  | 'expired'
+  | 'wrong_item'
+  | 'transport_damage'
+  | 'customer_cancelled'
+  | 'quality_issue'
+  | 'duplicate_dispatch'
+  | 'price_difference'
+  | 'wrong_quantity'
+  | 'other';
 
 export type ReturnItemStatus = 'good' | 'damaged' | 'scrap' | 'quarantine';
 
@@ -64,7 +74,16 @@ export interface DebitNoteInput {
   originalInvoiceId: string;
   originalInvoiceNumber: string;
   debitNoteDate: string;
-  debitType: 'price_correction' | 'short_billing' | 'additional_charges' | 'tax_adjustment' | 'freight' | 'handling' | 'packing' | 'penalty' | 'interest';
+  debitType:
+    | 'price_correction'
+    | 'short_billing'
+    | 'additional_charges'
+    | 'tax_adjustment'
+    | 'freight'
+    | 'handling'
+    | 'packing'
+    | 'penalty'
+    | 'interest';
   amount: number;
   gstAmount: number;
   narration: string;
@@ -129,9 +148,15 @@ export class SalesReturnEngineService {
     const warnings: string[] = [];
     const remainingQtys: Record<string, number> = {};
 
-    if (!invoice) { return { canReturn: false, errors: ['Invoice not found'], warnings: [], remainingQtys: {} }; }
-    if (invoice.status === 'cancelled') { errors.push('Cannot return a cancelled invoice'); }
-    if (invoice.status === 'draft') { errors.push('Cannot return a draft invoice — it has not been posted'); }
+    if (!invoice) {
+      return { canReturn: false, errors: ['Invoice not found'], warnings: [], remainingQtys: {} };
+    }
+    if (invoice.status === 'cancelled') {
+      errors.push('Cannot return a cancelled invoice');
+    }
+    if (invoice.status === 'draft') {
+      errors.push('Cannot return a draft invoice — it has not been posted');
+    }
 
     // Fetch invoice items
     const invoiceItemsData = await this.database.invoiceItems.findAll({ page: 1, pageSize: 500 });
@@ -144,15 +169,25 @@ export class SalesReturnEngineService {
         continue;
       }
       const soldQty = Number(invItem.quantity || 0);
-      if (retItem.quantity <= 0) { errors.push(`Return quantity for item ${invItem.description || invItem.itemId} must be positive`); }
-      if (retItem.quantity > soldQty) { errors.push(`Cannot return ${retItem.quantity} of ${invItem.description || invItem.itemId} — only ${soldQty} sold`); }
+      if (retItem.quantity <= 0) {
+        errors.push(
+          `Return quantity for item ${invItem.description || invItem.itemId} must be positive`,
+        );
+      }
+      if (retItem.quantity > soldQty) {
+        errors.push(
+          `Cannot return ${retItem.quantity} of ${invItem.description || invItem.itemId} — only ${soldQty} sold`,
+        );
+      }
 
       // Track remaining return qty
       const alreadyReturned = await this.getReturnedQty(invoice.id, retItem.invoiceItemId);
       const remaining = soldQty - alreadyReturned;
       remainingQtys[retItem.invoiceItemId] = remaining;
       if (retItem.quantity > remaining) {
-        errors.push(`Only ${remaining} remaining to return for item ${invItem.description || invItem.itemId} — ${alreadyReturned} already returned`);
+        errors.push(
+          `Only ${remaining} remaining to return for item ${invItem.description || invItem.itemId} — ${alreadyReturned} already returned`,
+        );
       }
 
       // Batch validation
@@ -179,12 +214,17 @@ export class SalesReturnEngineService {
       const invoiceReturnIds = (existingReturns?.data || [])
         .filter((r: any) => r.invoiceId === invoiceId && r.status !== 'cancelled')
         .map((r: any) => r.id);
-      if (invoiceReturnIds.length === 0) return 0;
+      if (invoiceReturnIds.length === 0) {
+        return 0;
+      }
       const allItems = await this.database.returnItems.findAll({ page: 1, pageSize: 500 });
-      const matched = (allItems?.data || [])
-        .filter((i: any) => invoiceReturnIds.includes(i.returnId) && i.invoiceItemId === invoiceItemId);
+      const matched = (allItems?.data || []).filter(
+        (i: any) => invoiceReturnIds.includes(i.returnId) && i.invoiceItemId === invoiceItemId,
+      );
       return matched.reduce((s: number, i: any) => s + Number(i.quantity || 0), 0);
-    } catch { return 0; }
+    } catch {
+      return 0;
+    }
   }
 
   // ═════════════════════════════════════════════════════════
@@ -192,7 +232,9 @@ export class SalesReturnEngineService {
   // ═════════════════════════════════════════════════════════
   async createReturn(input: CreateReturnInput): Promise<any> {
     const invoice = await this.database.salesInvoices.findById(input.invoiceId);
-    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (!invoice) {
+      throw new NotFoundException('Invoice not found');
+    }
 
     const validation = await this.validateReturn(input.items, invoice);
     if (!validation.canReturn) {
@@ -258,7 +300,9 @@ export class SalesReturnEngineService {
           priority: grandTotal > 500000 ? 'critical' : grandTotal > 200000 ? 'high' : 'medium',
         });
       } catch (e) {
-        this.logger.warn(`Auto-approval submission failed for return ${input.returnNumber}: ${(e as Error).message}`);
+        this.logger.warn(
+          `Auto-approval submission failed for return ${input.returnNumber}: ${(e as Error).message}`,
+        );
       }
     }
 
@@ -293,10 +337,18 @@ export class SalesReturnEngineService {
       event: 'return_created',
       resource: 'sales_return',
       action: 'create',
-      details: { returnId: returnHeader.id, returnNumber: input.returnNumber, invoiceId: input.invoiceId, grandTotal, itemsCount: input.items.length },
+      details: {
+        returnId: returnHeader.id,
+        returnNumber: input.returnNumber,
+        invoiceId: input.invoiceId,
+        grandTotal,
+        itemsCount: input.items.length,
+      },
     });
 
-    this.logger.log(`Sales return ${input.returnNumber} created with credit note ${creditNoteNumber}`);
+    this.logger.log(
+      `Sales return ${input.returnNumber} created with credit note ${creditNoteNumber}`,
+    );
     return { ...returnHeader, items: input.items, creditNote };
   }
 
@@ -305,12 +357,22 @@ export class SalesReturnEngineService {
   // ═════════════════════════════════════════════════════════
   async postReturn(returnId: string, userId: string): Promise<any> {
     const returnRecord = await this.database.salesReturns.findById(returnId);
-    if (!returnRecord) throw new NotFoundException('Sales return not found');
-    if (returnRecord.status === 'posted') throw new BadRequestException('Return already posted');
-    if (returnRecord.status === 'cancelled') throw new BadRequestException('Return has been cancelled');
+    if (!returnRecord) {
+      throw new NotFoundException('Sales return not found');
+    }
+    if (returnRecord.status === 'posted') {
+      throw new BadRequestException('Return already posted');
+    }
+    if (returnRecord.status === 'cancelled') {
+      throw new BadRequestException('Return has been cancelled');
+    }
 
     const now = new Date().toISOString();
-    const itemsData = await this.database.returnItems.findAll({ page: 1, pageSize: 500, search: returnId });
+    const itemsData = await this.database.returnItems.findAll({
+      page: 1,
+      pageSize: 500,
+      search: returnId,
+    });
     const returnItems = itemsData?.data || [];
 
     // ── Inventory Reversal: Stock Back ──
@@ -331,76 +393,91 @@ export class SalesReturnEngineService {
           createdAt: now,
         });
       } catch (e) {
-        this.logger.warn(`Inventory reversal warning for item ${item.itemId}: ${(e as Error).message}`);
+        this.logger.warn(
+          `Inventory reversal warning for item ${item.itemId}: ${(e as Error).message}`,
+        );
       }
     }
 
     // ── Accounting: Reverse Journal Entries ──
     for (const item of returnItems) {
       // Reverse Sales (Credit → Debit)
-      await this.database.glEntries.create({
-        entryNumber: `SRV-${returnRecord.returnNumber}-${Date.now()}`,
-        entryDate: returnRecord.returnDate,
-        accountName: 'Sales Return Account',
-        voucherType: 'sales_return',
-        voucherNumber: returnRecord.returnNumber,
-        debit: item.taxableValue,
-        credit: 0,
-        narration: `Sales return reversal: ${returnRecord.returnNumber}`,
-        partyId: returnRecord.customerId,
-        createdBy: userId,
-        createdAt: now,
-      }).catch((e) => this.logger.warn(`GL reversal warning: ${e.message}`));
+      await this.database.glEntries
+        .create({
+          entryNumber: `SRV-${returnRecord.returnNumber}-${Date.now()}`,
+          entryDate: returnRecord.returnDate,
+          accountName: 'Sales Return Account',
+          voucherType: 'sales_return',
+          voucherNumber: returnRecord.returnNumber,
+          debit: item.taxableValue,
+          credit: 0,
+          narration: `Sales return reversal: ${returnRecord.returnNumber}`,
+          partyId: returnRecord.customerId,
+          createdBy: userId,
+          createdAt: now,
+        })
+        .catch((e) => this.logger.warn(`GL reversal warning: ${e.message}`));
 
       // Reverse GST
       if (item.cgst > 0) {
-        await this.database.glEntries.create({
-          entryNumber: `SRV-CGST-${returnRecord.returnNumber}`,
-          entryDate: returnRecord.returnDate,
-          accountName: 'CGST Input Account',
-          voucherType: 'sales_return',
-          voucherNumber: returnRecord.returnNumber,
-          debit: item.cgst,
-          credit: 0,
-          narration: `CGST reversal: ${returnRecord.returnNumber}`,
-          partyId: returnRecord.customerId,
-          createdBy: userId,
-          createdAt: now,
-        }).catch((e) => this.logger.warn(`CGST reversal warning: ${e.message}`));
+        await this.database.glEntries
+          .create({
+            entryNumber: `SRV-CGST-${returnRecord.returnNumber}`,
+            entryDate: returnRecord.returnDate,
+            accountName: 'CGST Input Account',
+            voucherType: 'sales_return',
+            voucherNumber: returnRecord.returnNumber,
+            debit: item.cgst,
+            credit: 0,
+            narration: `CGST reversal: ${returnRecord.returnNumber}`,
+            partyId: returnRecord.customerId,
+            createdBy: userId,
+            createdAt: now,
+          })
+          .catch((e) => this.logger.warn(`CGST reversal warning: ${e.message}`));
       }
       if (item.sgst > 0) {
-        await this.database.glEntries.create({
-          entryNumber: `SRV-SGST-${returnRecord.returnNumber}`,
-          entryDate: returnRecord.returnDate,
-          accountName: 'SGST Input Account',
-          voucherType: 'sales_return',
-          voucherNumber: returnRecord.returnNumber,
-          debit: item.sgst,
-          credit: 0,
-          narration: `SGST reversal: ${returnRecord.returnNumber}`,
-          partyId: returnRecord.customerId,
-          createdBy: userId,
-          createdAt: now,
-        }).catch((e) => this.logger.warn(`SGST reversal warning: ${e.message}`));
+        await this.database.glEntries
+          .create({
+            entryNumber: `SRV-SGST-${returnRecord.returnNumber}`,
+            entryDate: returnRecord.returnDate,
+            accountName: 'SGST Input Account',
+            voucherType: 'sales_return',
+            voucherNumber: returnRecord.returnNumber,
+            debit: item.sgst,
+            credit: 0,
+            narration: `SGST reversal: ${returnRecord.returnNumber}`,
+            partyId: returnRecord.customerId,
+            createdBy: userId,
+            createdAt: now,
+          })
+          .catch((e) => this.logger.warn(`SGST reversal warning: ${e.message}`));
       }
     }
 
     // ── Customer Ledger: Reduce Outstanding ──
     const grandTotal = Number(returnRecord.grandTotal || 0);
-    await this.database.ledgerMaster.create({
-      customerId: returnRecord.customerId,
-      transactionType: 'sales_return',
-      transactionNo: returnRecord.returnNumber,
-      transactionDate: returnRecord.returnDate,
-      debit: 0,
-      credit: grandTotal,
-      runningBalance: -grandTotal,
-      financialYear: returnRecord.returnDate?.slice(0, 7) || new Date().toISOString().slice(0, 7),
-      createdAt: now,
-    }).catch((e) => this.logger.warn(`Customer ledger warning: ${e.message}`));
+    await this.database.ledgerMaster
+      .create({
+        customerId: returnRecord.customerId,
+        transactionType: 'sales_return',
+        transactionNo: returnRecord.returnNumber,
+        transactionDate: returnRecord.returnDate,
+        debit: 0,
+        credit: grandTotal,
+        runningBalance: -grandTotal,
+        financialYear: returnRecord.returnDate?.slice(0, 7) || new Date().toISOString().slice(0, 7),
+        createdAt: now,
+      })
+      .catch((e) => this.logger.warn(`Customer ledger warning: ${e.message}`));
 
     // ── Update Status ──
-    await this.database.salesReturns.update(returnId, { status: 'posted', updatedAt: now, approvedBy: userId, approvedAt: now });
+    await this.database.salesReturns.update(returnId, {
+      status: 'posted',
+      updatedAt: now,
+      approvedBy: userId,
+      approvedAt: now,
+    });
 
     // ── Audit ──
     await this.audit.log({
@@ -408,11 +485,21 @@ export class SalesReturnEngineService {
       event: 'return_posted',
       resource: 'sales_return',
       action: 'post',
-      details: { returnId, returnNumber: returnRecord.returnNumber, grandTotal, itemsCount: returnItems.length },
+      details: {
+        returnId,
+        returnNumber: returnRecord.returnNumber,
+        grandTotal,
+        itemsCount: returnItems.length,
+      },
     });
 
     this.logger.log(`Sales return ${returnRecord.returnNumber} posted successfully`);
-    return { success: true, message: `Sales return ${returnRecord.returnNumber} posted`, returnNumber: returnRecord.returnNumber, itemsProcessed: returnItems.length };
+    return {
+      success: true,
+      message: `Sales return ${returnRecord.returnNumber} posted`,
+      returnNumber: returnRecord.returnNumber,
+      itemsProcessed: returnItems.length,
+    };
   }
 
   // ═════════════════════════════════════════════════════════
@@ -439,16 +526,35 @@ export class SalesReturnEngineService {
       createdAt: now,
       updatedAt: now,
     });
-    await this.audit.log({ userId: input.createdBy,      event: 'credit_note_created', resource: 'credit_note', action: 'create', details: { creditNoteNumber: input.creditNoteNumber, amount: input.returnAmount } });
+    await this.audit.log({
+      userId: input.createdBy,
+      event: 'credit_note_created',
+      resource: 'credit_note',
+      action: 'create',
+      details: { creditNoteNumber: input.creditNoteNumber, amount: input.returnAmount },
+    });
     return cn;
   }
 
   async postCreditNote(cnId: string, userId: string): Promise<any> {
     const cn = await this.database.creditNotes.findById(cnId);
-    if (!cn) throw new NotFoundException('Credit note not found');
-    if (cn.status === 'posted') throw new BadRequestException('Credit note already posted');
-    await this.database.creditNotes.update(cnId, { status: 'posted', updatedAt: new Date().toISOString() });
-    await this.audit.log({ userId,      event: 'credit_note_posted', resource: 'credit_note', action: 'post', details: { creditNoteNumber: cn.creditNoteNumber, amount: cn.returnAmount } });
+    if (!cn) {
+      throw new NotFoundException('Credit note not found');
+    }
+    if (cn.status === 'posted') {
+      throw new BadRequestException('Credit note already posted');
+    }
+    await this.database.creditNotes.update(cnId, {
+      status: 'posted',
+      updatedAt: new Date().toISOString(),
+    });
+    await this.audit.log({
+      userId,
+      event: 'credit_note_posted',
+      resource: 'credit_note',
+      action: 'post',
+      details: { creditNoteNumber: cn.creditNoteNumber, amount: cn.returnAmount },
+    });
     return { ...cn, status: 'posted' };
   }
 
@@ -479,16 +585,39 @@ export class SalesReturnEngineService {
       createdAt: now,
       updatedAt: now,
     });
-    await this.audit.log({ userId: input.createdBy,      event: 'debit_note_created', resource: 'debit_note', action: 'create', details: { debitNoteNumber: input.debitNoteNumber, debitType: input.debitType, amount: input.amount } });
+    await this.audit.log({
+      userId: input.createdBy,
+      event: 'debit_note_created',
+      resource: 'debit_note',
+      action: 'create',
+      details: {
+        debitNoteNumber: input.debitNoteNumber,
+        debitType: input.debitType,
+        amount: input.amount,
+      },
+    });
     return dn;
   }
 
   async postDebitNote(dnId: string, userId: string): Promise<any> {
     const dn = await this.database.debitNotes.findById(dnId);
-    if (!dn) throw new NotFoundException('Debit note not found');
-    if (dn.status === 'posted') throw new BadRequestException('Debit note already posted');
-    await this.database.debitNotes.update(dnId, { status: 'posted', updatedAt: new Date().toISOString() });
-    await this.audit.log({ userId,      event: 'debit_note_posted', resource: 'debit_note', action: 'post', details: { debitNoteNumber: dn.debitNoteNumber, amount: dn.amount } });
+    if (!dn) {
+      throw new NotFoundException('Debit note not found');
+    }
+    if (dn.status === 'posted') {
+      throw new BadRequestException('Debit note already posted');
+    }
+    await this.database.debitNotes.update(dnId, {
+      status: 'posted',
+      updatedAt: new Date().toISOString(),
+    });
+    await this.audit.log({
+      userId,
+      event: 'debit_note_posted',
+      resource: 'debit_note',
+      action: 'post',
+      details: { debitNoteNumber: dn.debitNoteNumber, amount: dn.amount },
+    });
     return { ...dn, status: 'posted' };
   }
 
@@ -501,12 +630,32 @@ export class SalesReturnEngineService {
   // ═════════════════════════════════════════════════════════
   // REPORTS
   // ═════════════════════════════════════════════════════════
-  async getReturnRegister(params: { page?: number; pageSize?: number; search?: string; status?: string; fromDate?: string; toDate?: string } = {}): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
+  async getReturnRegister(
+    params: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      status?: string;
+      fromDate?: string;
+      toDate?: string;
+    } = {},
+  ): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
     const returns = await this.database.salesReturns.findAll({ page: 1, pageSize: 500 });
     let data = returns?.data || [];
-    if (params.search) { const q = params.search.toLowerCase(); data = data.filter((r: any) => r.returnNumber?.toLowerCase().includes(q) || r.creditNoteNo?.toLowerCase().includes(q)); }
-    if (params.status) data = data.filter((r: any) => r.status === params.status);
-    const total = data.length; const page = params.page || 1; const pageSize = params.pageSize || 50; const start = (page - 1) * pageSize;
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      data = data.filter(
+        (r: any) =>
+          r.returnNumber?.toLowerCase().includes(q) || r.creditNoteNo?.toLowerCase().includes(q),
+      );
+    }
+    if (params.status) {
+      data = data.filter((r: any) => r.status === params.status);
+    }
+    const total = data.length;
+    const page = params.page || 1;
+    const pageSize = params.pageSize || 50;
+    const start = (page - 1) * pageSize;
     return { data: data.slice(start, start + pageSize), total, page, pageSize };
   }
 
@@ -531,7 +680,8 @@ export class SalesReturnEngineService {
     for (const r of returns) {
       const reason = r.returnReason || 'other';
       const existing = map.get(reason) || { count: 0, amount: 0 };
-      existing.count++; existing.amount += Number(r.grandTotal || 0);
+      existing.count++;
+      existing.amount += Number(r.grandTotal || 0);
       map.set(reason, existing);
     }
     return Array.from(map.entries()).map(([reason, data]) => ({ reason, ...data }));
@@ -539,10 +689,17 @@ export class SalesReturnEngineService {
 
   async getCreditNoteRegister(): Promise<any[]> {
     const all = await this.database.salesReturns.findAll({ page: 1, pageSize: 500 });
-    return (all?.data || []).filter((r: any) => r.creditNoteNo).map((r: any) => ({
-      creditNoteNo: r.creditNoteNo, returnNumber: r.returnNumber, customerId: r.customerId,
-      invoiceId: r.invoiceId, returnDate: r.returnDate, amount: r.grandTotal, status: r.status,
-    }));
+    return (all?.data || [])
+      .filter((r: any) => r.creditNoteNo)
+      .map((r: any) => ({
+        creditNoteNo: r.creditNoteNo,
+        returnNumber: r.returnNumber,
+        customerId: r.customerId,
+        invoiceId: r.invoiceId,
+        returnDate: r.returnDate,
+        amount: r.grandTotal,
+        status: r.status,
+      }));
   }
 
   async getDebitNoteRegister(): Promise<any[]> {
@@ -567,10 +724,13 @@ export class SalesReturnEngineService {
   }
 
   private groupCount(arr: any[], key: string): Record<string, number> {
-    return arr.reduce((acc: Record<string, number>, item: any) => {
-      const v = String(item[key] || 'unknown');
-      acc[v] = (acc[v] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    return arr.reduce(
+      (acc: Record<string, number>, item: any) => {
+        const v = String(item[key] || 'unknown');
+        acc[v] = (acc[v] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
   }
 }

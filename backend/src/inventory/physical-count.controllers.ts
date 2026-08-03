@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -6,14 +18,19 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
-import { PhysicalCountService } from './services';
 import {
-  CreatePhysicalCountDto, UpdatePhysicalCountDto,
-  CreateCountItemDto, UpdateCountItemDto,
-  VerifyCountDto, ApproveCountDto, CompleteCountDto,
-  RejectCountDto, CancelCountDto,
+  CreatePhysicalCountDto,
+  UpdatePhysicalCountDto,
+  CreateCountItemDto,
+  UpdateCountItemDto,
+  VerifyCountDto,
+  ApproveCountDto,
+  CompleteCountDto,
+  RejectCountDto,
+  CancelCountDto,
   GenerateAdjustmentDto,
 } from './dto';
+import { PhysicalCountService } from './services';
 
 @ApiTags('Inventory - Physical Count & Cycle Counting')
 @ApiBearerAuth('access-token')
@@ -41,13 +58,20 @@ export class PhysicalCountController {
   @ApiOperation({ summary: 'List physical counts' })
   @ApiResponse({ status: 200, description: 'Paginated counts' })
   async findAll(
-    @Query('page') p = 1, @Query('ps') ps = 50,
-    @Query('q') q?: string, @Query('status') status?: string,
-    @Query('countType') countType?: string, @Query('warehouseId') warehouseId?: string,
+    @Query('page') p = 1,
+    @Query('ps') ps = 50,
+    @Query('q') q?: string,
+    @Query('status') status?: string,
+    @Query('countType') countType?: string,
+    @Query('warehouseId') warehouseId?: string,
   ) {
     return this.countService.listCounts({
-      page: Number(p), pageSize: Number(ps), search: q,
-      status, countType, warehouseId,
+      page: Number(p),
+      pageSize: Number(ps),
+      search: q,
+      status,
+      countType,
+      warehouseId,
     });
   }
 
@@ -67,7 +91,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update count header' })
   @ApiResponse({ status: 200, description: 'Count updated' })
-  async update(@Param('id') id: string, @Body() dto: UpdatePhysicalCountDto, @CurrentUser() u: { id: string }) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePhysicalCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.updateCount(id, dto, u?.id);
   }
 
@@ -89,7 +117,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add item to count' })
   @ApiResponse({ status: 201, description: 'Count item created' })
-  async addItem(@Param('id') id: string, @Body() dto: CreateCountItemDto, @CurrentUser() u: { id: string }) {
+  async addItem(
+    @Param('id') id: string,
+    @Body() dto: CreateCountItemDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.addCountItem(id, dto, u?.id);
   }
 
@@ -100,8 +132,10 @@ export class PhysicalCountController {
   @ApiOperation({ summary: 'Update count item (enter counted qty)' })
   @ApiResponse({ status: 200, description: 'Count item updated' })
   async updateItem(
-    @Param('id') _id: string, @Param('itemId') itemId: string,
-    @Body() dto: UpdateCountItemDto, @CurrentUser() u: { id: string },
+    @Param('id') _id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateCountItemDto,
+    @CurrentUser() u: { id: string },
   ) {
     return this.countService.updateCountItem(itemId, dto, u?.id);
   }
@@ -112,7 +146,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove item from count' })
   @ApiResponse({ status: 200, description: 'Count item removed' })
-  async removeItem(@Param('id') _id: string, @Param('itemId') itemId: string, @CurrentUser() u: { id: string }) {
+  async removeItem(
+    @Param('id') _id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.removeCountItem(itemId, u?.id);
   }
 
@@ -124,7 +162,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Assign count to user' })
   @ApiResponse({ status: 200, description: 'Count assigned' })
-  async assign(@Param('id') id: string, @Body() body: { assignedTo: string }, @CurrentUser() u: { id: string }) {
+  async assign(
+    @Param('id') id: string,
+    @Body() body: { assignedTo: string },
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.assignCount(id, body.assignedTo, u?.id);
   }
 
@@ -154,7 +196,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify count items' })
   @ApiResponse({ status: 200, description: 'Count verified' })
-  async verify(@Param('id') id: string, @Body() dto: VerifyCountDto, @CurrentUser() u: { id: string }) {
+  async verify(
+    @Param('id') id: string,
+    @Body() dto: VerifyCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.verifyCount(id, dto, u?.id);
   }
 
@@ -164,7 +210,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Approve count and create stock adjustments for variances' })
   @ApiResponse({ status: 200, description: 'Count approved with adjustments' })
-  async approve(@Param('id') id: string, @Body() dto: ApproveCountDto, @CurrentUser() u: { id: string }) {
+  async approve(
+    @Param('id') id: string,
+    @Body() dto: ApproveCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.approveCount(id, dto, u?.id);
   }
 
@@ -174,7 +224,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark count as completed' })
   @ApiResponse({ status: 200, description: 'Count completed' })
-  async complete(@Param('id') id: string, @Body() dto: CompleteCountDto, @CurrentUser() u: { id: string }) {
+  async complete(
+    @Param('id') id: string,
+    @Body() dto: CompleteCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.completeCount(id, dto, u?.id);
   }
 
@@ -184,7 +238,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reject count' })
   @ApiResponse({ status: 200, description: 'Count rejected' })
-  async reject(@Param('id') id: string, @Body() dto: RejectCountDto, @CurrentUser() u: { id: string }) {
+  async reject(
+    @Param('id') id: string,
+    @Body() dto: RejectCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.rejectCount(id, dto, u?.id);
   }
 
@@ -194,7 +252,11 @@ export class PhysicalCountController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel count' })
   @ApiResponse({ status: 200, description: 'Count cancelled' })
-  async cancel(@Param('id') id: string, @Body() dto: CancelCountDto, @CurrentUser() u: { id: string }) {
+  async cancel(
+    @Param('id') id: string,
+    @Body() dto: CancelCountDto,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.countService.cancelCount(id, dto, u?.id);
   }
 
@@ -207,7 +269,8 @@ export class PhysicalCountController {
   @ApiOperation({ summary: 'Generate stock adjustment from count variances (Step 22)' })
   @ApiResponse({ status: 200, description: 'Stock adjustment created' })
   async generateAdjustment(
-    @Param('id') id: string, @Body() dto: GenerateAdjustmentDto,
+    @Param('id') id: string,
+    @Body() dto: GenerateAdjustmentDto,
     @CurrentUser() u: { id: string },
   ) {
     return this.countService.generateAdjustmentFromCount(id, dto, u?.id);
@@ -242,7 +305,15 @@ export class PhysicalCountController {
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
   ) {
-    return this.countService.getReport({ status, countType, warehouseId, fromDate, toDate, page: Number(page) || 1, pageSize: Number(pageSize) || 50 });
+    return this.countService.getReport({
+      status,
+      countType,
+      warehouseId,
+      fromDate,
+      toDate,
+      page: Number(page) || 1,
+      pageSize: Number(pageSize) || 50,
+    });
   }
 
   @Get('reports/variance')

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
 import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface BranchForm {
   name: string;
@@ -16,7 +17,13 @@ interface BranchForm {
 }
 
 const initialForm: BranchForm = {
-  name: '', code: '', address: '', city: '', state: '', phone: '', email: '',
+  name: '',
+  code: '',
+  address: '',
+  city: '',
+  state: '',
+  phone: '',
+  email: '',
 };
 
 export function CreateBranchPage() {
@@ -39,7 +46,11 @@ function BranchFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<BranchForm>(`/branches/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as BranchForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as BranchForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -72,8 +83,20 @@ function BranchFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Basic branch identification',
       fields: (
         <>
-          <FormInput label="Branch Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter branch name" />
-          <FormInput label="Branch Code" required value={form.code} onChange={(e) => update('code', e.target.value)} placeholder="BR-001" />
+          <FormInput
+            label="Branch Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter branch name"
+          />
+          <FormInput
+            label="Branch Code"
+            required
+            value={form.code}
+            onChange={(e) => update('code', e.target.value)}
+            placeholder="BR-001"
+          />
         </>
       ),
     },
@@ -82,8 +105,20 @@ function BranchFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Primary contact details',
       fields: (
         <>
-          <FormInput label="Phone" type="tel" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="+91-9876543210" />
-          <FormInput label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="branch@example.com" />
+          <FormInput
+            label="Phone"
+            type="tel"
+            value={form.phone}
+            onChange={(e) => update('phone', e.target.value)}
+            placeholder="+91-9876543210"
+          />
+          <FormInput
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => update('email', e.target.value)}
+            placeholder="branch@example.com"
+          />
         </>
       ),
     },
@@ -93,10 +128,25 @@ function BranchFormPage({ isEditing = false }: { isEditing?: boolean }) {
       className: 'md:col-span-2',
       fields: (
         <>
-          <FormTextarea label="Address" value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Street, building, area..." />
+          <FormTextarea
+            label="Address"
+            value={form.address}
+            onChange={(e) => update('address', e.target.value)}
+            placeholder="Street, building, area..."
+          />
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormInput label="City" value={form.city} onChange={(e) => update('city', e.target.value)} placeholder="City" />
-            <FormInput label="State" value={form.state} onChange={(e) => update('state', e.target.value)} placeholder="State" />
+            <FormInput
+              label="City"
+              value={form.city}
+              onChange={(e) => update('city', e.target.value)}
+              placeholder="City"
+            />
+            <FormInput
+              label="State"
+              value={form.state}
+              onChange={(e) => update('state', e.target.value)}
+              placeholder="State"
+            />
           </div>
         </>
       ),

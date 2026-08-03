@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -6,12 +16,6 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
-import {
-  InventoryPostingEngine,
-  StockReservationService,
-  StockReversalService,
-  StockLedgerQueryService,
-} from './services';
 import {
   PostMovementDto,
   PostTransferDto,
@@ -21,6 +25,12 @@ import {
   StockCardDto,
   MovementReportDto,
 } from './dto';
+import {
+  InventoryPostingEngine,
+  StockReservationService,
+  StockReversalService,
+  StockLedgerQueryService,
+} from './services';
 
 // ═════════════════════════════════════════════════════════
 // STEP 20: Inventory Posting Controller
@@ -33,32 +43,36 @@ export class InventoryPostingController {
   constructor(private readonly postingEngine: InventoryPostingEngine) {}
 
   @Post('movement')
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.ledger.post')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Post an inventory movement (IN/OUT/TRANSFER)' })
   @ApiResponse({ status: 201, description: 'Movement posted' })
-  async postMovement(@Body() dto: PostMovementDto, @CurrentUser() u: {id:string}) {
-    return this.postingEngine.postMovement({ ...dto, direction: dto.direction as any, createdBy: u?.id });
+  async postMovement(@Body() dto: PostMovementDto, @CurrentUser() u: { id: string }) {
+    return this.postingEngine.postMovement({
+      ...dto,
+      direction: dto.direction as any,
+      createdBy: u?.id,
+    });
   }
 
   @Post('transfer')
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.ledger.post')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Post a warehouse transfer (OUT from source, IN to destination)' })
   @ApiResponse({ status: 201, description: 'Transfer posted' })
-  async postTransfer(@Body() dto: PostTransferDto, @CurrentUser() u: {id:string}) {
+  async postTransfer(@Body() dto: PostTransferDto, @CurrentUser() u: { id: string }) {
     return this.postingEngine.postTransfer({ ...dto, createdBy: u?.id });
   }
 
   @Post('reverse')
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.ledger.reverse')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reverse a previous stock movement with audit trail' })
   @ApiResponse({ status: 200, description: 'Movement reversed' })
-  async reverseMovement(@Body() dto: ReverseMovementDto, @CurrentUser() u: {id:string}) {
+  async reverseMovement(@Body() dto: ReverseMovementDto, @CurrentUser() u: { id: string }) {
     return this.postingEngine.reverseMovement(dto.entryNumber, dto.reason, u?.id);
   }
 }
@@ -74,27 +88,27 @@ export class StockReservationController {
   constructor(private readonly reservationService: StockReservationService) {}
 
   @Post()
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.stock.reserve')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Reserve stock against an item/warehouse' })
   @ApiResponse({ status: 201, description: 'Stock reserved' })
-  async reserveStock(@Body() dto: ReserveStockDto, @CurrentUser() u: {id:string}) {
+  async reserveStock(@Body() dto: ReserveStockDto, @CurrentUser() u: { id: string }) {
     return this.reservationService.reserveStock({ ...dto, createdBy: u?.id });
   }
 
   @Post('release')
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.stock.release')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Release a stock reservation' })
   @ApiResponse({ status: 200, description: 'Reservation released' })
-  async releaseReservation(@Body() dto: ReleaseReservationDto, @CurrentUser() u: {id:string}) {
+  async releaseReservation(@Body() dto: ReleaseReservationDto, @CurrentUser() u: { id: string }) {
     return this.reservationService.releaseReservation(dto.reservationId, u?.id);
   }
 
   @Get('active/:itemId')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get active reservations for an item' })
@@ -107,7 +121,7 @@ export class StockReservationController {
   }
 
   @Get('quantity/:itemId')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get total reserved quantity for an item' })
@@ -132,13 +146,17 @@ export class StockReversalController {
   constructor(private readonly reversalService: StockReversalService) {}
 
   @Post()
-  @Roles('admin','manager')
+  @Roles('admin', 'manager')
   @Permissions('inventory.ledger.reverse')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reverse a stock movement' })
   @ApiResponse({ status: 200, description: 'Movement reversed' })
-  async reverseMovement(@Body() dto: ReverseMovementDto, @CurrentUser() u: {id:string}) {
-    return this.reversalService.reverseMovement({ entryNumber: dto.entryNumber, reason: dto.reason, userId: u?.id });
+  async reverseMovement(@Body() dto: ReverseMovementDto, @CurrentUser() u: { id: string }) {
+    return this.reversalService.reverseMovement({
+      entryNumber: dto.entryNumber,
+      reason: dto.reason,
+      userId: u?.id,
+    });
   }
 }
 
@@ -153,7 +171,7 @@ export class StockLedgerQueryController {
   constructor(private readonly ledgerQueryService: StockLedgerQueryService) {}
 
   @Get('card/:itemId')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get stock card for an item' })
@@ -163,7 +181,7 @@ export class StockLedgerQueryController {
   }
 
   @Get('balances')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get stock balance summary' })
@@ -176,7 +194,7 @@ export class StockLedgerQueryController {
   }
 
   @Get('movements')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get stock movement report' })
@@ -195,7 +213,7 @@ export class StockLedgerQueryController {
   }
 
   @Get('query')
-  @Roles('admin','manager','accountant')
+  @Roles('admin', 'manager', 'accountant')
   @Permissions('inventory.ledger.view')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Query stock ledger with custom filters' })

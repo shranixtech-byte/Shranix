@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import type { EnterpriseQuery, FilterCondition } from '@shranix/database';
 
 import { DatabaseService } from '../database/database.service';
-import type { EnterpriseQuery, FilterCondition } from '@shranix/database';
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -55,7 +55,14 @@ export class SalesReportsService {
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         const start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-        const end = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+        const end = new Date(
+          yesterday.getFullYear(),
+          yesterday.getMonth(),
+          yesterday.getDate(),
+          23,
+          59,
+          59,
+        );
         return { startDate: start.toISOString(), endDate: end.toISOString() };
       }
       case 'this_week': {
@@ -87,7 +94,9 @@ export class SalesReportsService {
 
   private buildInvoiceFilters(filters?: ReportFilters): FilterCondition[] {
     const dbFilters: FilterCondition[] = [];
-    if (!filters) return dbFilters;
+    if (!filters) {
+      return dbFilters;
+    }
 
     const dateRange = this.getDateRange(filters);
     if (dateRange.startDate) {
@@ -110,7 +119,9 @@ export class SalesReportsService {
   }
 
   private async fetchInvoices(filters?: ReportFilters) {
-    const searchFields = filters?.search ? ['invoiceNumber', 'customerId', 'customerGstin'] : undefined;
+    const searchFields = filters?.search
+      ? ['invoiceNumber', 'customerId', 'customerGstin']
+      : undefined;
 
     const queryParams: EnterpriseQuery = {
       page: filters?.page || 1,
@@ -160,11 +171,21 @@ export class SalesReportsService {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const todayInvoices = invoices.filter((inv: any) => inv.invoiceDate && inv.invoiceDate >= todayStart);
-    const monthInvoices = invoices.filter((inv: any) => inv.invoiceDate && inv.invoiceDate >= monthStart);
+    const todayInvoices = invoices.filter(
+      (inv: any) => inv.invoiceDate && inv.invoiceDate >= todayStart,
+    );
+    const monthInvoices = invoices.filter(
+      (inv: any) => inv.invoiceDate && inv.invoiceDate >= monthStart,
+    );
 
-    const todaySales = todayInvoices.reduce((sum: number, inv: any) => sum + (inv.grandTotal || 0), 0);
-    const monthSales = monthInvoices.reduce((sum: number, inv: any) => sum + (inv.grandTotal || 0), 0);
+    const todaySales = todayInvoices.reduce(
+      (sum: number, inv: any) => sum + (inv.grandTotal || 0),
+      0,
+    );
+    const monthSales = monthInvoices.reduce(
+      (sum: number, inv: any) => sum + (inv.grandTotal || 0),
+      0,
+    );
     const outstanding = invoices
       .filter((inv: any) => inv.paymentStatus !== 'paid')
       .reduce((sum: number, inv: any) => sum + (inv.balanceAmount || inv.grandTotal || 0), 0);
@@ -181,7 +202,10 @@ export class SalesReportsService {
     const totalCess = invoices.reduce((sum: number, inv: any) => sum + (inv.cessTotal || 0), 0);
     const totalTax = totalCgst + totalSgst + totalIgst + totalCess;
 
-    const totalDiscount = invoices.reduce((sum: number, inv: any) => sum + (inv.discountAmount || 0), 0);
+    const totalDiscount = invoices.reduce(
+      (sum: number, inv: any) => sum + (inv.discountAmount || 0),
+      0,
+    );
     const totalSubTotal = invoices.reduce((sum: number, inv: any) => sum + (inv.subTotal || 0), 0);
     const grossProfit = totalSubTotal - totalDiscount - totalTax; // simplified
     const profitMargin = totalSubTotal > 0 ? (grossProfit / totalSubTotal) * 100 : 0;
@@ -217,10 +241,15 @@ export class SalesReportsService {
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
     const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
     const prevMonthInvoices = invoices.filter(
-      (inv: any) => inv.invoiceDate && inv.invoiceDate >= prevMonthStart && inv.invoiceDate <= prevMonthEnd,
+      (inv: any) =>
+        inv.invoiceDate && inv.invoiceDate >= prevMonthStart && inv.invoiceDate <= prevMonthEnd,
     );
-    const prevMonthSales = prevMonthInvoices.reduce((sum: number, inv: any) => sum + (inv.grandTotal || 0), 0);
-    const growthPercent = prevMonthSales > 0 ? ((monthSales - prevMonthSales) / prevMonthSales) * 100 : 0;
+    const prevMonthSales = prevMonthInvoices.reduce(
+      (sum: number, inv: any) => sum + (inv.grandTotal || 0),
+      0,
+    );
+    const growthPercent =
+      prevMonthSales > 0 ? ((monthSales - prevMonthSales) / prevMonthSales) * 100 : 0;
 
     // Charts: Daily Sales (last 30 days)
     const dailySales: { date: string; amount: number; count: number }[] = [];
@@ -413,7 +442,9 @@ export class SalesReportsService {
 
     for (const inv of invoices) {
       const cid = inv.customerId;
-      if (!cid) continue;
+      if (!cid) {
+        continue;
+      }
 
       if (!customerMap.has(cid)) {
         customerMap.set(cid, {
@@ -461,14 +492,21 @@ export class SalesReportsService {
       let aging90plus = 0;
 
       for (const txn of data.transactions) {
-        if (txn.balance <= 0) continue;
+        if (txn.balance <= 0) {
+          continue;
+        }
         const invDate = new Date(txn.date);
         const diffDays = Math.floor((now.getTime() - invDate.getTime()) / (1000 * 60 * 60 * 24));
 
-        if (diffDays <= 30) aging0to30 += txn.balance;
-        else if (diffDays <= 60) aging31to60 += txn.balance;
-        else if (diffDays <= 90) aging61to90 += txn.balance;
-        else aging90plus += txn.balance;
+        if (diffDays <= 30) {
+          aging0to30 += txn.balance;
+        } else if (diffDays <= 60) {
+          aging31to60 += txn.balance;
+        } else if (diffDays <= 90) {
+          aging61to90 += txn.balance;
+        } else {
+          aging90plus += txn.balance;
+        }
       }
 
       return {
@@ -532,7 +570,9 @@ export class SalesReportsService {
 
     for (const item of filteredItems) {
       const pid = item.itemId;
-      if (!pid) continue;
+      if (!pid) {
+        continue;
+      }
 
       if (!productMap.has(pid)) {
         const itemMaster = productItems.find((im: any) => im.id === pid);
@@ -593,7 +633,8 @@ export class SalesReportsService {
 
     // Filter only unpaid/partial invoices
     const outstandingInvs = invoices.filter(
-      (inv: any) => inv.paymentStatus !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft',
+      (inv: any) =>
+        inv.paymentStatus !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft',
     );
 
     // Group by customer
@@ -614,7 +655,9 @@ export class SalesReportsService {
     const now = new Date();
     for (const inv of outstandingInvs) {
       const cid = inv.customerId;
-      if (!cid) continue;
+      if (!cid) {
+        continue;
+      }
 
       if (!customerMap.has(cid)) {
         customerMap.set(cid, {
@@ -637,16 +680,26 @@ export class SalesReportsService {
       const due = new Date(dueDate);
       const diffDays = Math.floor((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (diffDays <= 30) entry.aging0to30 += balance;
-      else if (diffDays <= 60) entry.aging31to60 += balance;
-      else if (diffDays <= 90) entry.aging61to90 += balance;
-      else entry.aging90plus += balance;
+      if (diffDays <= 30) {
+        entry.aging0to30 += balance;
+      } else if (diffDays <= 60) {
+        entry.aging31to60 += balance;
+      } else if (diffDays <= 90) {
+        entry.aging61to90 += balance;
+      } else {
+        entry.aging90plus += balance;
+      }
 
       // Risk color
-      if (entry.aging90plus > 0) entry.risk = 'critical';
-      else if (entry.aging61to90 > 0) entry.risk = 'high';
-      else if (entry.aging31to60 > 0) entry.risk = 'medium';
-      else entry.risk = 'low';
+      if (entry.aging90plus > 0) {
+        entry.risk = 'critical';
+      } else if (entry.aging61to90 > 0) {
+        entry.risk = 'high';
+      } else if (entry.aging31to60 > 0) {
+        entry.risk = 'medium';
+      } else {
+        entry.risk = 'low';
+      }
     }
 
     const result = Array.from(customerMap.values());
@@ -827,10 +880,17 @@ export class SalesReportsService {
       (s: number, item: any) => s + (item.rate || 0) * (item.quantity || 0),
       0,
     );
-    const totalDiscount = invoices.reduce((s: number, inv: any) => s + (inv.discountAmount || 0), 0);
+    const totalDiscount = invoices.reduce(
+      (s: number, inv: any) => s + (inv.discountAmount || 0),
+      0,
+    );
     const totalTax = invoices.reduce(
       (s: number, inv: any) =>
-        s + (inv.cgstTotal || 0) + (inv.sgstTotal || 0) + (inv.igstTotal || 0) + (inv.cessTotal || 0),
+        s +
+        (inv.cgstTotal || 0) +
+        (inv.sgstTotal || 0) +
+        (inv.igstTotal || 0) +
+        (inv.cessTotal || 0),
       0,
     );
 
@@ -840,10 +900,15 @@ export class SalesReportsService {
     const netMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     // Top Selling Products
-    const productSales = new Map<string, { qty: number; revenue: number; cost: number; profit: number }>();
+    const productSales = new Map<
+      string,
+      { qty: number; revenue: number; cost: number; profit: number }
+    >();
     for (const item of filteredItems) {
       const pid = item.itemId;
-      if (!pid) continue;
+      if (!pid) {
+        continue;
+      }
       if (!productSales.has(pid)) {
         productSales.set(pid, { qty: 0, revenue: 0, cost: 0, profit: 0 });
       }
@@ -870,7 +935,9 @@ export class SalesReportsService {
     const customerProfit = new Map<string, { revenue: number; profit: number }>();
     for (const inv of invoices) {
       const cid = inv.customerId;
-      if (!cid) continue;
+      if (!cid) {
+        continue;
+      }
       if (!customerProfit.has(cid)) {
         customerProfit.set(cid, { revenue: 0, profit: 0 });
       }

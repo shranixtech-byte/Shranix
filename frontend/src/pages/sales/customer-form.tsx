@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
-import { FormTextarea } from '@/components/ui/FormTextarea';
 import { FormSelect } from '@/components/ui/FormSelect';
+import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface CustomerForm {
   code: string;
@@ -21,15 +22,35 @@ interface CustomerForm {
   pin: string;
   creditLimit: number;
   creditDays: number;
+  customerGroup: string;
+  priceList: string;
+  paymentTerms: string;
+  loyaltyPoints: number;
   status: string;
   remarks: string;
 }
 
 const initialForm: CustomerForm = {
-  code: '', name: '', gstin: '', pan: '', contactPerson: '', mobile: '', email: '',
-  address: '', state: '', district: '', city: '', pin: '',
-  creditLimit: 0, creditDays: 0,
-  status: 'active', remarks: '',
+  code: '',
+  name: '',
+  gstin: '',
+  pan: '',
+  contactPerson: '',
+  mobile: '',
+  email: '',
+  address: '',
+  state: '',
+  district: '',
+  city: '',
+  pin: '',
+  creditLimit: 0,
+  creditDays: 0,
+  customerGroup: '',
+  priceList: 'standard',
+  paymentTerms: '',
+  loyaltyPoints: 0,
+  status: 'active',
+  remarks: '',
 };
 
 export function CreateCustomerPage() {
@@ -53,7 +74,11 @@ function CustomerFormPage({ isEditing = false }: { isEditing?: boolean }) {
       setLoading(true);
       // Use /customers if available, fallback to sales endpoint
       apiRequest<CustomerForm>(`/customers/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as CustomerForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as CustomerForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -86,11 +111,39 @@ function CustomerFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Basic customer details',
       fields: (
         <>
-          <FormInput label="Customer Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter customer name" />
-          <FormInput label="Customer Code" value={form.code} onChange={(e) => update('code', e.target.value)} placeholder="CUS-001" />
-          <FormInput label="Contact Person" value={form.contactPerson} onChange={(e) => update('contactPerson', e.target.value)} placeholder="Person name" />
-          <FormInput label="Mobile" type="tel" value={form.mobile} onChange={(e) => update('mobile', e.target.value)} placeholder="+91-9876543210" />
-          <FormInput label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="customer@example.com" />
+          <FormInput
+            label="Customer Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter customer name"
+          />
+          <FormInput
+            label="Customer Code"
+            value={form.code}
+            onChange={(e) => update('code', e.target.value)}
+            placeholder="CUS-001"
+          />
+          <FormInput
+            label="Contact Person"
+            value={form.contactPerson}
+            onChange={(e) => update('contactPerson', e.target.value)}
+            placeholder="Person name"
+          />
+          <FormInput
+            label="Mobile"
+            type="tel"
+            value={form.mobile}
+            onChange={(e) => update('mobile', e.target.value)}
+            placeholder="+91-9876543210"
+          />
+          <FormInput
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => update('email', e.target.value)}
+            placeholder="customer@example.com"
+          />
         </>
       ),
     },
@@ -99,11 +152,26 @@ function CustomerFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'GST, PAN and compliance',
       fields: (
         <>
-          <FormInput label="GSTIN" value={form.gstin} onChange={(e) => update('gstin', e.target.value)} placeholder="22AAAAA0000A1Z5" />
-          <FormInput label="PAN" value={form.pan} onChange={(e) => update('pan', e.target.value)} placeholder="AAAAA0000A" />
-          <FormSelect label="Status" value={form.status} onChange={(e) => update('status', e.target.value)}
+          <FormInput
+            label="GSTIN"
+            value={form.gstin}
+            onChange={(e) => update('gstin', e.target.value)}
+            placeholder="22AAAAA0000A1Z5"
+          />
+          <FormInput
+            label="PAN"
+            value={form.pan}
+            onChange={(e) => update('pan', e.target.value)}
+            placeholder="AAAAA0000A"
+          />
+          <FormSelect
+            label="Status"
+            value={form.status}
+            onChange={(e) => update('status', e.target.value)}
             options={[
-              { label: 'Active', value: 'active' }, { label: 'Inactive', value: 'inactive' }, { label: 'Blocked', value: 'blocked' },
+              { label: 'Active', value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+              { label: 'Blocked', value: 'blocked' },
             ]}
           />
         </>
@@ -115,12 +183,37 @@ function CustomerFormPage({ isEditing = false }: { isEditing?: boolean }) {
       className: 'md:col-span-2',
       fields: (
         <>
-          <FormTextarea label="Address" value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Street, building, area..." />
+          <FormTextarea
+            label="Address"
+            value={form.address}
+            onChange={(e) => update('address', e.target.value)}
+            placeholder="Street, building, area..."
+          />
           <div className="grid gap-4 sm:grid-cols-4">
-            <FormInput label="City" value={form.city} onChange={(e) => update('city', e.target.value)} placeholder="City" />
-            <FormInput label="District" value={form.district} onChange={(e) => update('district', e.target.value)} placeholder="District" />
-            <FormInput label="State" value={form.state} onChange={(e) => update('state', e.target.value)} placeholder="State" />
-            <FormInput label="PIN Code" value={form.pin} onChange={(e) => update('pin', e.target.value)} placeholder="PIN" />
+            <FormInput
+              label="City"
+              value={form.city}
+              onChange={(e) => update('city', e.target.value)}
+              placeholder="City"
+            />
+            <FormInput
+              label="District"
+              value={form.district}
+              onChange={(e) => update('district', e.target.value)}
+              placeholder="District"
+            />
+            <FormInput
+              label="State"
+              value={form.state}
+              onChange={(e) => update('state', e.target.value)}
+              placeholder="State"
+            />
+            <FormInput
+              label="PIN Code"
+              value={form.pin}
+              onChange={(e) => update('pin', e.target.value)}
+              placeholder="PIN"
+            />
           </div>
         </>
       ),
@@ -130,15 +223,64 @@ function CustomerFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Financial terms',
       fields: (
         <>
-          <FormInput label="Credit Limit" type="number" value={String(form.creditLimit)} onChange={(e) => update('creditLimit', Number(e.target.value))} placeholder="0" />
-          <FormInput label="Credit Days" type="number" value={String(form.creditDays)} onChange={(e) => update('creditDays', Number(e.target.value))} placeholder="30" />
+          <FormInput
+            label="Credit Limit"
+            type="number"
+            value={String(form.creditLimit)}
+            onChange={(e) => update('creditLimit', Number(e.target.value))}
+            placeholder="0"
+          />
+          <FormInput
+            label="Credit Days"
+            type="number"
+            value={String(form.creditDays)}
+            onChange={(e) => update('creditDays', Number(e.target.value))}
+            placeholder="30"
+          />
+          <FormInput
+            label="Payment Terms"
+            value={form.paymentTerms}
+            onChange={(e) => update('paymentTerms', e.target.value)}
+            placeholder="30 days"
+          />
+          <FormInput
+            label="Customer Group"
+            value={form.customerGroup}
+            onChange={(e) => update('customerGroup', e.target.value)}
+            placeholder="Retail / Wholesale / Distributor"
+          />
+          <FormSelect
+            label="Price List"
+            value={form.priceList}
+            onChange={(e) => update('priceList', e.target.value)}
+            options={[
+              { label: 'Standard', value: 'standard' },
+              { label: 'Wholesale', value: 'wholesale' },
+              { label: 'Retail', value: 'retail' },
+              { label: 'Promotional', value: 'promotional' },
+              { label: 'Contract', value: 'contract' },
+            ]}
+          />
+          <FormInput
+            label="Loyalty Points"
+            type="number"
+            value={String(form.loyaltyPoints || 0)}
+            onChange={(e) => update('loyaltyPoints', Number(e.target.value))}
+            placeholder="0"
+            disabled
+          />
         </>
       ),
     },
     {
       title: 'Remarks',
       fields: (
-        <FormTextarea label="Remarks" value={form.remarks} onChange={(e) => update('remarks', e.target.value)} placeholder="Additional notes..." />
+        <FormTextarea
+          label="Remarks"
+          value={form.remarks}
+          onChange={(e) => update('remarks', e.target.value)}
+          placeholder="Additional notes..."
+        />
       ),
     },
   ];

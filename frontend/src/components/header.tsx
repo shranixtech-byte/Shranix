@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext';
+import { hasModuleAccess } from '@/lib/module-access';
 import { useTheme } from '@/providers/theme-provider';
 
 interface BreadcrumbLabel {
@@ -168,55 +169,64 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
 
   const pathSegments = location.pathname.split('/').filter(Boolean);
   const breadcrumbs = pathSegments.map((segment, index) => ({
-    label: breadcrumbLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
-    path: `/${  pathSegments.slice(0, index + 1).join('/')}`,
+    label:
+      breadcrumbLabels[segment] ||
+      segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '),
+    path: `/${pathSegments.slice(0, index + 1).join('/')}`,
   }));
 
   if (location.pathname === '/') {
     breadcrumbs.unshift({ label: 'Dashboard', path: '/' });
   }
 
-  const handleSearch = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  }, [searchQuery, navigate]);
+  const handleSearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (searchQuery.trim()) {
+        navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      }
+    },
+    [searchQuery, navigate],
+  );
 
   const userInitials = user
     ? `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() || 'U'
     : 'U';
 
-  const pageTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : 'Dashboard';
+  const pageTitle =
+    breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : 'Dashboard';
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-5 border-b border-border/60 bg-white px-5 shadow-sm dark:bg-slate-900 dark:shadow-white/5 lg:px-7">
+    <header className="border-border/60 sticky top-0 z-30 flex h-16 shrink-0 items-center gap-5 border-b bg-white px-5 shadow-sm lg:px-7 dark:bg-slate-900 dark:shadow-white/5">
       {/* Sidebar Toggle + Page Title */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <Menu className="h-4 w-4" />
         </button>
         <div className="hidden md:block">
-          <h1 className="text-sm font-semibold text-foreground">{pageTitle}</h1>
+          <h1 className="text-foreground text-sm font-semibold">{pageTitle}</h1>
         </div>
       </div>
 
       {/* Breadcrumb */}
-      <nav className="hidden items-center gap-1 text-xs text-muted-foreground lg:flex" aria-label="Breadcrumb">
-        <Link to="/" className="transition-colors hover:text-foreground">
+      <nav
+        className="text-muted-foreground hidden items-center gap-1 text-xs lg:flex"
+        aria-label="Breadcrumb"
+      >
+        <Link to="/" className="hover:text-foreground transition-colors">
           <Home className="h-3.5 w-3.5" />
         </Link>
         {breadcrumbs.slice(1).map((crumb, index) => (
           <span key={crumb.path} className="flex items-center gap-1">
             <ChevronRight className="h-3 w-3" />
             {index === breadcrumbs.slice(1).length - 1 ? (
-              <span className="font-medium text-foreground">{crumb.label}</span>
+              <span className="text-foreground font-medium">{crumb.label}</span>
             ) : (
-              <Link to={crumb.path} className="transition-colors hover:text-foreground">
+              <Link to={crumb.path} className="hover:text-foreground transition-colors">
                 {crumb.label}
               </Link>
             )}
@@ -231,17 +241,17 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       <div className="relative hidden lg:block" ref={companyRef}>
         <button
           onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+          className="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
         >
           <Building2 className="h-3.5 w-3.5" />
           <span className="max-w-[100px] truncate">Default Co.</span>
           <ChevronDown className="h-3 w-3" />
         </button>
         {showCompanyDropdown && (
-          <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border bg-popover p-1.5 shadow-xl">
-            <p className="px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground">Companies</p>
-            <div className="rounded-lg bg-muted/50 px-2.5 py-2 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Default Company</p>
+          <div className="bg-popover absolute right-0 top-full mt-1.5 w-44 rounded-xl border p-1.5 shadow-xl">
+            <p className="text-muted-foreground px-2.5 py-1.5 text-[11px] font-medium">Companies</p>
+            <div className="bg-muted/50 text-muted-foreground rounded-lg px-2.5 py-2 text-xs">
+              <p className="text-foreground font-medium">Default Company</p>
               <p className="text-[10px]">Connected</p>
             </div>
           </div>
@@ -252,21 +262,23 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       <div className="relative hidden lg:block" ref={fyRef}>
         <button
           onClick={() => setShowFyDropdown(!showFyDropdown)}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+          className="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
         >
           <Calendar className="h-3.5 w-3.5" />
           <span>FY 2025-26</span>
           <ChevronDown className="h-3 w-3" />
         </button>
         {showFyDropdown && (
-          <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl border bg-popover p-1.5 shadow-xl">
-            <p className="px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground">Financial Years</p>
+          <div className="bg-popover absolute right-0 top-full mt-1.5 w-44 rounded-xl border p-1.5 shadow-xl">
+            <p className="text-muted-foreground px-2.5 py-1.5 text-[11px] font-medium">
+              Financial Years
+            </p>
             <div className="space-y-0.5">
               {['2025-2026', '2024-2025', '2023-2024'].map((fy) => (
                 <button
                   key={fy}
-                  className={`w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-muted ${
-                    fy === '2025-2026' ? 'bg-primary/5 font-medium text-primary' : 'text-foreground'
+                  className={`hover:bg-muted w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
+                    fy === '2025-2026' ? 'bg-primary/5 text-primary font-medium' : 'text-foreground'
                   }`}
                 >
                   FY {fy}
@@ -278,7 +290,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       </div>
 
       {/* Live Clock */}
-      <div className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex">
+      <div className="text-muted-foreground hidden items-center gap-1.5 text-xs lg:flex">
         <Clock className="h-3.5 w-3.5" />
         <span>
           {currentTime.toLocaleTimeString('en-IN', {
@@ -289,7 +301,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       </div>
 
       {/* Current Date */}
-      <div className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex">
+      <div className="text-muted-foreground hidden items-center gap-1.5 text-xs lg:flex">
         <Calendar className="h-3.5 w-3.5" />
         <span>
           {currentTime.toLocaleDateString('en-IN', {
@@ -304,7 +316,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       <div className="relative">
         <button
           onClick={() => setShowSearch(!showSearch)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors lg:hidden"
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
@@ -313,18 +325,18 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
           onSubmit={handleSearch}
           className={`${
             showSearch ? 'absolute right-0 top-full mt-2 flex' : 'hidden'
-          } lg:relative lg:flex lg:mt-0`}
+          } lg:relative lg:mt-0 lg:flex`}
         >
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
-              className="h-8 w-48 rounded-lg border bg-muted/50 pl-8 pr-3 text-xs outline-none transition-all focus:w-56 focus:border-primary/50 focus:bg-background lg:w-52"
+              className="bg-muted/50 focus:border-primary/50 focus:bg-background h-8 w-48 rounded-lg border pl-8 pr-3 text-xs outline-none transition-all focus:w-56 lg:w-52"
             />
-            <kbd className="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border bg-background px-1 py-0.5 text-[9px] font-medium text-muted-foreground lg:inline">
+            <kbd className="bg-background text-muted-foreground absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border px-1 py-0.5 text-[9px] font-medium lg:inline">
               ⌘K
             </kbd>
           </div>
@@ -334,44 +346,44 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       {/* Theme Toggle */}
       <button
         onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
         aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
       >
-        {resolvedTheme === 'dark' ? (
-          <Sun className="h-4 w-4" />
-        ) : (
-          <Moon className="h-4 w-4" />
-        )}
+        {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </button>
 
       {/* Notifications Dropdown */}
       <div className="relative" ref={notifRef}>
         <button
           onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-          className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute right-2 top-1.5 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+          <span className="bg-destructive ring-background absolute right-2 top-1.5 h-2 w-2 rounded-full ring-2" />
         </button>
 
         {showNotifDropdown && (
-          <div className="absolute right-0 top-full mt-1.5 w-80 rounded-xl border bg-popover shadow-xl">
+          <div className="bg-popover absolute right-0 top-full mt-1.5 w-80 rounded-xl border shadow-xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <p className="text-sm font-semibold">Notifications</p>
-              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive">3 new</span>
+              <span className="bg-destructive/10 text-destructive rounded-full px-2 py-0.5 text-[10px] font-medium">
+                3 new
+              </span>
             </div>
             <div className="max-h-72 overflow-y-auto p-2">
               {/* Sample notifications — real data renders via the widget */}
-              <div className="rounded-lg bg-muted/30 p-3 text-center">
-                <FileText className="mx-auto h-5 w-5 text-muted-foreground" />
-                <p className="mt-1 text-xs text-muted-foreground">View all notifications in the dashboard widget</p>
+              <div className="bg-muted/30 rounded-lg p-3 text-center">
+                <FileText className="text-muted-foreground mx-auto h-5 w-5" />
+                <p className="text-muted-foreground mt-1 text-xs">
+                  View all notifications in the dashboard widget
+                </p>
               </div>
             </div>
             <div className="border-t p-2">
               <Link
                 to="/"
-                className="flex items-center justify-center rounded-lg py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                className="text-primary hover:bg-primary/5 flex items-center justify-center rounded-lg py-2 text-xs font-medium transition-colors"
               >
                 View all notifications
               </Link>
@@ -384,7 +396,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
       <div className="relative" ref={userMenuRef}>
         <button
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-muted"
+          className="hover:bg-muted flex items-center gap-2 rounded-lg p-1 transition-colors"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-[11px] font-semibold text-white shadow-sm">
             {userInitials}
@@ -394,30 +406,42 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
               {user ? `${user.firstName} ${user.lastName}` : 'User'}
             </p>
             {isLoading ? (
-              <span className="inline-block h-2.5 w-16 animate-pulse rounded bg-muted-foreground/20" />
+              <span className="bg-muted-foreground/20 inline-block h-2.5 w-16 animate-pulse rounded" />
             ) : (
-              <p className="text-[10px] leading-tight text-muted-foreground capitalize">{user?.role || 'User'}</p>
+              <p className="text-muted-foreground text-[10px] capitalize leading-tight">
+                {user?.role || 'User'}
+              </p>
             )}
           </div>
-          <ChevronDown className="hidden h-3 w-3 text-muted-foreground md:block" />
+          <ChevronDown className="text-muted-foreground hidden h-3 w-3 md:block" />
         </button>
 
         {showUserMenu && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 rounded-xl border border-border/80 bg-white p-1.5 shadow-xl dark:bg-slate-900 dark:shadow-black/40">
-            <div className="border-b border-border/50 px-2.5 py-2">
-              <p className="text-sm font-medium text-foreground">{user ? `${user.firstName} ${user.lastName}` : 'User'}</p>
-              <p className="text-xs text-muted-foreground">{user?.email || ''}</p>
+          <div className="border-border/80 absolute right-0 top-full mt-1.5 w-52 rounded-xl border bg-white p-1.5 shadow-xl dark:bg-slate-900 dark:shadow-black/40">
+            <div className="border-border/50 border-b px-2.5 py-2">
+              <p className="text-foreground text-sm font-medium">
+                {user ? `${user.firstName} ${user.lastName}` : 'User'}
+              </p>
+              <p className="text-muted-foreground text-xs">{user?.email || ''}</p>
             </div>
             <div className="mt-1 space-y-0.5">
-              <Link
-                to="/settings"
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
+              {hasModuleAccess(user, 'settings') && (
+                <Link
+                  to="/finance/settings"
+                  onClick={() => setShowUserMenu(false)}
+                  className="text-foreground hover:bg-muted flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors"
+                >
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </Link>
+              )}
               <button
-                onClick={logout}
+                onClick={() => {
+                  // Menu turant band karo + logout — bina menu band kiye user
+                  // 'click karne ke baad waisa hi rehta hai' mehsoos karta hai
+                  setShowUserMenu(false);
+                  logout();
+                }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/60"
               >
                 <LogOut className="h-4 w-4" />

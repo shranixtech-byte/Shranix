@@ -60,8 +60,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      // Server call fail ho ya koi bhi error aaye, user ko hamesha logout karo —
+      // nahi to 'Sign Out' click karne par kuch nahi hota aur user stuck rehta hai.
+      setUser(null);
+    }
   }, []);
 
   return (

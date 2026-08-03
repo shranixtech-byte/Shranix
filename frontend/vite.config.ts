@@ -58,7 +58,13 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // IPv4 + IPv6 dono par bind (browser automation / LAN testing ke liye)
     port: 4000,
+    // Port busy ho to silently 4001/4002 par shift mat ho — kyunki API proxy 4001
+    // ko target karta hai, shift hone par frontend apne aap se API maangne lagta hai
+    // (login "Failed to fetch"). strictPort = error dikha do, taaki asli problem
+    // (pehle se chala hua server) turant dikhe.
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:4001',

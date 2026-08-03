@@ -7,7 +7,7 @@ const companyColumns: ColumnDef[] = [
   { key: 'state', label: 'State' },
   { key: 'gstin', label: 'GSTIN' },
   { key: 'phone', label: 'Phone' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const companyFields: FormField[] = [
@@ -22,6 +22,12 @@ const companyFields: FormField[] = [
   { name: 'gstin', label: 'GSTIN', type: 'text' },
   { name: 'pan', label: 'PAN', type: 'text' },
   { name: 'cin', label: 'CIN', type: 'text' },
+  { name: 'licenseNo', label: 'License No', type: 'text' },
+  { name: 'pesticidesLicense', label: 'Pesticides License', type: 'text' },
+  { name: 'fertilizerLicense', label: 'Fertilizer License', type: 'text' },
+  { name: 'seedsLicense', label: 'Seeds License', type: 'text' },
+  { name: 'cottonLicense', label: 'Cotton License', type: 'text' },
+  { name: 'retailLicense', label: 'Retail License', type: 'text' },
   { name: 'website', label: 'Website', type: 'text' },
   { name: 'isHeadOffice', label: 'Head Office', type: 'boolean' },
   { name: 'financialYearStart', label: 'FY Start Month', type: 'text' },
@@ -45,8 +51,8 @@ const fyColumns: ColumnDef[] = [
   { key: 'name', label: 'Name' },
   { key: 'startDate', label: 'Start Date' },
   { key: 'endDate', label: 'End Date' },
-  { key: 'isActive', label: 'Active', render: (v) => v ? '🟢 Yes' : '🔴 No' },
-  { key: 'isClosed', label: 'Closed', render: (v) => v ? '🔒 Closed' : '📂 Open' },
+  { key: 'isActive', label: 'Active', render: (v) => (v ? '🟢 Yes' : '🔴 No') },
+  { key: 'isClosed', label: 'Closed', render: (v) => (v ? '🔒 Closed' : '📂 Open') },
 ];
 
 const fyFields: FormField[] = [
@@ -76,7 +82,7 @@ const branchColumns: ColumnDef[] = [
   { key: 'city', label: 'City' },
   { key: 'state', label: 'State' },
   { key: 'phone', label: 'Phone' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const branchFields: FormField[] = [
@@ -110,18 +116,23 @@ const warehouseColumns: ColumnDef[] = [
   { key: 'state', label: 'State' },
   { key: 'contactPerson', label: 'Contact' },
   { key: 'mobile', label: 'Mobile' },
-  { key: 'isMain', label: 'Main', render: (v) => v ? '⭐ Yes' : '—' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isMain', label: 'Main', render: (v) => (v ? '⭐ Yes' : '—') },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const warehouseFields: FormField[] = [
   { name: 'name', label: 'Warehouse Name', type: 'text', required: true },
   { name: 'code', label: 'Warehouse Code', type: 'text', required: true },
-  { name: 'warehouseType', label: 'Warehouse Type', type: 'select', options: [
-    { label: 'Storage', value: 'storage' },
-    { label: 'Distribution', value: 'distribution' },
-    { label: 'Transit', value: 'transit' },
-  ]},
+  {
+    name: 'warehouseType',
+    label: 'Warehouse Type',
+    type: 'select',
+    options: [
+      { label: 'Storage', value: 'storage' },
+      { label: 'Distribution', value: 'distribution' },
+      { label: 'Transit', value: 'transit' },
+    ],
+  },
   { name: 'address', label: 'Address', type: 'textarea' },
   { name: 'state', label: 'State', type: 'text' },
   { name: 'district', label: 'District', type: 'text' },
@@ -153,20 +164,25 @@ const unitColumns: ColumnDef[] = [
   { key: 'name', label: 'Name' },
   { key: 'shortName', label: 'Short Name' },
   { key: 'type', label: 'Type' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const unitFields: FormField[] = [
   { name: 'name', label: 'Unit Name', type: 'text', required: true },
   { name: 'shortName', label: 'Short Name', type: 'text', required: true },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'General', value: 'general' },
-    { label: 'Weight', value: 'weight' },
-    { label: 'Volume', value: 'volume' },
-    { label: 'Length', value: 'length' },
-    { label: 'Area', value: 'area' },
-    { label: 'Count', value: 'count' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'General', value: 'general' },
+      { label: 'Weight', value: 'weight' },
+      { label: 'Volume', value: 'volume' },
+      { label: 'Length', value: 'length' },
+      { label: 'Area', value: 'area' },
+      { label: 'Count', value: 'count' },
+    ],
+  },
 ];
 
 export function UnitsPage() {
@@ -186,18 +202,23 @@ const categoryColumns: ColumnDef[] = [
   { key: 'name', label: 'Name' },
   { key: 'type', label: 'Type' },
   { key: 'description', label: 'Description' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const categoryFields: FormField[] = [
   { name: 'name', label: 'Category Name', type: 'text', required: true },
   { name: 'description', label: 'Description', type: 'textarea' },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'Item', value: 'item' },
-    { label: 'Party', value: 'party' },
-    { label: 'Expense', value: 'expense' },
-    { label: 'Income', value: 'income' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'Item', value: 'item' },
+      { label: 'Party', value: 'party' },
+      { label: 'Expense', value: 'expense' },
+      { label: 'Income', value: 'income' },
+    ],
+  },
   { name: 'sortOrder', label: 'Sort Order', type: 'number' },
 ];
 
@@ -217,7 +238,7 @@ export function CategoriesPage() {
 const brandColumns: ColumnDef[] = [
   { key: 'name', label: 'Name' },
   { key: 'description', label: 'Description' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const brandFields: FormField[] = [
@@ -241,18 +262,23 @@ export function BrandsPage() {
 const taxGroupColumns: ColumnDef[] = [
   { key: 'name', label: 'Name' },
   { key: 'type', label: 'Type' },
-  { key: 'isDefault', label: 'Default', render: (v) => v ? '✅ Yes' : '—' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isDefault', label: 'Default', render: (v) => (v ? '✅ Yes' : '—') },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const taxGroupFields: FormField[] = [
   { name: 'name', label: 'Tax Group Name', type: 'text', required: true },
   { name: 'description', label: 'Description', type: 'textarea' },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'GST', value: 'gst' },
-    { label: 'VAT', value: 'vat' },
-    { label: 'Custom', value: 'custom' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'GST', value: 'gst' },
+      { label: 'VAT', value: 'vat' },
+      { label: 'Custom', value: 'custom' },
+    ],
+  },
   { name: 'isDefault', label: 'Default Group', type: 'boolean' },
 ];
 
@@ -276,19 +302,24 @@ const gstRateColumns: ColumnDef[] = [
   { key: 'igst', label: 'IGST' },
   { key: 'cgst', label: 'CGST' },
   { key: 'sgst', label: 'SGST' },
-  { key: 'isDefault', label: 'Default', render: (v) => v ? '✅ Yes' : '—' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isDefault', label: 'Default', render: (v) => (v ? '✅ Yes' : '—') },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const gstRateFields: FormField[] = [
   { name: 'name', label: 'Rate Name', type: 'text', required: true },
   { name: 'description', label: 'Description', type: 'textarea' },
   { name: 'rate', label: 'Rate (%)', type: 'number', required: true },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'IGST', value: 'igst' },
-    { label: 'CGST+SGST', value: 'cgst_sgst' },
-    { label: 'Cess', value: 'cess' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'IGST', value: 'igst' },
+      { label: 'CGST+SGST', value: 'cgst_sgst' },
+      { label: 'Cess', value: 'cess' },
+    ],
+  },
   { name: 'igst', label: 'IGST %', type: 'number' },
   { name: 'cgst', label: 'CGST %', type: 'number' },
   { name: 'sgst', label: 'SGST %', type: 'number' },
@@ -310,39 +341,12 @@ export function GSTRatesPage() {
 }
 
 // ── Form Page Exports ─────────────────────────────────────
-export {
-  CreateCompanyPage,
-  EditCompanyPage,
-} from './company-form';
-export {
-  CreateBranchPage,
-  EditBranchPage,
-} from './branch-form';
-export {
-  CreateWarehousePage,
-  EditWarehousePage,
-} from './warehouse-form';
-export {
-  CreateFinancialYearPage,
-  EditFinancialYearPage,
-} from './financial-year-form';
-export {
-  CreateUnitPage,
-  EditUnitPage,
-} from './unit-form';
-export {
-  CreateCategoryPage,
-  EditCategoryPage,
-} from './category-form';
-export {
-  CreateBrandPage,
-  EditBrandPage,
-} from './brand-form';
-export {
-  CreateTaxGroupPage,
-  EditTaxGroupPage,
-} from './tax-form';
-export {
-  CreateGstRatePage,
-  EditGstRatePage,
-} from './tax-form';
+export { CreateCompanyPage, EditCompanyPage } from './company-form';
+export { CreateBranchPage, EditBranchPage } from './branch-form';
+export { CreateWarehousePage, EditWarehousePage } from './warehouse-form';
+export { CreateFinancialYearPage, EditFinancialYearPage } from './financial-year-form';
+export { CreateUnitPage, EditUnitPage } from './unit-form';
+export { CreateCategoryPage, EditCategoryPage } from './category-form';
+export { CreateBrandPage, EditBrandPage } from './brand-form';
+export { CreateTaxGroupPage, EditTaxGroupPage } from './tax-form';
+export { CreateGstRatePage, EditGstRatePage } from './tax-form';

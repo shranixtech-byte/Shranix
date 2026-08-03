@@ -1,5 +1,4 @@
-import { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { OnModuleInit, Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
 
@@ -15,14 +14,44 @@ export class DmsPermissionSeedService implements OnModuleInit {
 
   async seedDmsPermissions(): Promise<void> {
     const dmsPermissions = [
-      { name: 'dms.create', description: 'Create documents in DMS', resource: 'dms', action: 'create' },
+      {
+        name: 'dms.create',
+        description: 'Create documents in DMS',
+        resource: 'dms',
+        action: 'create',
+      },
       { name: 'dms.read', description: 'Read documents in DMS', resource: 'dms', action: 'read' },
-      { name: 'dms.update', description: 'Update documents in DMS', resource: 'dms', action: 'update' },
-      { name: 'dms.delete', description: 'Delete documents in DMS', resource: 'dms', action: 'delete' },
+      {
+        name: 'dms.update',
+        description: 'Update documents in DMS',
+        resource: 'dms',
+        action: 'update',
+      },
+      {
+        name: 'dms.delete',
+        description: 'Delete documents in DMS',
+        resource: 'dms',
+        action: 'delete',
+      },
       { name: 'dms.upload', description: 'Upload files to DMS', resource: 'dms', action: 'upload' },
-      { name: 'dms.download', description: 'Download files from DMS', resource: 'dms', action: 'download' },
-      { name: 'dms.sign', description: 'Sign documents digitally', resource: 'dms', action: 'sign' },
-      { name: 'dms.restore', description: 'Restore previous document versions', resource: 'dms', action: 'restore' },
+      {
+        name: 'dms.download',
+        description: 'Download files from DMS',
+        resource: 'dms',
+        action: 'download',
+      },
+      {
+        name: 'dms.sign',
+        description: 'Sign documents digitally',
+        resource: 'dms',
+        action: 'sign',
+      },
+      {
+        name: 'dms.restore',
+        description: 'Restore previous document versions',
+        resource: 'dms',
+        action: 'restore',
+      },
       { name: 'dms.archive', description: 'Archive documents', resource: 'dms', action: 'archive' },
     ];
 
@@ -47,17 +76,25 @@ export class DmsPermissionSeedService implements OnModuleInit {
 
     // Assign DMS permissions to admin role
     try {
-      const rolesResult = await (this.database as any).roles.findAllRoles({ page: 1, pageSize: 100 });
+      const rolesResult = await (this.database as any).roles.findAllRoles({
+        page: 1,
+        pageSize: 100,
+      });
       const rolesData = rolesResult.data || [];
       const adminRole = rolesData.find((r: any) => r.name === 'admin' || r.code === 'admin');
       if (adminRole) {
         for (const perm of dmsPermissions) {
           const permission = await (this.database as any).permissions.findByName(perm.name);
           if (permission) {
-            const existingPermissions = await (this.database as any).permissions.getPermissionsByRole(adminRole.id);
+            const existingPermissions = await (
+              this.database as any
+            ).permissions.getPermissionsByRole(adminRole.id);
             const alreadyAssigned = existingPermissions.some((p: any) => p.name === perm.name);
             if (!alreadyAssigned) {
-              await (this.database as any).roles.assignPermissionToRole(adminRole.id, permission.id);
+              await (this.database as any).roles.assignPermissionToRole(
+                adminRole.id,
+                permission.id,
+              );
               this.logger.log(`Permission "${perm.name}" assigned to admin role`);
             }
           }

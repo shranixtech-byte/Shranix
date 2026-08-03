@@ -1,4 +1,3 @@
-import { useEffect, useState, useCallback } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -10,8 +9,14 @@ import {
   RefreshCw,
   Loader2,
 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
 
-import { getSalesDashboard, type DashboardData, type ReportFilters } from '@/services/sales-reports.service';
+import {
+  getSalesDashboard,
+  type DashboardData,
+  type ReportFilters,
+} from '@/services/sales-reports.service';
+
 import { ReportFilters as FilterBar } from './components/ReportFilters';
 
 // ═════════════════════════════════════════════════════════
@@ -64,15 +69,19 @@ function KpiCard({
   isCurrency?: boolean;
 }) {
   const Icon = iconMap[icon] || DollarSign;
-  const displayValue = isCurrency ? formatCurrency(value) : icon === 'growthPercent' || icon === 'profitMargin'
-    ? `${value.toFixed(1)}%`
-    : formatNumber(value);
+  const displayValue = isCurrency
+    ? formatCurrency(value)
+    : icon === 'growthPercent' || icon === 'profitMargin'
+      ? `${value.toFixed(1)}%`
+      : formatNumber(value);
 
   return (
-    <div className={`rounded-lg border-l-4 ${color} bg-card p-4 shadow-sm transition-all hover:shadow-md`}>
+    <div
+      className={`rounded-lg border-l-4 ${color} bg-card p-4 shadow-sm transition-all hover:shadow-md`}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-        <Icon className="h-4 w-4 text-muted-foreground/60" />
+        <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">{label}</p>
+        <Icon className="text-muted-foreground/60 h-4 w-4" />
       </div>
       <p className="mt-2 text-2xl font-bold tracking-tight">{displayValue}</p>
     </div>
@@ -98,9 +107,9 @@ function SimpleBarChart({
 }) {
   if (!data || data.length === 0) {
     return (
-      <div className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="bg-card rounded-lg border p-4 shadow-sm">
         <h3 className="mb-3 text-sm font-semibold">{title}</h3>
-        <p className="text-xs text-muted-foreground">No data available</p>
+        <p className="text-muted-foreground text-xs">No data available</p>
       </div>
     );
   }
@@ -112,7 +121,7 @@ function SimpleBarChart({
   });
 
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
+    <div className="bg-card rounded-lg border p-4 shadow-sm">
       <h3 className="mb-3 text-sm font-semibold">{title}</h3>
       <div className="flex items-end gap-1" style={{ height }}>
         {data.map((d, i) => {
@@ -134,7 +143,7 @@ function SimpleBarChart({
       </div>
       <div className="mt-2 flex gap-1">
         {labels.map((l, i) => (
-          <span key={i} className="flex-1 text-center text-[9px] text-muted-foreground truncate">
+          <span key={i} className="text-muted-foreground flex-1 truncate text-center text-[9px]">
             {l}
           </span>
         ))}
@@ -160,17 +169,22 @@ function TopList({
   labelKey: string;
   formatItem?: (item: any) => string;
 }) {
-  if (!items || items.length === 0) return null;
+  if (!items || items.length === 0) {
+    return null;
+  }
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-sm">
+    <div className="bg-card rounded-lg border p-4 shadow-sm">
       <h3 className="mb-3 text-sm font-semibold">{title}</h3>
       <div className="space-y-2">
         {items.slice(0, 5).map((item, i) => (
           <div key={i} className="flex items-center justify-between text-xs">
-            <span className="truncate text-muted-foreground">
-              {i + 1}. {formatItem ? formatItem(item) : item[labelKey] || item.customerId || item.productId}
+            <span className="text-muted-foreground truncate">
+              {i + 1}.{' '}
+              {formatItem ? formatItem(item) : item[labelKey] || item.customerId || item.productId}
             </span>
-            <span className="ml-2 font-medium tabular-nums">{formatCurrency(item[valueKey] || item.amount)}</span>
+            <span className="ml-2 font-medium tabular-nums">
+              {formatCurrency(item[valueKey] || item.amount)}
+            </span>
           </div>
         ))}
       </div>
@@ -228,14 +242,14 @@ export function SalesReportsDashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Sales Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             Real-time sales performance metrics and analytics
           </p>
         </div>
         <button
           onClick={fetchData}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          className="bg-background hover:bg-accent inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -243,23 +257,19 @@ export function SalesReportsDashboardPage() {
       </div>
 
       {/* Filters */}
-      <FilterBar
-        values={filters}
-        onChange={setFilters}
-        showSearch={false}
-      />
+      <FilterBar values={filters} onChange={setFilters} showSearch={false} />
 
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-sm text-muted-foreground">Loading dashboard data...</span>
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
+          <span className="text-muted-foreground ml-3 text-sm">Loading dashboard data...</span>
         </div>
       )}
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="border-destructive/50 bg-destructive/10 text-destructive rounded-lg border p-4 text-sm">
           {error}
         </div>
       )}
@@ -268,22 +278,85 @@ export function SalesReportsDashboardPage() {
       {data && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Today's Sales" value={kpis.todaySales?.value || 0} icon="todaySales" color="border-l-blue-500" />
-            <KpiCard label="This Month Sales" value={kpis.monthSales?.value || 0} icon="monthSales" color="border-l-green-500" />
-            <KpiCard label="Outstanding" value={kpis.outstanding?.value || 0} icon="outstanding" color="border-l-red-500" />
-            <KpiCard label="Invoices" value={kpis.invoices?.value || 0} icon="invoices" color="border-l-purple-500" isCurrency={false} />
-            <KpiCard label="Average Invoice" value={kpis.avgInvoice?.value || 0} icon="avgInvoice" color="border-l-cyan-500" />
-            <KpiCard label="Collection" value={kpis.collection?.value || 0} icon="collection" color="border-l-emerald-500" />
-            <KpiCard label="Gross Profit" value={kpis.profit?.value || 0} icon="profit" color="border-l-yellow-500" />
-            <KpiCard label="Growth %" value={kpis.growthPercent?.value || 0} icon="growthPercent" color="border-l-orange-500" isCurrency={false} />
+            <KpiCard
+              label="Today's Sales"
+              value={kpis.todaySales?.value || 0}
+              icon="todaySales"
+              color="border-l-blue-500"
+            />
+            <KpiCard
+              label="This Month Sales"
+              value={kpis.monthSales?.value || 0}
+              icon="monthSales"
+              color="border-l-green-500"
+            />
+            <KpiCard
+              label="Outstanding"
+              value={kpis.outstanding?.value || 0}
+              icon="outstanding"
+              color="border-l-red-500"
+            />
+            <KpiCard
+              label="Invoices"
+              value={kpis.invoices?.value || 0}
+              icon="invoices"
+              color="border-l-purple-500"
+              isCurrency={false}
+            />
+            <KpiCard
+              label="Average Invoice"
+              value={kpis.avgInvoice?.value || 0}
+              icon="avgInvoice"
+              color="border-l-cyan-500"
+            />
+            <KpiCard
+              label="Collection"
+              value={kpis.collection?.value || 0}
+              icon="collection"
+              color="border-l-emerald-500"
+            />
+            <KpiCard
+              label="Gross Profit"
+              value={kpis.profit?.value || 0}
+              icon="profit"
+              color="border-l-yellow-500"
+            />
+            <KpiCard
+              label="Growth %"
+              value={kpis.growthPercent?.value || 0}
+              icon="growthPercent"
+              color="border-l-orange-500"
+              isCurrency={false}
+            />
           </div>
 
           {/* Second KPI Row */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Taxable Value" value={kpis.totalSubTotal?.value || 0} icon="totalSubTotal" color="border-l-indigo-500" />
-            <KpiCard label="Total Tax" value={kpis.totalTax?.value || 0} icon="totalTax" color="border-l-pink-500" />
-            <KpiCard label="Total Discount" value={kpis.totalDiscount?.value || 0} icon="totalDiscount" color="border-l-rose-500" />
-            <KpiCard label="Profit Margin" value={kpis.profitMargin?.value || 0} icon="profitMargin" color="border-l-teal-500" isCurrency={false} />
+            <KpiCard
+              label="Taxable Value"
+              value={kpis.totalSubTotal?.value || 0}
+              icon="totalSubTotal"
+              color="border-l-indigo-500"
+            />
+            <KpiCard
+              label="Total Tax"
+              value={kpis.totalTax?.value || 0}
+              icon="totalTax"
+              color="border-l-pink-500"
+            />
+            <KpiCard
+              label="Total Discount"
+              value={kpis.totalDiscount?.value || 0}
+              icon="totalDiscount"
+              color="border-l-rose-500"
+            />
+            <KpiCard
+              label="Profit Margin"
+              value={kpis.profitMargin?.value || 0}
+              icon="profitMargin"
+              color="border-l-teal-500"
+              isCurrency={false}
+            />
           </div>
 
           {/* Charts Row */}

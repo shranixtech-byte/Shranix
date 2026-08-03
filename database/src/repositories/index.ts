@@ -112,6 +112,7 @@ export {
   JournalEntryItemsRepository,
   CashBookRepository,
   BankBookRepository,
+  BankAccountsRepository,
   CostCentersRepository,
   AccountingSettingsRepository,
 } from './finance.repository';

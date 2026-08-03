@@ -1,6 +1,8 @@
-import { useEffect, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+
 import { getProductSales } from '@/services/sales-reports.service';
+
 import { ReportFilters } from './components/ReportFilters';
 
 function formatCurrency(v: number): string {
@@ -70,7 +72,7 @@ export function ProductSalesReport() {
   function SortHeader({ label, sortKey: sk }: { label: string; sortKey: string }) {
     return (
       <th
-        className="px-3 py-2.5 font-semibold cursor-pointer hover:text-foreground select-none"
+        className="hover:text-foreground cursor-pointer select-none px-3 py-2.5 font-semibold"
         onClick={() => handleSort(sk)}
       >
         <div className="flex items-center gap-1">
@@ -85,22 +87,24 @@ export function ProductSalesReport() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Product Sales Report</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Product-wise sales performance with profit margins</p>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Product-wise sales performance with profit margins
+        </p>
       </div>
 
       <ReportFilters values={filters} onChange={setFilters} showSearch={false} />
 
-      <div className="text-xs text-muted-foreground">{total} products</div>
+      <div className="text-muted-foreground text-xs">{total} products</div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
         </div>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+              <thead className="bg-muted/80 sticky top-0 backdrop-blur">
                 <tr>
                   <th className="px-3 py-2.5 font-semibold">Product</th>
                   <SortHeader label="SKU" sortKey="sku" />
@@ -128,12 +132,18 @@ export function ProductSalesReport() {
                     <td className="px-3 py-2 text-right tabular-nums">{row.sold}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{row.returned || 0}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{row.closing}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(row.salesValue)}</td>
-                    <td className={`px-3 py-2 text-right tabular-nums ${row.profit >= 0 ? '' : 'text-red-600'}`}>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {formatCurrency(row.salesValue)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right tabular-nums ${row.profit >= 0 ? '' : 'text-red-600'}`}
+                    >
                       {formatCurrency(row.profit)}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
-                      <span className={`${row.marginPct >= 20 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span
+                        className={`${row.marginPct >= 20 ? 'text-green-600' : 'text-red-600'}`}
+                      >
                         {row.marginPct?.toFixed(1)}%
                       </span>
                     </td>
@@ -141,7 +151,7 @@ export function ProductSalesReport() {
                 ))}
                 {data.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">
+                    <td colSpan={12} className="text-muted-foreground px-3 py-8 text-center">
                       No product sales data found
                     </td>
                   </tr>
@@ -152,13 +162,21 @@ export function ProductSalesReport() {
 
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
-                className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-50 hover:bg-accent">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+              >
                 Previous
               </button>
-              <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-50 hover:bg-accent">
+              <span className="text-muted-foreground text-xs">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+              >
                 Next
               </button>
             </div>

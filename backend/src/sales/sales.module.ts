@@ -1,10 +1,12 @@
 import { Module, forwardRef } from '@nestjs/common';
 
+import { AutomationModule } from '../automation/automation.module';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
 import { WorkflowModule } from '../workflow/workflow.module';
-import { AutomationModule } from '../automation/automation.module';
 
+import { SalesApprovalEngineService } from './approval-engine.service';
+import { SalesApprovalController } from './approval.controller';
 import {
   SalesQuotationsController,
   SalesOrdersController,
@@ -15,11 +17,15 @@ import {
   SalesApprovalsController,
   SalesSettingsController,
 } from './controllers';
-import { SalesReportsController } from './reports.controller';
-import { SalesApprovalController } from './approval.controller';
+import { SalesCreditEngineService } from './credit-engine.service';
 import { SalesCreditController } from './credit.controller';
-import { SalesReturnEngineController } from './return.controller';
 import { CustomersController } from './customers.controller';
+import { CustomersService } from './customers.service';
+import { PostingEngineService } from './posting-engine.service';
+import { SalesReportsController } from './reports.controller';
+import { SalesReportsService } from './reports.service';
+import { SalesReturnEngineService } from './return-engine.service';
+import { SalesReturnEngineController } from './return.controller';
 import {
   SalesQuotationsService,
   SalesOrdersService,
@@ -30,12 +36,6 @@ import {
   SalesApprovalsService,
   SalesSettingsService,
 } from './services';
-import { CustomersService } from './customers.service';
-import { SalesReportsService } from './reports.service';
-import { SalesApprovalEngineService } from './approval-engine.service';
-import { SalesCreditEngineService } from './credit-engine.service';
-import { SalesReturnEngineService } from './return-engine.service';
-import { PostingEngineService } from './posting-engine.service';
 
 @Module({
   imports: [WorkflowModule, forwardRef(() => AutomationModule)],

@@ -2,15 +2,14 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-do
 
 import { LoadingScreen } from '@/components/loading-screen';
 import { ProtectedRoute } from '@/components/protected-route';
+import { useAuth } from '@/context/AuthContext';
 import { AppLayout } from '@/layouts/app-layout';
-
+import { getUserLandingPath, hasModuleAccess } from '@/lib/module-access';
 import { AccessDeniedPage } from '@/pages/auth/access-denied';
 import { ForgotPasswordPage } from '@/pages/auth/forgot-password';
 import { LoginPage } from '@/pages/auth/login';
 import { RegisterPage } from '@/pages/auth/register';
 import { SessionExpiredPage } from '@/pages/auth/session-expired';
-
-
 import { DashboardPage } from '@/pages/dashboard';
 import {
   DocumentListPage,
@@ -72,6 +71,7 @@ import {
   CreateGstRegistrationPage,
   CreateTaxPostingPage,
   CreateNumberSeriesPage,
+  CreateGstAuditSettingsPage,
 } from '@/pages/gst_audit/dynamic-forms';
 import {
   ItemsPage,
@@ -115,6 +115,17 @@ import {
   StockReservationPage,
   WarehouseReportsPage,
 } from '@/pages/inventory';
+import {
+  CreateItemGroupPage,
+  CreateSubCategoryPage,
+  CreateItemVariantPage,
+  CreateItemPricingPage,
+  CreateItemBarcodePage,
+  CreateHsnCodePage,
+  CreateStockOpeningPage,
+  CreateItemImagePage,
+  CreateInventorySettingsPage,
+} from '@/pages/inventory/dynamic-forms';
 import {
   CompaniesPage,
   FinancialYearsPage,
@@ -164,13 +175,13 @@ import {
   PurchaseReturnReport,
   GstPurchaseReport,
 } from '@/pages/purchase';
-
+import { CreatePurchaseSettingsPage } from '@/pages/purchase/dynamic-forms';
 import {
   SalesQuotationsPage,
   SalesOrdersPage,
   DeliveryChallansPage,
   SalesInvoicesPage,
-  CreateSalesInvoicePage,
+  SimpleInvoicePage,
   SalesReturnsPage,
   CustomerPriceListPage,
   SalesApprovalsPage,
@@ -179,6 +190,16 @@ import {
   CreateCustomerPage,
   EditCustomerPage,
 } from '@/pages/sales';
+import { ApprovalsPage, ApprovalDashboard, ApprovalSettings } from '@/pages/sales/approvals';
+import {
+  CreditDashboardPage,
+  CreditCustomersPage,
+  AgeingReportPage,
+  RecoveryDashboardPage,
+  CreditHoldDashboardPage,
+  ReminderEnginePage,
+} from '@/pages/sales/credit';
+import { CreateSalesSettingsPage } from '@/pages/sales/dynamic-forms';
 import {
   SalesReportsDashboardPage,
   SalesRegisterReport,
@@ -192,27 +213,29 @@ import {
   ExportCenter,
 } from '@/pages/sales/reports';
 import {
-  ApprovalsPage,
-  ApprovalDashboard,
-  ApprovalSettings,
-} from '@/pages/sales/approvals';
-import {
-  CreditDashboardPage,
-  CreditCustomersPage,
-  AgeingReportPage,
-  RecoveryDashboardPage,
-  CreditHoldDashboardPage,
-  ReminderEnginePage,
-} from '@/pages/sales/credit';
-import {
   CreateReturnPage,
   CreditNotesPage,
   DebitNotesPage,
   ReturnReportsPage,
 } from '@/pages/sales/returns';
-import { ApprovalDashboardPage, PendingTasksDashboardPage, MyTasksDashboardPage, EscalationDashboardPage } from '@/pages/workflow';
+import {
+  ApprovalDashboardPage,
+  PendingTasksDashboardPage,
+  MyTasksDashboardPage,
+  EscalationDashboardPage,
+} from '@/pages/workflow';
 
-const routes: RouteObject[] = [
+// Restricted user (tick-based module access) ke liye landing gate:
+// Dashboard module allowed nahi hai → pehla allowed module page dikhao.
+function ModuleLandingRedirect() {
+  const { user } = useAuth();
+  if (hasModuleAccess(user, 'dashboard')) {
+    return <DashboardPage />;
+  }
+  return <Navigate to={getUserLandingPath(user)} replace />;
+}
+
+export const routes: RouteObject[] = [
   {
     path: '/',
     element: (
@@ -225,7 +248,7 @@ const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <DashboardPage />,
+        element: <ModuleLandingRedirect />,
       },
       // ── Master Data Modules ──────────────────────────
       // ── Master Data List Routes ────────────────────
@@ -262,15 +285,35 @@ const routes: RouteObject[] = [
       { path: 'inventory/products/:id/edit', element: <EditProductPage /> },
       { path: 'inventory/products/:id', element: <ProductDetailPage /> },
       { path: 'inventory/items', element: <ItemsPage /> },
+      { path: 'inventory/items/create', element: <CreateProductPage /> },
+      { path: 'inventory/items/:id/edit', element: <EditProductPage /> },
       { path: 'inventory/groups', element: <ItemGroupsPage /> },
+      { path: 'inventory/groups/create', element: <CreateItemGroupPage /> },
+      { path: 'inventory/groups/:id/edit', element: <CreateItemGroupPage /> },
       { path: 'inventory/variants', element: <ItemVariantsPage /> },
+      { path: 'inventory/variants/create', element: <CreateItemVariantPage /> },
+      { path: 'inventory/variants/:id/edit', element: <CreateItemVariantPage /> },
       { path: 'inventory/pricing', element: <ItemPricingPage /> },
+      { path: 'inventory/pricing/create', element: <CreateItemPricingPage /> },
+      { path: 'inventory/pricing/:id/edit', element: <CreateItemPricingPage /> },
       { path: 'inventory/barcodes', element: <ItemBarcodesPage /> },
+      { path: 'inventory/barcodes/create', element: <CreateItemBarcodePage /> },
+      { path: 'inventory/barcodes/:id/edit', element: <CreateItemBarcodePage /> },
       { path: 'inventory/hsn-codes', element: <HsnCodesPage /> },
+      { path: 'inventory/hsn-codes/create', element: <CreateHsnCodePage /> },
+      { path: 'inventory/hsn-codes/:id/edit', element: <CreateHsnCodePage /> },
       { path: 'inventory/stock-opening', element: <StockOpeningPage /> },
+      { path: 'inventory/stock-opening/create', element: <CreateStockOpeningPage /> },
+      { path: 'inventory/stock-opening/:id/edit', element: <CreateStockOpeningPage /> },
       { path: 'inventory/sub-categories', element: <SubCategoriesPage /> },
+      { path: 'inventory/sub-categories/create', element: <CreateSubCategoryPage /> },
+      { path: 'inventory/sub-categories/:id/edit', element: <CreateSubCategoryPage /> },
       { path: 'inventory/images', element: <ItemImagesPage /> },
+      { path: 'inventory/images/create', element: <CreateItemImagePage /> },
+      { path: 'inventory/images/:id/edit', element: <CreateItemImagePage /> },
       { path: 'inventory/settings', element: <InventorySettingsPage /> },
+      { path: 'inventory/settings/create', element: <CreateInventorySettingsPage /> },
+      { path: 'inventory/settings/:id/edit', element: <CreateInventorySettingsPage /> },
       // ── PRM-015: Enterprise Inventory Engine ────
       { path: 'inventory/batches', element: <BatchesPage /> },
       { path: 'inventory/stock-entry', element: <NewStockEntryPage /> },
@@ -309,6 +352,8 @@ const routes: RouteObject[] = [
       { path: 'purchase/supplier-prices', element: <SupplierPriceListPage /> },
       { path: 'purchase/approvals', element: <PurchaseApprovalsPage /> },
       { path: 'purchase/settings', element: <PurchaseSettingsPage /> },
+      { path: 'purchase/settings/create', element: <CreatePurchaseSettingsPage /> },
+      { path: 'purchase/settings/:id/edit', element: <CreatePurchaseSettingsPage /> },
       { path: 'suppliers', element: <SuppliersPage /> },
       { path: 'suppliers/create', element: <CreateSupplierPage /> },
       { path: 'suppliers/:id/edit', element: <EditSupplierPage /> },
@@ -324,7 +369,7 @@ const routes: RouteObject[] = [
       { path: 'sales/orders', element: <SalesOrdersPage /> },
       { path: 'sales/delivery-challans', element: <DeliveryChallansPage /> },
       { path: 'sales/invoices', element: <SalesInvoicesPage /> },
-      { path: 'sales/invoices/create', element: <CreateSalesInvoicePage /> },
+      { path: 'sales/invoices/create', element: <SimpleInvoicePage /> },
       { path: 'sales/returns', element: <SalesReturnsPage /> },
       { path: 'sales/customer-prices', element: <CustomerPriceListPage /> },
       { path: 'sales/approvals/legacy', element: <SalesApprovalsPage /> },
@@ -332,6 +377,8 @@ const routes: RouteObject[] = [
       { path: 'customers/create', element: <CreateCustomerPage /> },
       { path: 'customers/:id/edit', element: <EditCustomerPage /> },
       { path: 'sales/settings', element: <SalesSettingsPage /> },
+      { path: 'sales/settings/create', element: <CreateSalesSettingsPage /> },
+      { path: 'sales/settings/:id/edit', element: <CreateSalesSettingsPage /> },
       // ── Sales Reports ────────────────────────────
       { path: 'sales/reports/dashboard', element: <SalesReportsDashboardPage /> },
       { path: 'sales/reports/register', element: <SalesRegisterReport /> },
@@ -378,7 +425,13 @@ const routes: RouteObject[] = [
       { path: 'finance/cost-centers', element: <CostCentersPage /> },
       { path: 'finance/cost-centers/create', element: <CreateCostCenterPage /> },
       { path: 'finance/cost-centers/:id/edit', element: <CreateCostCenterPage /> },
+      // Password-gated direct settings form — create/edit routes redirect yahan par
+      // (taaki password gate bypass na ho aur sab kuch ek hi page se ho)
       { path: 'finance/settings', element: <AccountingSettingsPage /> },
+      { path: 'finance/settings/create', element: <Navigate to="/finance/settings" replace /> },
+      { path: 'finance/settings/:id/edit', element: <Navigate to="/finance/settings" replace /> },
+      // Purane /settings links/bookmarks → Accounting Settings (404 se bachne ke liye)
+      { path: 'settings', element: <Navigate to="/finance/settings" replace /> },
       // ── GL / Reporting Modules ─────────────────────
       { path: 'gl/dashboard', element: <Navigate to="/" replace /> },
       { path: 'gl/entries', element: <GlEntriesPage /> },
@@ -422,42 +475,44 @@ const routes: RouteObject[] = [
       { path: 'gst/number-series/create', element: <CreateNumberSeriesPage /> },
       { path: 'gst/voucher-approvals', element: <VoucherApprovalsPage /> },
       { path: 'gst/settings', element: <GstAuditSettingsPage /> },
+      { path: 'gst/settings/create', element: <CreateGstAuditSettingsPage /> },
+      { path: 'gst/settings/:id/edit', element: <CreateGstAuditSettingsPage /> },
     ],
-  },      // ── Old dashboards — all redirect to main dashboard ──
-      { path: 'executive/ceo', element: <Navigate to="/" replace /> },
-      { path: 'executive/director', element: <Navigate to="/" replace /> },
-      { path: 'executive/admin', element: <Navigate to="/" replace /> },
-      { path: 'executive/operations', element: <Navigate to="/" replace /> },
-      { path: 'executive/user', element: <Navigate to="/" replace /> },
-      { path: 'bi/purchase', element: <Navigate to="/" replace /> },
-      { path: 'bi/sales', element: <Navigate to="/" replace /> },
-      { path: 'bi/inventory', element: <Navigate to="/" replace /> },
-      { path: 'bi/finance', element: <Navigate to="/" replace /> },
-      { path: 'bi/gst', element: <Navigate to="/" replace /> },
-      { path: 'bi/customers', element: <Navigate to="/" replace /> },
-      { path: 'bi/suppliers', element: <Navigate to="/" replace /> },
-      { path: 'bi/warehouses', element: <Navigate to="/" replace /> },
-      { path: 'bi/profitability', element: <Navigate to="/" replace /> },
-      { path: 'bi/cash-flow', element: <Navigate to="/" replace /> },
-      { path: 'bi/growth', element: <Navigate to="/" replace /> },
-      { path: 'dms/dashboard', element: <Navigate to="/" replace /> },
-      { path: 'dms/documents', element: <DocumentListPage /> },
-      { path: 'dms/folders', element: <DocumentFoldersPage /> },
-      { path: 'dms/tags', element: <DocumentTagsPage /> },
-      { path: 'dms/ocr', element: <OcrQueuePage /> },
-      { path: 'dms/signatures', element: <DigitalSignaturesPage /> },
-      { path: 'dms/compliance', element: <DocumentCompliancePage /> },
-      { path: 'workflow/dashboard', element: <Navigate to="/" replace /> },
-      { path: 'workflow/approvals', element: <ApprovalDashboardPage /> },
-      { path: 'workflow/tasks', element: <PendingTasksDashboardPage /> },
-      { path: 'workflow/my-tasks', element: <MyTasksDashboardPage /> },
-      { path: 'workflow/escalation', element: <EscalationDashboardPage /> },
-      { path: 'ai/dashboard', element: <Navigate to="/" replace /> },
-      { path: 'ai/insights', element: <Navigate to="/" replace /> },
-      { path: 'ai/forecasts', element: <Navigate to="/" replace /> },
-      { path: 'ai/usage', element: <Navigate to="/" replace /> },
+  }, // ── Old dashboards — all redirect to main dashboard ──
+  { path: 'executive/ceo', element: <Navigate to="/" replace /> },
+  { path: 'executive/director', element: <Navigate to="/" replace /> },
+  { path: 'executive/admin', element: <Navigate to="/" replace /> },
+  { path: 'executive/operations', element: <Navigate to="/" replace /> },
+  { path: 'executive/user', element: <Navigate to="/" replace /> },
+  { path: 'bi/purchase', element: <Navigate to="/" replace /> },
+  { path: 'bi/sales', element: <Navigate to="/" replace /> },
+  { path: 'bi/inventory', element: <Navigate to="/" replace /> },
+  { path: 'bi/finance', element: <Navigate to="/" replace /> },
+  { path: 'bi/gst', element: <Navigate to="/" replace /> },
+  { path: 'bi/customers', element: <Navigate to="/" replace /> },
+  { path: 'bi/suppliers', element: <Navigate to="/" replace /> },
+  { path: 'bi/warehouses', element: <Navigate to="/" replace /> },
+  { path: 'bi/profitability', element: <Navigate to="/" replace /> },
+  { path: 'bi/cash-flow', element: <Navigate to="/" replace /> },
+  { path: 'bi/growth', element: <Navigate to="/" replace /> },
+  { path: 'dms/dashboard', element: <Navigate to="/" replace /> },
+  { path: 'dms/documents', element: <DocumentListPage /> },
+  { path: 'dms/folders', element: <DocumentFoldersPage /> },
+  { path: 'dms/tags', element: <DocumentTagsPage /> },
+  { path: 'dms/ocr', element: <OcrQueuePage /> },
+  { path: 'dms/signatures', element: <DigitalSignaturesPage /> },
+  { path: 'dms/compliance', element: <DocumentCompliancePage /> },
+  { path: 'workflow/dashboard', element: <Navigate to="/" replace /> },
+  { path: 'workflow/approvals', element: <ApprovalDashboardPage /> },
+  { path: 'workflow/tasks', element: <PendingTasksDashboardPage /> },
+  { path: 'workflow/my-tasks', element: <MyTasksDashboardPage /> },
+  { path: 'workflow/escalation', element: <EscalationDashboardPage /> },
+  { path: 'ai/dashboard', element: <Navigate to="/" replace /> },
+  { path: 'ai/insights', element: <Navigate to="/" replace /> },
+  { path: 'ai/forecasts', element: <Navigate to="/" replace /> },
+  { path: 'ai/usage', element: <Navigate to="/" replace /> },
 
-      // ── Auth Routes ──────────────────────────────────
+  // ── Auth Routes ──────────────────────────────────
   {
     path: '/auth',
     children: [

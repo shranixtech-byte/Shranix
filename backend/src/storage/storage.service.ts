@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
 import { Injectable, Logger } from '@nestjs/common';
 
 export interface StorageAdapter {
@@ -55,37 +58,35 @@ export class StorageService {
 
 // ── Local Storage Adapter ──────────────────────────────────────
 class LocalStorageAdapter implements StorageAdapter {
-  private fs = require('fs');
-  private path = require('path');
   private basePath = process.env.LOCAL_STORAGE_PATH || './storage';
 
   async save(filePath: string, buffer: Buffer, _contentType: string): Promise<string> {
-    const fullPath = this.path.join(this.basePath, filePath);
-    const dir = this.path.dirname(fullPath);
-    if (!this.fs.existsSync(dir)) {
-      this.fs.mkdirSync(dir, { recursive: true });
+    const fullPath = path.join(this.basePath, filePath);
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-    this.fs.writeFileSync(fullPath, buffer);
+    fs.writeFileSync(fullPath, buffer);
     return fullPath;
   }
 
   async read(filePath: string): Promise<Buffer> {
-    const fullPath = this.path.join(this.basePath, filePath);
-    return this.fs.readFileSync(fullPath);
+    const fullPath = path.join(this.basePath, filePath);
+    return fs.readFileSync(fullPath);
   }
 
   async delete(filePath: string): Promise<boolean> {
-    const fullPath = this.path.join(this.basePath, filePath);
-    if (this.fs.existsSync(fullPath)) {
-      this.fs.unlinkSync(fullPath);
+    const fullPath = path.join(this.basePath, filePath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
       return true;
     }
     return false;
   }
 
   async exists(filePath: string): Promise<boolean> {
-    const fullPath = this.path.join(this.basePath, filePath);
-    return this.fs.existsSync(fullPath);
+    const fullPath = path.join(this.basePath, filePath);
+    return fs.existsSync(fullPath);
   }
 
   async getSignedUrl(_filePath: string, _expiresIn?: number): Promise<string> {

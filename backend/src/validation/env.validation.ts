@@ -1,5 +1,4 @@
-import { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { OnModuleInit, Injectable, Logger } from '@nestjs/common';
 
 export interface EnvValidationResult {
   valid: boolean;
@@ -11,10 +10,7 @@ export interface EnvValidationResult {
 export class EnvValidationService implements OnModuleInit {
   private readonly logger = new Logger(EnvValidationService.name);
 
-  private readonly requiredVars: string[] = [
-    'JWT_SECRET',
-    'DATABASE_URL',
-  ];
+  private readonly requiredVars: string[] = ['JWT_SECRET', 'DATABASE_URL'];
 
   private readonly optionalVars: string[] = [
     'REDIS_URL',
@@ -38,9 +34,7 @@ export class EnvValidationService implements OnModuleInit {
   onModuleInit() {
     const result = this.validate();
     if (!result.valid) {
-      this.logger.warn(
-        `Missing required environment variables: ${result.missing.join(', ')}`,
-      );
+      this.logger.warn(`Missing required environment variables: ${result.missing.join(', ')}`);
     }
     if (result.warnings.length > 0) {
       for (const warning of result.warnings) {
@@ -71,9 +65,7 @@ export class EnvValidationService implements OnModuleInit {
       process.env.NODE_ENV === 'production' &&
       (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32)
     ) {
-      warnings.push(
-        'Production environment detected with weak JWT_SECRET. Set a strong secret.',
-      );
+      warnings.push('Production environment detected with weak JWT_SECRET. Set a strong secret.');
     }
 
     // DATABASE_URL scheme check
@@ -103,9 +95,7 @@ export class EnvValidationService implements OnModuleInit {
       const smtpKeys = ['SMTP_USER', 'SMTP_PASS'];
       for (const key of smtpKeys) {
         if (!process.env[key]) {
-          warnings.push(
-            `SMTP_HOST is set but ${key} is missing. Email sending will fail.`,
-          );
+          warnings.push(`SMTP_HOST is set but ${key} is missing. Email sending will fail.`);
         }
       }
     }
@@ -122,7 +112,7 @@ export class EnvValidationService implements OnModuleInit {
           key.toLowerCase().includes('secret') ||
           key.toLowerCase().includes('password') ||
           key.toLowerCase().includes('key')
-            ? `${value.substring(0, 4)  }****`
+            ? `${value.substring(0, 4)}****`
             : value;
       }
     }

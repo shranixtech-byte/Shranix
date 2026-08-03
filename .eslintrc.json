@@ -42,7 +42,14 @@
   "settings": {
     "import/resolver": {
       "typescript": {
-        "alwaysTryTypes": true
+        "alwaysTryTypes": true,
+        "project": [
+          "tsconfig.json",
+          "frontend/tsconfig.json",
+          "backend/tsconfig.json",
+          "database/tsconfig.json",
+          "shared/tsconfig.json"
+        ]
       }
     }
   },

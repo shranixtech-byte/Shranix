@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsBoolean, IsNumber, IsInt, Min, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsInt,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 
 // ═════════════════════════════════════════════════════════
 // SUPPLIER DTOs (PRM-016 Module 1)
@@ -59,7 +69,12 @@ export class CreatePurchaseRequisitionDto {
   @ApiPropertyOptional() @IsOptional() @IsString() requiredDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() priority?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
-  @ApiPropertyOptional() @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => RequisitionItemDto) items?: RequisitionItemDto[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RequisitionItemDto)
+  items?: RequisitionItemDto[];
 }
 export class UpdatePurchaseRequisitionDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
@@ -112,7 +127,12 @@ export class CreatePurchaseOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
-  @ApiPropertyOptional() @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => POItemDto) items?: POItemDto[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => POItemDto)
+  items?: POItemDto[];
 }
 export class UpdatePurchaseOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
@@ -149,7 +169,12 @@ export class CreateGrnDto {
   @ApiPropertyOptional() @IsOptional() @IsString() invoiceNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() invoiceDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
-  @ApiPropertyOptional() @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => GRNItemDto) items?: GRNItemDto[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => GRNItemDto)
+  items?: GRNItemDto[];
 }
 export class UpdateGrnDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
@@ -206,7 +231,12 @@ export class CreatePurchaseReturnDto {
   @ApiProperty() @IsString() returnReason!: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
-  @ApiPropertyOptional() @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ReturnItemDto) items?: ReturnItemDto[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReturnItemDto)
+  items?: ReturnItemDto[];
 }
 export class UpdatePurchaseReturnDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
@@ -228,7 +258,8 @@ export class ReturnItemDto {
 // SUPPLIER PRICE LIST DTOs
 // ═════════════════════════════════════════════════════════
 export class CreateSupplierPriceListDto {
-  @ApiProperty() @IsString() supplierId!: string; @ApiProperty() @IsString() itemId!: string;
+  @ApiProperty() @IsString() supplierId!: string;
+  @ApiProperty() @IsString() itemId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
   @ApiProperty() @IsNumber() @Min(0) rate!: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
@@ -268,6 +299,38 @@ export class CreatePurchaseSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() defaultPaymentTerms?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() gstEnabled?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) roundOffDecimals?: number;
+  // Purchase Settings — defaults & automation
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoGrn?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) supplierCreditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultTaxGroupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultWarehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultPaymentMode?: string;
+  // Supplier Settings (Settings Hub → Purchase → Supplier)
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultSupplierCategory?: string;
+  // Select UI sends '1'–'5' strings → coerce to number before @IsInt validation
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  defaultVendorRating?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  defaultGstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requireVendorApproval?: boolean;
+  // Numbering prefixes (schema-backed, exposed for settings UI)
+  @ApiPropertyOptional() @IsOptional() @IsString() quotationPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) quotationNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() grnPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) grnNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() invoicePrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) invoiceNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() returnPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) returnNextNumber?: number;
 }
 export class UpdatePurchaseSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autoPoNumber?: boolean;
@@ -276,4 +339,34 @@ export class UpdatePurchaseSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() requireApproval?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() defaultPaymentTerms?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() gstEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoGrn?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) supplierCreditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultTaxGroupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultWarehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultPaymentMode?: string;
+  // Supplier Settings (Settings Hub → Purchase → Supplier)
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultSupplierCategory?: string;
+  // Select UI sends '1'–'5' strings → coerce to number before @IsInt validation
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  defaultVendorRating?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  defaultGstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requireVendorApproval?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() quotationPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() quotationNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() grnPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() grnNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() invoicePrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() invoiceNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() returnPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() returnNextNumber?: number;
 }

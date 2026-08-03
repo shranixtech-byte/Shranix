@@ -1,6 +1,12 @@
 import * as crypto from 'node:crypto';
 
-import { Injectable, UnauthorizedException, ConflictException, Logger, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { JwtService } from '@nestjs/jwt';
 import { UserRecord } from '@shranix/database';
@@ -69,7 +75,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(dto.password, {
       type: argon2.argon2id,
       memoryCost: 19456,
-      timeCost: 1,  // ⚡ Reduced from 2 → login 2× faster while still secure (argon2id + 19MB memory)
+      timeCost: 1, // ⚡ Reduced from 2 → login 2× faster while still secure (argon2id + 19MB memory)
       parallelism: 1,
     });
 
@@ -102,28 +108,36 @@ export class AuthService {
     return { user: this.sanitizeUser(user), tokens };
   }
 
-  async login(dto: LoginDto, ipAddress?: string, userAgent?: string): Promise<{ body: AuthResponse; cookie: CookieConfig }> {
+  async login(
+    dto: LoginDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ body: AuthResponse; cookie: CookieConfig }> {
     const user = await this.database.users.findByEmail(dto.email);
     if (!user) {
       // Audit failed login attempt (no user found — log unknown email)
       // ⚡ Fire-and-forget — audit shouldn't block the response
-      this.audit.logLogin({
-        userId: 'unknown',
-        ipAddress,
-        userAgent,
-        status: 'failure',
-      }).catch(() => {});
+      this.audit
+        .logLogin({
+          userId: 'unknown',
+          ipAddress,
+          userAgent,
+          status: 'failure',
+        })
+        .catch(() => {});
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       // ⚡ Fire-and-forget
-      this.audit.logLogin({
-        userId: user.id,
-        ipAddress,
-        userAgent,
-        status: 'failure',
-      }).catch(() => {});
+      this.audit
+        .logLogin({
+          userId: user.id,
+          ipAddress,
+          userAgent,
+          status: 'failure',
+        })
+        .catch(() => {});
       throw new ForbiddenException('Account is temporarily locked. Try again later.');
     }
 
@@ -131,7 +145,9 @@ export class AuthService {
     if (!isPasswordValid) {
       const attempts = (user.failedLoginAttempts || 0) + 1;
       // ⚡ Fire-and-forget: increment + audit in parallel, no need to block the response
-      this.database.users.incrementFailedAttempts(user.id, attempts).catch(() => {/* non-critical */});
+      this.database.users.incrementFailedAttempts(user.id, attempts).catch(() => {
+        /* non-critical */
+      });
 
       await this.audit.logLogin({
         userId: user.id,
@@ -144,16 +160,18 @@ export class AuthService {
         const lockedUntil = new Date(Date.now() + LOCK_DURATION_MINUTES * 60 * 1000).toISOString();
         await this.database.users.lockAccount(user.id, lockedUntil, MAX_FAILED_ATTEMPTS);
         // ⚡ Fire-and-forget
-        this.audit.log({
-          userId: user.id,
-          event: AuditEvent.ACCOUNT_LOCKED,
-          resource: 'auth',
-          action: 'lock_account',
-          details: { lockedUntil, failedAttempts: attempts },
-          ipAddress,
-          userAgent,
-          severity: AuditSeverity.WARNING,
-        }).catch(() => {});
+        this.audit
+          .log({
+            userId: user.id,
+            event: AuditEvent.ACCOUNT_LOCKED,
+            resource: 'auth',
+            action: 'lock_account',
+            details: { lockedUntil, failedAttempts: attempts },
+            ipAddress,
+            userAgent,
+            severity: AuditSeverity.WARNING,
+          })
+          .catch(() => {});
         this.logger.warn(`Account ${user.email} locked until ${lockedUntil}`);
       }
       throw new UnauthorizedException('Invalid credentials');
@@ -161,12 +179,14 @@ export class AuthService {
 
     if (!user.isActive) {
       // ⚡ Fire-and-forget
-      this.audit.logLogin({
-        userId: user.id,
-        ipAddress,
-        userAgent,
-        status: 'failure',
-      }).catch(() => {});
+      this.audit
+        .logLogin({
+          userId: user.id,
+          ipAddress,
+          userAgent,
+          status: 'failure',
+        })
+        .catch(() => {});
       throw new ForbiddenException('Account is deactivated. Contact administrator.');
     }
 
@@ -179,9 +199,9 @@ export class AuthService {
     const tokens = await this.generateTokens(user, ipAddress, userAgent);
 
     // ⚡ Fire-and-forget audit log — no need to block login response
-    this.audit.logLogin({ userId: user.id, ipAddress, userAgent, status: 'success' }).catch((err) =>
-      this.logger.warn(`Audit log failed for login: ${err.message}`),
-    );
+    this.audit
+      .logLogin({ userId: user.id, ipAddress, userAgent, status: 'success' })
+      .catch((err) => this.logger.warn(`Audit log failed for login: ${err.message}`));
 
     const isProduction = process.env.NODE_ENV === 'production';
 
@@ -257,7 +277,12 @@ export class AuthService {
     }
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto, ipAddress?: string, userAgent?: string): Promise<void> {
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const user = await this.database.users.findById(userId);
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -274,7 +299,7 @@ export class AuthService {
     const newPasswordHash = await argon2.hash(dto.newPassword, {
       type: argon2.argon2id,
       memoryCost: 19456,
-      timeCost: 1,  // ⚡ Match registration — consistent hashing params
+      timeCost: 1, // ⚡ Match registration — consistent hashing params
       parallelism: 1,
     });
 
@@ -325,13 +350,21 @@ export class AuthService {
 
   async validateUser(payload: JwtPayload): Promise<UserRecord | null> {
     const user = await this.database.users.findById(payload.sub);
-    if (!user || !user.isActive) {return null;}
+    if (!user || !user.isActive) {
+      return null;
+    }
     // Token version validation on every request via JWT strategy
-    if (user.refreshTokenVersion !== payload.tokenVersion) {return null;}
+    if (user.refreshTokenVersion !== payload.tokenVersion) {
+      return null;
+    }
     return user;
   }
 
-  private async generateTokens(user: UserRecord, ipAddress?: string, userAgent?: string): Promise<AuthTokens> {
+  private async generateTokens(
+    user: UserRecord,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AuthTokens> {
     // ⚡ Fetch roles and permissions in parallel for faster login
     const [roles, permissions] = await Promise.all([
       this.database.roles.getUserRoles(user.id),
@@ -356,7 +389,9 @@ export class AuthService {
     await this.database.refreshTokens.create({
       userId: user.id,
       tokenHash,
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      expiresAt: new Date(
+        Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+      ).toISOString(),
       isRevoked: false,
       revokedAt: null,
       userAgent: userAgent || null,
@@ -366,9 +401,26 @@ export class AuthService {
     return { accessToken, refreshToken, expiresIn: 86400 };
   }
 
-  private sanitizeUser(user: UserRecord): Omit<UserRecord, 'passwordHash'> {
+  private sanitizeUser(
+    user: UserRecord,
+  ): Omit<UserRecord, 'passwordHash'> & { allowedModules?: string[] | null } {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...sanitized } = user;
-    return sanitized;
+    // allowed_modules DB mein JSON string hai → client ko array ke roop mein bhejo
+    let allowedModules: string[] | null = null;
+    if (
+      typeof (sanitized as any).allowedModules === 'string' &&
+      (sanitized as any).allowedModules
+    ) {
+      try {
+        const parsed = JSON.parse((sanitized as any).allowedModules);
+        if (Array.isArray(parsed)) {
+          allowedModules = parsed.filter((m) => typeof m === 'string');
+        }
+      } catch {
+        // invalid JSON — treat as no restriction
+      }
+    }
+    return { ...sanitized, allowedModules } as any;
   }
 }

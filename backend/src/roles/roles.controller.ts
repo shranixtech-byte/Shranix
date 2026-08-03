@@ -1,5 +1,16 @@
-import { Controller, Get, Post, Delete, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -34,6 +45,85 @@ export class RolesController {
   async findOne(@Param('id') id: string) {
     const role = await this.rolesService.getRoleById(id);
     return { data: role };
+  }
+
+  @Post()
+  @Roles('admin')
+  @Permissions('roles.create')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a role' })
+  @ApiResponse({ status: 201, description: 'Role created' })
+  async create(
+    @Body() dto: { name: string; description?: string },
+    @CurrentUser() user: { id: string },
+  ) {
+    const role = await this.rolesService.createRole(dto, user.id);
+    return { data: role };
+  }
+
+  @Put(':id')
+  @Roles('admin')
+  @Permissions('roles.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a role (name / description)' })
+  @ApiResponse({ status: 200, description: 'Role updated' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: { name?: string; description?: string },
+    @CurrentUser() user: { id: string },
+  ) {
+    const role = await this.rolesService.updateRole(id, dto, user.id);
+    return { data: role };
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  @Permissions('roles.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a role (system roles protected)' })
+  @ApiResponse({ status: 200, description: 'Role deleted' })
+  async remove(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return this.rolesService.deleteRole(id, user.id);
+  }
+
+  @Get(':id/role-permissions')
+  @Roles('admin')
+  @Permissions('roles.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all permissions granted to a role' })
+  @ApiResponse({ status: 200, description: 'Role permissions' })
+  async getRolePermissions(@Param('id') id: string) {
+    const permissions = await this.rolesService.getRolePermissions(id);
+    return { data: permissions };
+  }
+
+  @Put(':id/role-permissions')
+  @Roles('admin')
+  @Permissions('roles.assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Replace role permissions from the matrix (permission names)' })
+  @ApiResponse({ status: 200, description: 'Updated permission count' })
+  async setRolePermissions(
+    @Param('id') id: string,
+    @Body() body: { permissions?: string[] },
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.rolesService.setRolePermissions(
+      id,
+      Array.isArray(body?.permissions) ? body.permissions : [],
+      user.id,
+    );
+  }
+
+  @Get(':id/users')
+  @Roles('admin')
+  @Permissions('roles.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get user IDs that have this role' })
+  @ApiResponse({ status: 200, description: 'User IDs' })
+  async getRoleUsers(@Param('id') id: string) {
+    const userIds = await this.rolesService.getRoleUsers(id);
+    return { data: userIds };
   }
 
   @Post(':userId/assign/:roleId')

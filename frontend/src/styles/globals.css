@@ -62,6 +62,27 @@
   html {
     font-size: 17px;
   }
+
+  /* ── Compact Mode (Settings Hub → Dashboard) — tighter density ──
+     Tailwind spacing is rem-based, isliye html font-size kam karte hi
+     poora app compact ho jaata hai. Main padding bhi tighten hota hai. */
+  html.shranix-compact {
+    font-size: 15px;
+  }
+
+  html.shranix-compact main {
+    padding: 0.75rem 1rem 1rem !important;
+  }
+
+  /* Theme Color (Settings Hub → Dashboard) — smooth transition */
+  html.theme-color-animated,
+  html.theme-color-animated * {
+    transition:
+      background-color 300ms ease,
+      border-color 300ms ease,
+      color 200ms ease,
+      box-shadow 300ms ease !important;
+  }
 }
 
 @layer components {

@@ -35,11 +35,26 @@ export class SalesFinanceIntegration {
 
   async postSalesInvoice(invoiceId: string, userId?: string): Promise<IntegrationResult> {
     const invoice = await this.database.salesInvoices.findById(invoiceId);
-    if (!invoice) {return { success: false, message: 'Invoice not found', glEntries: 0, gstEntries: 0, error: `Invoice ${invoiceId} not found` };}
+    if (!invoice) {
+      return {
+        success: false,
+        message: 'Invoice not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Invoice ${invoiceId} not found`,
+      };
+    }
 
     const customer = await this.database.ledgerMaster.findById(invoice.customerId);
-    const items = await this.database.invoiceItems.findAll({ page: 1, pageSize: 1000, search: invoiceId } as any);
-    const settings = await this.database.accountingSettings.findAll({ page: 1, pageSize: 1 } as any);
+    const items = await this.database.invoiceItems.findAll({
+      page: 1,
+      pageSize: 1000,
+      search: invoiceId,
+    } as any);
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
     const defaultSalesAccount = settings.data?.[0]?.defaultSalesAccountId || invoice.salesAccountId;
 
     // Build GST posting input
@@ -121,23 +136,51 @@ export class SalesFinanceIntegration {
     }
 
     // Post GL entries within transaction manager
-    const glResult = await this.glPosting.postEntries(glEntries, { userId, financialYearId: invoice.financialYearId });
+    const glResult = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: invoice.financialYearId,
+    });
     if (!glResult.success) {
-      return { success: false, message: 'GL posting failed', glEntries: 0, gstEntries: 0, error: glResult.error };
+      return {
+        success: false,
+        message: 'GL posting failed',
+        glEntries: 0,
+        gstEntries: 0,
+        error: glResult.error,
+      };
     }
 
     // Post GST entries (separate transaction)
     const gstResult = await this.gstCalc.postGstEntries(gstInput, userId);
 
-    this.logger.log(`Sales invoice ${invoiceId} posted: ${glResult.entriesCreated} GL entries, ${gstResult.postedEntries} GST entries`);
-    return { success: true, message: `Sales invoice ${invoice.invoiceNumber} posted successfully`, glEntries: glResult.entriesCreated, gstEntries: gstResult.postedEntries };
+    this.logger.log(
+      `Sales invoice ${invoiceId} posted: ${glResult.entriesCreated} GL entries, ${gstResult.postedEntries} GST entries`,
+    );
+    return {
+      success: true,
+      message: `Sales invoice ${invoice.invoiceNumber} posted successfully`,
+      glEntries: glResult.entriesCreated,
+      gstEntries: gstResult.postedEntries,
+    };
   }
 
   async postSalesReturn(returnId: string, userId?: string): Promise<IntegrationResult> {
     const returnRecord = await this.database.salesReturns.findById(returnId);
-    if (!returnRecord) {return { success: false, message: 'Return not found', glEntries: 0, gstEntries: 0, error: `Sales return ${returnId} not found` };}
+    if (!returnRecord) {
+      return {
+        success: false,
+        message: 'Return not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Sales return ${returnId} not found`,
+      };
+    }
 
-    const items = await this.database.returnItems.findAll({ page: 1, pageSize: 1000, search: returnId } as any);
+    const items = await this.database.returnItems.findAll({
+      page: 1,
+      pageSize: 1000,
+      search: returnId,
+    } as any);
 
     let totalAmount = 0;
     const gstInput: GstPostingInput = {
@@ -189,13 +232,27 @@ export class SalesFinanceIntegration {
       },
     ];
 
-    const glResult = await this.glPosting.postEntries(glEntries, { userId, financialYearId: returnRecord.financialYearId });
+    const glResult = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: returnRecord.financialYearId,
+    });
     if (!glResult.success) {
-      return { success: false, message: 'GL posting for return failed', glEntries: 0, gstEntries: 0, error: glResult.error };
+      return {
+        success: false,
+        message: 'GL posting for return failed',
+        glEntries: 0,
+        gstEntries: 0,
+        error: glResult.error,
+      };
     }
 
     const gstResult = await this.gstCalc.postGstEntries(gstInput, userId);
-    return { success: true, message: `Sales return ${returnRecord.returnNumber} posted`, glEntries: glResult.entriesCreated, gstEntries: gstResult.postedEntries };
+    return {
+      success: true,
+      message: `Sales return ${returnRecord.returnNumber} posted`,
+      glEntries: glResult.entriesCreated,
+      gstEntries: gstResult.postedEntries,
+    };
   }
 }
 
@@ -210,12 +267,28 @@ export class PurchaseFinanceIntegration {
 
   async postPurchaseInvoice(invoiceId: string, userId?: string): Promise<IntegrationResult> {
     const invoice = await this.database.purchaseInvoices.findById(invoiceId);
-    if (!invoice) {return { success: false, message: 'Invoice not found', glEntries: 0, gstEntries: 0, error: `Purchase invoice ${invoiceId} not found` };}
+    if (!invoice) {
+      return {
+        success: false,
+        message: 'Invoice not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Purchase invoice ${invoiceId} not found`,
+      };
+    }
 
     const supplier = await this.database.ledgerMaster.findById(invoice.supplierId);
-    const items = await this.database.poItems.findAll({ page: 1, pageSize: 1000, search: invoiceId } as any);
-    const settings = await this.database.accountingSettings.findAll({ page: 1, pageSize: 1 } as any);
-    const defaultPurchaseAccount = settings.data?.[0]?.defaultPurchaseAccountId || invoice.purchaseAccountId;
+    const items = await this.database.poItems.findAll({
+      page: 1,
+      pageSize: 1000,
+      search: invoiceId,
+    } as any);
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const defaultPurchaseAccount =
+      settings.data?.[0]?.defaultPurchaseAccountId || invoice.purchaseAccountId;
 
     let totalTaxableValue = 0;
     let totalGstAmount = 0;
@@ -283,18 +356,40 @@ export class PurchaseFinanceIntegration {
       },
     ];
 
-    const glResult = await this.glPosting.postEntries(glEntries, { userId, financialYearId: invoice.financialYearId });
+    const glResult = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: invoice.financialYearId,
+    });
     if (!glResult.success) {
-      return { success: false, message: 'GL posting failed', glEntries: 0, gstEntries: 0, error: glResult.error };
+      return {
+        success: false,
+        message: 'GL posting failed',
+        glEntries: 0,
+        gstEntries: 0,
+        error: glResult.error,
+      };
     }
 
     const gstResult = await this.gstCalc.postGstEntries(gstInput, userId);
-    return { success: true, message: `Purchase invoice ${invoice.invoiceNumber} posted`, glEntries: glResult.entriesCreated, gstEntries: gstResult.postedEntries };
+    return {
+      success: true,
+      message: `Purchase invoice ${invoice.invoiceNumber} posted`,
+      glEntries: glResult.entriesCreated,
+      gstEntries: gstResult.postedEntries,
+    };
   }
 
   async postPurchaseReturn(returnId: string, userId?: string): Promise<IntegrationResult> {
     const returnRecord = await this.database.purchaseReturns.findById(returnId);
-    if (!returnRecord) {return { success: false, message: 'Return not found', glEntries: 0, gstEntries: 0, error: `Purchase return ${returnId} not found` };}
+    if (!returnRecord) {
+      return {
+        success: false,
+        message: 'Return not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Purchase return ${returnId} not found`,
+      };
+    }
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [
       {
@@ -323,8 +418,16 @@ export class PurchaseFinanceIntegration {
       },
     ];
 
-    const glResult = await this.glPosting.postEntries(glEntries, { userId, financialYearId: returnRecord.financialYearId });
-    return { success: true, message: `Purchase return ${returnRecord.returnNumber} posted`, glEntries: glResult.entriesCreated, gstEntries: 0 };
+    const glResult = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: returnRecord.financialYearId,
+    });
+    return {
+      success: true,
+      message: `Purchase return ${returnRecord.returnNumber} posted`,
+      glEntries: glResult.entriesCreated,
+      gstEntries: 0,
+    };
   }
 }
 
@@ -338,16 +441,38 @@ export class InventoryFinanceIntegration {
 
   async postGoodsReceipt(grnId: string, userId?: string): Promise<IntegrationResult> {
     const grn = await this.database.grn.findById(grnId);
-    if (!grn) {return { success: false, message: 'GRN not found', glEntries: 0, gstEntries: 0, error: `GRN ${grnId} not found` };}
+    if (!grn) {
+      return {
+        success: false,
+        message: 'GRN not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `GRN ${grnId} not found`,
+      };
+    }
 
-    const items = await this.database.grnItems.findAll({ page: 1, pageSize: 1000, search: grnId } as any);
+    const items = await this.database.grnItems.findAll({
+      page: 1,
+      pageSize: 1000,
+      search: grnId,
+    } as any);
     let totalAmount = 0;
-    if (items.data) {for (const item of items.data as any[]) {totalAmount += Number(item.amount || 0);}}
+    if (items.data) {
+      for (const item of items.data as any[]) {
+        totalAmount += Number(item.amount || 0);
+      }
+    }
+
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const defaultLedger = settings.data?.[0]?.defaultLedgerAccountId;
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [
       {
         entryDate: grn.grnDate || new Date().toISOString().split('T')[0],
-        accountId: grn.inventoryAccountId || 'inventory',
+        accountId: grn.inventoryAccountId || defaultLedger || 'inventory',
         voucherId: grnId,
         voucherType: 'goods_receipt',
         voucherNumber: grn.grnNumber || grn.documentNumber,
@@ -359,7 +484,7 @@ export class InventoryFinanceIntegration {
       },
       {
         entryDate: grn.grnDate || new Date().toISOString().split('T')[0],
-        accountId: grn.purchaseAccountId || 'purchase',
+        accountId: grn.purchaseAccountId || defaultLedger || 'purchase',
         voucherId: grnId,
         voucherType: 'goods_receipt',
         voucherNumber: grn.grnNumber || grn.documentNumber,
@@ -371,19 +496,41 @@ export class InventoryFinanceIntegration {
       },
     ];
 
-    const result = await this.glPosting.postEntries(glEntries, { userId, financialYearId: grn.financialYearId });
-    return { success: result.success, message: result.message, glEntries: result.entriesCreated, gstEntries: 0 };
+    const result = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: grn.financialYearId,
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      glEntries: result.entriesCreated,
+      gstEntries: 0,
+    };
   }
 
   async postGoodsIssue(issueId: string, userId?: string): Promise<IntegrationResult> {
     // Goods issue (stock out) — debit COGS, credit Inventory
     const issue = await this.database.items.findById(issueId);
-    if (!issue) {return { success: false, message: 'Issue record not found', glEntries: 0, gstEntries: 0, error: `Issue ${issueId} not found` };}
+    if (!issue) {
+      return {
+        success: false,
+        message: 'Issue record not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Issue ${issueId} not found`,
+      };
+    }
+
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const defaultLedger = settings.data?.[0]?.defaultLedgerAccountId;
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [
       {
         entryDate: new Date().toISOString().split('T')[0],
-        accountId: issue.cogsAccountId || 'cogs',
+        accountId: issue.cogsAccountId || defaultLedger || 'cogs',
         voucherId: issueId,
         voucherType: 'goods_issue',
         voucherNumber: `ISSUE-${issueId.slice(0, 8)}`,
@@ -394,7 +541,7 @@ export class InventoryFinanceIntegration {
       },
       {
         entryDate: new Date().toISOString().split('T')[0],
-        accountId: issue.inventoryAccountId || 'inventory',
+        accountId: issue.inventoryAccountId || defaultLedger || 'inventory',
         voucherId: issueId,
         voucherType: 'goods_issue',
         voucherNumber: `ISSUE-${issueId.slice(0, 8)}`,
@@ -406,7 +553,12 @@ export class InventoryFinanceIntegration {
     ];
 
     const result = await this.glPosting.postEntries(glEntries, { userId });
-    return { success: result.success, message: result.message, glEntries: result.entriesCreated, gstEntries: 0 };
+    return {
+      success: result.success,
+      message: result.message,
+      glEntries: result.entriesCreated,
+      gstEntries: 0,
+    };
   }
 }
 
@@ -418,24 +570,35 @@ export class PayrollFinanceIntegration {
     private readonly database: DatabaseService,
   ) {}
 
-  async postSalary(salaryEntry: {
-    id: string;
-    employeeId: string;
-    salaryDate: string;
-    grossSalary: number;
-    deductions: number;
-    netSalary: number;
-    employeeAccountId?: string;
-    expenseAccountId?: string;
-    payableAccountId?: string;
-    financialYearId?: string;
-  }, userId?: string): Promise<IntegrationResult> {
-    const settings = await this.database.accountingSettings.findAll({ page: 1, pageSize: 1 } as any);
+  async postSalary(
+    salaryEntry: {
+      id: string;
+      employeeId: string;
+      salaryDate: string;
+      grossSalary: number;
+      deductions: number;
+      netSalary: number;
+      employeeAccountId?: string;
+      expenseAccountId?: string;
+      payableAccountId?: string;
+      financialYearId?: string;
+    },
+    userId?: string,
+  ): Promise<IntegrationResult> {
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const defaultLedger = settings.data?.[0]?.defaultLedgerAccountId;
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [
       {
         entryDate: salaryEntry.salaryDate,
-        accountId: salaryEntry.expenseAccountId || settings.data?.[0]?.defaultPurchaseAccountId || 'salary_expense',
+        accountId:
+          salaryEntry.expenseAccountId ||
+          defaultLedger ||
+          settings.data?.[0]?.defaultPurchaseAccountId ||
+          'salary_expense',
         voucherId: salaryEntry.id,
         voucherType: 'salary',
         voucherNumber: `SAL-${salaryEntry.employeeId.slice(0, 8)}`,
@@ -447,7 +610,7 @@ export class PayrollFinanceIntegration {
       },
       {
         entryDate: salaryEntry.salaryDate,
-        accountId: salaryEntry.payableAccountId || 'salary_payable',
+        accountId: salaryEntry.payableAccountId || defaultLedger || 'salary_payable',
         voucherId: salaryEntry.id,
         voucherType: 'salary',
         voucherNumber: `SAL-${salaryEntry.employeeId.slice(0, 8)}`,
@@ -474,8 +637,16 @@ export class PayrollFinanceIntegration {
       });
     }
 
-    const result = await this.glPosting.postEntries(glEntries, { userId, financialYearId: salaryEntry.financialYearId });
-    return { success: result.success, message: result.message, glEntries: result.entriesCreated, gstEntries: 0 };
+    const result = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: salaryEntry.financialYearId,
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      glEntries: result.entriesCreated,
+      gstEntries: 0,
+    };
   }
 }
 
@@ -489,10 +660,22 @@ export class ExpenseFinanceIntegration {
 
   async postExpenseVoucher(voucherId: string, userId?: string): Promise<IntegrationResult> {
     const voucher = await this.database.journalEntries.findById(voucherId);
-    if (!voucher) {return { success: false, message: 'Voucher not found', glEntries: 0, gstEntries: 0, error: `Expense voucher ${voucherId} not found` };}
+    if (!voucher) {
+      return {
+        success: false,
+        message: 'Voucher not found',
+        glEntries: 0,
+        gstEntries: 0,
+        error: `Expense voucher ${voucherId} not found`,
+      };
+    }
 
     // Fetch line items
-    const items = await this.database.journalEntryItems.findAll({ page: 1, pageSize: 1000, search: voucherId } as any);
+    const items = await this.database.journalEntryItems.findAll({
+      page: 1,
+      pageSize: 1000,
+      search: voucherId,
+    } as any);
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [];
 
@@ -535,8 +718,16 @@ export class ExpenseFinanceIntegration {
       return { success: false, message: 'No expense items found', glEntries: 0, gstEntries: 0 };
     }
 
-    const result = await this.glPosting.postEntries(glEntries, { userId, financialYearId: voucher.financialYearId });
-    return { success: result.success, message: result.message, glEntries: result.entriesCreated, gstEntries: 0 };
+    const result = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: voucher.financialYearId,
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      glEntries: result.entriesCreated,
+      gstEntries: 0,
+    };
   }
 }
 
@@ -545,6 +736,7 @@ export class ExpenseFinanceIntegration {
 export class BankFinanceIntegration {
   constructor(
     private readonly glPosting: GlPostingEngine,
+    private readonly database: DatabaseService,
   ) {}
 
   async postBankTransaction(
@@ -562,6 +754,11 @@ export class BankFinanceIntegration {
     userId?: string,
   ): Promise<IntegrationResult> {
     const isReceipt = bankEntry.voucherType === 'receipt';
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const defaultLedger = settings.data?.[0]?.defaultLedgerAccountId;
 
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [
       {
@@ -578,7 +775,7 @@ export class BankFinanceIntegration {
       },
       {
         entryDate: bankEntry.entryDate,
-        accountId: bankEntry.partyId || (isReceipt ? 'receivables' : 'payables'),
+        accountId: bankEntry.partyId || defaultLedger || (isReceipt ? 'receivables' : 'payables'),
         voucherId: bankEntry.id,
         voucherType: 'bank',
         voucherNumber: `BANK-${bankEntry.id.slice(0, 8)}`,
@@ -590,7 +787,15 @@ export class BankFinanceIntegration {
       },
     ];
 
-    const result = await this.glPosting.postEntries(glEntries, { userId, financialYearId: bankEntry.financialYearId });
-    return { success: result.success, message: result.message, glEntries: result.entriesCreated, gstEntries: 0 };
+    const result = await this.glPosting.postEntries(glEntries, {
+      userId,
+      financialYearId: bankEntry.financialYearId,
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      glEntries: result.entriesCreated,
+      gstEntries: 0,
+    };
   }
 }

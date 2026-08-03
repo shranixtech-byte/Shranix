@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 
+import { AutomationModule } from '../automation/automation.module';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
-import { AutomationModule } from '../automation/automation.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import {
@@ -19,7 +19,11 @@ import {
   PurchaseDashboardController,
   PurchaseReportsController,
   PurchaseSearchController,
+  PurchaseDebitNoteController,
+  PurchasePostingController,
 } from './controllers';
+import { PurchaseDebitNoteService } from './debit-note.service';
+import { PurchasePostingEngineService } from './purchase-postings.service';
 import {
   PurchaseOrdersService,
   PurchaseQuotationsService,
@@ -36,9 +40,6 @@ import {
   PurchaseSearchService,
   StockPostingService,
 } from './services';
-import { PurchasePostingEngineService } from './purchase-postings.service';
-import { PurchaseDebitNoteService } from './debit-note.service';
-import { PurchaseDebitNoteController, PurchasePostingController } from './controllers';
 
 @Module({
   imports: [WorkflowModule, AutomationModule],

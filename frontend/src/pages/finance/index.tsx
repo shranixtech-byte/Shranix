@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
 
@@ -29,19 +30,49 @@ function getStatusBadge(status: string): React.ReactNode {
 // ═════════════════════════════════════════════════════════
 // FINANCE DASHBOARD
 // ═════════════════════════════════════════════════════════
+const quickActions: Array<{ label: string; path: string }> = [
+  { label: 'New Journal Entry', path: '/finance/journal-entries/create' },
+  { label: 'New Account', path: '/finance/chart-of-accounts/create' },
+  { label: 'New Ledger', path: '/finance/ledgers/create' },
+  { label: 'Cost Centers', path: '/finance/cost-centers' },
+  { label: 'Settings', path: '/finance/settings' },
+];
+
 const statCards = [
-  { label: 'Total Accounts', value: '—', color: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/10' },
-  { label: 'Pending Vouchers', value: '—', color: 'border-l-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/10' },
-  { label: 'Cash Balance', value: '—', color: 'border-l-green-500', bg: 'bg-green-50 dark:bg-green-900/10' },
-  { label: 'Bank Balance', value: '—', color: 'border-l-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/10' },
+  {
+    label: 'Total Accounts',
+    value: '—',
+    color: 'border-l-blue-500',
+    bg: 'bg-blue-50 dark:bg-blue-900/10',
+  },
+  {
+    label: 'Pending Vouchers',
+    value: '—',
+    color: 'border-l-yellow-500',
+    bg: 'bg-yellow-50 dark:bg-yellow-900/10',
+  },
+  {
+    label: 'Cash Balance',
+    value: '—',
+    color: 'border-l-green-500',
+    bg: 'bg-green-50 dark:bg-green-900/10',
+  },
+  {
+    label: 'Bank Balance',
+    value: '—',
+    color: 'border-l-purple-500',
+    bg: 'bg-purple-50 dark:bg-purple-900/10',
+  },
 ];
 
 export function FinanceDashboardPage() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Finance Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Overview of accounting operations, account balances, and key metrics
         </p>
       </div>
@@ -53,29 +84,30 @@ export function FinanceDashboardPage() {
             key={card.label}
             className={`rounded-lg border-l-4 p-4 shadow-sm ${card.color} ${card.bg}`}
           >
-            <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+            <p className="text-muted-foreground text-sm font-medium">{card.label}</p>
             <p className="mt-1 text-2xl font-bold">{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-lg border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          {['New Journal Entry', 'New Account', 'New Ledger', 'Cost Centers', 'Settings'].map((action) => (
+          {quickActions.map((action) => (
             <button
-              key={action}
-              className="rounded-md bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+              key={action.label}
+              onClick={() => navigate(action.path)}
+              className="bg-primary/10 text-primary hover:bg-primary/20 rounded-md px-4 py-2 text-sm font-medium transition-colors"
             >
-              {action}
+              {action.label}
             </button>
           ))}
         </div>
       </div>
 
       {/* Reports Section */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-lg border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Reports</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -89,10 +121,10 @@ export function FinanceDashboardPage() {
           ].map((report) => (
             <div
               key={report.label}
-              className="cursor-pointer rounded-md border p-3 transition-colors hover:bg-accent"
+              className="hover:bg-accent cursor-pointer rounded-md border p-3 transition-colors"
             >
               <p className="font-medium">{report.label}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{report.desc}</p>
+              <p className="text-muted-foreground mt-1 text-xs">{report.desc}</p>
             </div>
           ))}
         </div>
@@ -107,26 +139,42 @@ export function FinanceDashboardPage() {
 const groupColumns: ColumnDef[] = [
   { key: 'name', label: 'Group Name' },
   { key: 'alias', label: 'Alias' },
-  { key: 'type', label: 'Type', render: (v) => {
-    const types: Record<string, string> = { assets: '📊 Assets', liabilities: '📋 Liabilities', income: '📈 Income', expenses: '📉 Expenses', equity: '🏛️ Equity' };
-    return types[v as string] || String(v);
-  }},
+  {
+    key: 'type',
+    label: 'Type',
+    render: (v) => {
+      const types: Record<string, string> = {
+        assets: '📊 Assets',
+        liabilities: '📋 Liabilities',
+        income: '📈 Income',
+        expenses: '📉 Expenses',
+        equity: '🏛️ Equity',
+      };
+      return types[v as string] || String(v);
+    },
+  },
   { key: 'level', label: 'Level' },
   { key: 'sortOrder', label: 'Sort' },
-  { key: 'isSystem', label: 'System', render: (v) => v ? '✅' : '—' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isSystem', label: 'System', render: (v) => (v ? '✅' : '—') },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const groupFields: FormField[] = [
   { name: 'name', label: 'Group Name', type: 'text', required: true },
   { name: 'alias', label: 'Alias', type: 'text' },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'Assets', value: 'assets' },
-    { label: 'Liabilities', value: 'liabilities' },
-    { label: 'Income', value: 'income' },
-    { label: 'Expenses', value: 'expenses' },
-    { label: 'Equity', value: 'equity' },
-  ], required: true },
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'Assets', value: 'assets' },
+      { label: 'Liabilities', value: 'liabilities' },
+      { label: 'Income', value: 'income' },
+      { label: 'Expenses', value: 'expenses' },
+      { label: 'Equity', value: 'equity' },
+    ],
+    required: true,
+  },
   { name: 'parentId', label: 'Parent Group', type: 'text' },
   { name: 'level', label: 'Level', type: 'number' },
   { name: 'sortOrder', label: 'Sort Order', type: 'number' },
@@ -151,32 +199,57 @@ export function AccountGroupsPage() {
 const coaColumns: ColumnDef[] = [
   { key: 'accountCode', label: 'Code' },
   { key: 'accountName', label: 'Account Name' },
-  { key: 'accountType', label: 'Type', render: (v) => {
-    const types: Record<string, string> = { assets: 'Assets', liabilities: 'Liabilities', income: 'Income', expenses: 'Expenses', equity: 'Equity' };
-    return types[v as string] || String(v);
-  }},
+  {
+    key: 'accountType',
+    label: 'Type',
+    render: (v) => {
+      const types: Record<string, string> = {
+        assets: 'Assets',
+        liabilities: 'Liabilities',
+        income: 'Income',
+        expenses: 'Expenses',
+        equity: 'Equity',
+      };
+      return types[v as string] || String(v);
+    },
+  },
   { key: 'groupId', label: 'Group' },
-  { key: 'openingBalance', label: 'Opening ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'isCashAccount', label: 'Cash', render: (v) => v ? '✅' : '—' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  {
+    key: 'openingBalance',
+    label: 'Opening ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  { key: 'isCashAccount', label: 'Cash', render: (v) => (v ? '✅' : '—') },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const coaFields: FormField[] = [
   { name: 'accountCode', label: 'Account Code', type: 'text', required: true },
   { name: 'accountName', label: 'Account Name', type: 'text', required: true },
-  { name: 'accountType', label: 'Account Type', type: 'select', options: [
-    { label: 'Assets', value: 'assets' },
-    { label: 'Liabilities', value: 'liabilities' },
-    { label: 'Income', value: 'income' },
-    { label: 'Expenses', value: 'expenses' },
-    { label: 'Equity', value: 'equity' },
-  ], required: true },
+  {
+    name: 'accountType',
+    label: 'Account Type',
+    type: 'select',
+    options: [
+      { label: 'Assets', value: 'assets' },
+      { label: 'Liabilities', value: 'liabilities' },
+      { label: 'Income', value: 'income' },
+      { label: 'Expenses', value: 'expenses' },
+      { label: 'Equity', value: 'equity' },
+    ],
+    required: true,
+  },
   { name: 'groupId', label: 'Group ID', type: 'text', required: true },
   { name: 'openingBalance', label: 'Opening Balance', type: 'number' },
-  { name: 'openingBalanceType', label: 'Opening Type', type: 'select', options: [
-    { label: 'Debit', value: 'debit' },
-    { label: 'Credit', value: 'credit' },
-  ]},
+  {
+    name: 'openingBalanceType',
+    label: 'Opening Type',
+    type: 'select',
+    options: [
+      { label: 'Debit', value: 'debit' },
+      { label: 'Credit', value: 'credit' },
+    ],
+  },
   { name: 'currency', label: 'Currency', type: 'text' },
   { name: 'costCenterRequired', label: 'Cost Center Required', type: 'boolean' },
   { name: 'gstApplicable', label: 'GST Applicable', type: 'boolean' },
@@ -204,34 +277,65 @@ export function ChartOfAccountsPage() {
 // ═════════════════════════════════════════════════════════
 const ledgerColumns: ColumnDef[] = [
   { key: 'accountId', label: 'Account' },
-  { key: 'ledgerType', label: 'Type', render: (v) => {
-    const types: Record<string, string> = { customer: '👤 Customer', supplier: '🏭 Supplier', cash: '💵 Cash', bank: '🏦 Bank', expense: '📉 Expense', income: '📈 Income', tax: '🧾 Tax' };
-    return types[v as string] || String(v);
-  }},
+  {
+    key: 'ledgerType',
+    label: 'Type',
+    render: (v) => {
+      const types: Record<string, string> = {
+        customer: '👤 Customer',
+        supplier: '🏭 Supplier',
+        cash: '💵 Cash',
+        bank: '🏦 Bank',
+        expense: '📉 Expense',
+        income: '📈 Income',
+        tax: '🧾 Tax',
+      };
+      return types[v as string] || String(v);
+    },
+  },
   { key: 'partyId', label: 'Party' },
-  { key: 'openingBalance', label: 'Opening ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'currentBalance', label: 'Balance ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'openingBalance',
+    label: 'Opening ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'currentBalance',
+    label: 'Balance ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'creditLimit', label: 'Credit Limit' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const ledgerFields: FormField[] = [
   { name: 'accountId', label: 'Account ID', type: 'text', required: true },
-  { name: 'ledgerType', label: 'Ledger Type', type: 'select', options: [
-    { label: 'Customer', value: 'customer' },
-    { label: 'Supplier', value: 'supplier' },
-    { label: 'Cash', value: 'cash' },
-    { label: 'Bank', value: 'bank' },
-    { label: 'Expense', value: 'expense' },
-    { label: 'Income', value: 'income' },
-    { label: 'Tax', value: 'tax' },
-  ], required: true },
+  {
+    name: 'ledgerType',
+    label: 'Ledger Type',
+    type: 'select',
+    options: [
+      { label: 'Customer', value: 'customer' },
+      { label: 'Supplier', value: 'supplier' },
+      { label: 'Cash', value: 'cash' },
+      { label: 'Bank', value: 'bank' },
+      { label: 'Expense', value: 'expense' },
+      { label: 'Income', value: 'income' },
+      { label: 'Tax', value: 'tax' },
+    ],
+    required: true,
+  },
   { name: 'partyId', label: 'Party ID', type: 'text' },
   { name: 'openingBalance', label: 'Opening Balance', type: 'number' },
-  { name: 'openingBalanceType', label: 'Opening Type', type: 'select', options: [
-    { label: 'Debit', value: 'debit' },
-    { label: 'Credit', value: 'credit' },
-  ]},
+  {
+    name: 'openingBalanceType',
+    label: 'Opening Type',
+    type: 'select',
+    options: [
+      { label: 'Debit', value: 'debit' },
+      { label: 'Credit', value: 'credit' },
+    ],
+  },
   { name: 'creditLimit', label: 'Credit Limit', type: 'number' },
   { name: 'creditDays', label: 'Credit Days', type: 'number' },
   { name: 'notes', label: 'Notes', type: 'textarea' },
@@ -257,21 +361,34 @@ const journalColumns: ColumnDef[] = [
   { key: 'voucherDate', label: 'Date' },
   { key: 'voucherType', label: 'Type' },
   { key: 'narration', label: 'Narration' },
-  { key: 'totalDebit', label: 'Total Debit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'totalCredit', label: 'Total Credit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'isPosted', label: 'Posted', render: (v) => v ? '✅ Posted' : '📝 Draft' },
+  {
+    key: 'totalDebit',
+    label: 'Total Debit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'totalCredit',
+    label: 'Total Credit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  { key: 'isPosted', label: 'Posted', render: (v) => (v ? '✅ Posted' : '📝 Draft') },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
 
 const journalFields: FormField[] = [
   { name: 'voucherNumber', label: 'Voucher Number', type: 'text', required: true },
   { name: 'voucherDate', label: 'Voucher Date', type: 'date', required: true },
-  { name: 'voucherType', label: 'Voucher Type', type: 'select', options: [
-    { label: 'Journal', value: 'journal' },
-    { label: 'Payment', value: 'payment' },
-    { label: 'Receipt', value: 'receipt' },
-    { label: 'Contra', value: 'contra' },
-  ]},
+  {
+    name: 'voucherType',
+    label: 'Voucher Type',
+    type: 'select',
+    options: [
+      { label: 'Journal', value: 'journal' },
+      { label: 'Payment', value: 'payment' },
+      { label: 'Receipt', value: 'receipt' },
+      { label: 'Contra', value: 'contra' },
+    ],
+  },
   { name: 'narration', label: 'Narration', type: 'textarea' },
   { name: 'totalDebit', label: 'Total Debit', type: 'number' },
   { name: 'totalCredit', label: 'Total Credit', type: 'number' },
@@ -297,21 +414,43 @@ export function JournalEntriesPage() {
 const cashBookColumns: ColumnDef[] = [
   { key: 'voucherNumber', label: 'Voucher#' },
   { key: 'entryDate', label: 'Date' },
-  { key: 'voucherType', label: 'Type', render: (v) => (v as string) === 'receipt' ? '📥 Receipt' : '📤 Payment' },
+  {
+    key: 'voucherType',
+    label: 'Type',
+    render: (v) => ((v as string) === 'receipt' ? '📥 Receipt' : '📤 Payment'),
+  },
   { key: 'ledgerId', label: 'Ledger' },
-  { key: 'debit', label: 'Debit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'credit', label: 'Credit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'runningBalance', label: 'Balance ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'debit',
+    label: 'Debit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'credit',
+    label: 'Credit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'runningBalance',
+    label: 'Balance ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'narration', label: 'Narration' },
 ];
 
 const cashBookFields: FormField[] = [
   { name: 'cashAccountId', label: 'Cash Account ID', type: 'text', required: true },
   { name: 'entryDate', label: 'Entry Date', type: 'date', required: true },
-  { name: 'voucherType', label: 'Voucher Type', type: 'select', options: [
-    { label: 'Receipt', value: 'receipt' },
-    { label: 'Payment', value: 'payment' },
-  ], required: true },
+  {
+    name: 'voucherType',
+    label: 'Voucher Type',
+    type: 'select',
+    options: [
+      { label: 'Receipt', value: 'receipt' },
+      { label: 'Payment', value: 'payment' },
+    ],
+    required: true,
+  },
   { name: 'voucherId', label: 'Voucher ID', type: 'text' },
   { name: 'voucherNumber', label: 'Voucher Number', type: 'text' },
   { name: 'ledgerId', label: 'Ledger ID', type: 'text' },
@@ -342,20 +481,38 @@ const bankBookColumns: ColumnDef[] = [
   { key: 'voucherType', label: 'Type' },
   { key: 'chequeNumber', label: 'Cheque#' },
   { key: 'utrNumber', label: 'UTR#' },
-  { key: 'debit', label: 'Debit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'credit', label: 'Credit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
-  { key: 'runningBalance', label: 'Balance ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'debit',
+    label: 'Debit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'credit',
+    label: 'Credit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
+  {
+    key: 'runningBalance',
+    label: 'Balance ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'reconciliationStatus', label: 'Recon', render: (v) => getStatusBadge(v as string) },
 ];
 
 const bankBookFields: FormField[] = [
   { name: 'bankAccountId', label: 'Bank Account ID', type: 'text', required: true },
   { name: 'entryDate', label: 'Entry Date', type: 'date', required: true },
-  { name: 'voucherType', label: 'Voucher Type', type: 'select', options: [
-    { label: 'Receipt', value: 'receipt' },
-    { label: 'Payment', value: 'payment' },
-    { label: 'Transfer', value: 'transfer' },
-  ], required: true },
+  {
+    name: 'voucherType',
+    label: 'Voucher Type',
+    type: 'select',
+    options: [
+      { label: 'Receipt', value: 'receipt' },
+      { label: 'Payment', value: 'payment' },
+      { label: 'Transfer', value: 'transfer' },
+    ],
+    required: true,
+  },
   { name: 'voucherId', label: 'Voucher ID', type: 'text' },
   { name: 'voucherNumber', label: 'Voucher Number', type: 'text' },
   { name: 'chequeNumber', label: 'Cheque Number', type: 'text' },
@@ -384,25 +541,40 @@ export function BankBookPage() {
 const costCenterColumns: ColumnDef[] = [
   { key: 'code', label: 'Code' },
   { key: 'name', label: 'Name' },
-  { key: 'type', label: 'Type', render: (v) => {
-    const types: Record<string, string> = { department: '🏢 Dept', project: '📋 Project', branch: '🏪 Branch', warehouse: '🏭 Warehouse', profit_center: '💰 Profit' };
-    return types[v as string] || String(v);
-  }},
+  {
+    key: 'type',
+    label: 'Type',
+    render: (v) => {
+      const types: Record<string, string> = {
+        department: '🏢 Dept',
+        project: '📋 Project',
+        branch: '🏪 Branch',
+        warehouse: '🏭 Warehouse',
+        profit_center: '💰 Profit',
+      };
+      return types[v as string] || String(v);
+    },
+  },
   { key: 'parentId', label: 'Parent' },
   { key: 'level', label: 'Level' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const costCenterFields: FormField[] = [
   { name: 'code', label: 'Cost Center Code', type: 'text', required: true },
   { name: 'name', label: 'Cost Center Name', type: 'text', required: true },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'Department', value: 'department' },
-    { label: 'Project', value: 'project' },
-    { label: 'Branch', value: 'branch' },
-    { label: 'Warehouse', value: 'warehouse' },
-    { label: 'Profit Center', value: 'profit_center' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'Department', value: 'department' },
+      { label: 'Project', value: 'project' },
+      { label: 'Branch', value: 'branch' },
+      { label: 'Warehouse', value: 'warehouse' },
+      { label: 'Profit Center', value: 'profit_center' },
+    ],
+  },
   { name: 'parentId', label: 'Parent ID', type: 'text' },
   { name: 'level', label: 'Level', type: 'number' },
   { name: 'description', label: 'Description', type: 'textarea' },
@@ -421,30 +593,7 @@ export function CostCentersPage() {
 }
 
 // ═════════════════════════════════════════════════════════
-// 8. ACCOUNTING SETTINGS
+// 8. ACCOUNTING SETTINGS — password-protected direct form
+// (design + gate: ./settings-page.tsx)
 // ═════════════════════════════════════════════════════════
-const settingsFields: FormField[] = [
-  { name: 'autoVoucherNumber', label: 'Auto Voucher Numbering', type: 'boolean' },
-  { name: 'voucherPrefix', label: 'Voucher Prefix', type: 'text' },
-  { name: 'voucherNextNumber', label: 'Next Voucher Number', type: 'number' },
-  { name: 'allowNegativeBalance', label: 'Allow Negative Balance', type: 'boolean' },
-  { name: 'enforceDebitCreditEquality', label: 'Enforce Debit = Credit', type: 'boolean' },
-  { name: 'requireApproval', label: 'Require Approval', type: 'boolean' },
-  { name: 'approvalLevels', label: 'Approval Levels', type: 'number' },
-  { name: 'defaultCashAccountId', label: 'Default Cash Account', type: 'text' },
-  { name: 'defaultBankAccountId', label: 'Default Bank Account', type: 'text' },
-  { name: 'roundOffDecimals', label: 'Round Off Decimals', type: 'number' },
-  { name: 'currency', label: 'Currency', type: 'text' },
-];
-
-export function AccountingSettingsPage() {
-  return (
-    <MasterDataPage
-      title="Accounting Settings"
-      description="Global accounting configuration: voucher numbering, approval, default accounts, currency"
-      columns={[{ key: 'autoVoucherNumber', label: 'Auto Voucher#' }, { key: 'currency', label: 'Currency' }, { key: 'requireApproval', label: 'Approval Required', render: (v) => v ? '✅ Yes' : '❌ No' }]}
-      apiPath="/finance/settings"
-      formFields={settingsFields}
-    />
-  );
-}
+export { AccountingSettingsPage } from './settings-page';

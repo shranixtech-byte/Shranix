@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
 import { Calendar, Search, X } from 'lucide-react';
+import { useCallback } from 'react';
 
 export interface FilterValues {
   period: string;
@@ -76,15 +76,15 @@ export function ReportFilters({
     values.period !== 'this_month';
 
   return (
-    <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="bg-card space-y-3 rounded-lg border p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-3">
         {/* Period Select */}
         <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Calendar className="text-muted-foreground h-4 w-4" />
           <select
             value={values.period}
             onChange={(e) => handleChange('period', e.target.value)}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="bg-background focus:ring-primary/50 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2"
           >
             {periodOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -101,28 +101,28 @@ export function ReportFilters({
               type="date"
               value={values.startDate}
               onChange={(e) => handleChange('startDate', e.target.value)}
-              className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="bg-background focus:ring-primary/50 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2"
             />
             <span className="text-muted-foreground">to</span>
             <input
               type="date"
               value={values.endDate}
               onChange={(e) => handleChange('endDate', e.target.value)}
-              className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="bg-background focus:ring-primary/50 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2"
             />
           </div>
         )}
 
         {/* Search */}
         {showSearch && (
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search invoices, customers..."
               value={values.search}
               onChange={(e) => handleChange('search', e.target.value)}
-              className="w-full rounded-md border bg-background pl-10 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="bg-background focus:ring-primary/50 w-full rounded-md border py-1.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2"
             />
           </div>
         )}
@@ -132,7 +132,7 @@ export function ReportFilters({
           <select
             value={values.invoiceStatus}
             onChange={(e) => handleChange('invoiceStatus', e.target.value)}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="bg-background focus:ring-primary/50 rounded-md border px-3 py-1.5 text-sm focus:outline-none focus:ring-2"
           >
             {statusOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -146,9 +146,9 @@ export function ReportFilters({
       {/* Active Filters Badge & Clear */}
       {hasFilters && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Active filters:</span>
+          <span className="text-muted-foreground text-xs">Active filters:</span>
           {values.search && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+            <span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium">
               Search: {values.search}
               <button onClick={() => handleChange('search', '')} className="hover:text-destructive">
                 <X className="h-3 w-3" />
@@ -157,7 +157,7 @@ export function ReportFilters({
           )}
           <button
             onClick={clearFilters}
-            className="text-xs text-muted-foreground underline hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground text-xs underline"
           >
             Clear all
           </button>

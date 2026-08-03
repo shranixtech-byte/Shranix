@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
-import { FormTextarea } from '@/components/ui/FormTextarea';
 import { FormSelect } from '@/components/ui/FormSelect';
+import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface WarehouseForm {
   name: string;
@@ -25,9 +26,21 @@ interface WarehouseForm {
 }
 
 const initialForm: WarehouseForm = {
-  name: '', code: '', warehouseType: 'storage', address: '', state: '', district: '',
-  city: '', pincode: '', contactPerson: '', phone: '', mobile: '', email: '',
-  gstin: '', remarks: '', isMain: false,
+  name: '',
+  code: '',
+  warehouseType: 'storage',
+  address: '',
+  state: '',
+  district: '',
+  city: '',
+  pincode: '',
+  contactPerson: '',
+  phone: '',
+  mobile: '',
+  email: '',
+  gstin: '',
+  remarks: '',
+  isMain: false,
 };
 
 export function CreateWarehousePage() {
@@ -50,7 +63,11 @@ function WarehouseFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<WarehouseForm>(`/warehouses/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as WarehouseForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as WarehouseForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -83,9 +100,24 @@ function WarehouseFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Warehouse identification',
       fields: (
         <>
-          <FormInput label="Warehouse Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter warehouse name" />
-          <FormInput label="Warehouse Code" required value={form.code} onChange={(e) => update('code', e.target.value)} placeholder="WH-001" />
-          <FormSelect label="Warehouse Type" value={form.warehouseType} onChange={(e) => update('warehouseType', e.target.value)}
+          <FormInput
+            label="Warehouse Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter warehouse name"
+          />
+          <FormInput
+            label="Warehouse Code"
+            required
+            value={form.code}
+            onChange={(e) => update('code', e.target.value)}
+            placeholder="WH-001"
+          />
+          <FormSelect
+            label="Warehouse Type"
+            value={form.warehouseType}
+            onChange={(e) => update('warehouseType', e.target.value)}
             options={[
               { label: 'Storage', value: 'storage' },
               { label: 'Distribution', value: 'distribution' },
@@ -100,10 +132,33 @@ function WarehouseFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Warehouse in-charge details',
       fields: (
         <>
-          <FormInput label="Contact Person" value={form.contactPerson} onChange={(e) => update('contactPerson', e.target.value)} placeholder="Full name" />
-          <FormInput label="Phone" type="tel" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="Landline" />
-          <FormInput label="Mobile" type="tel" value={form.mobile} onChange={(e) => update('mobile', e.target.value)} placeholder="+91-9876543210" />
-          <FormInput label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="warehouse@example.com" />
+          <FormInput
+            label="Contact Person"
+            value={form.contactPerson}
+            onChange={(e) => update('contactPerson', e.target.value)}
+            placeholder="Full name"
+          />
+          <FormInput
+            label="Phone"
+            type="tel"
+            value={form.phone}
+            onChange={(e) => update('phone', e.target.value)}
+            placeholder="Landline"
+          />
+          <FormInput
+            label="Mobile"
+            type="tel"
+            value={form.mobile}
+            onChange={(e) => update('mobile', e.target.value)}
+            placeholder="+91-9876543210"
+          />
+          <FormInput
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => update('email', e.target.value)}
+            placeholder="warehouse@example.com"
+          />
         </>
       ),
     },
@@ -113,15 +168,45 @@ function WarehouseFormPage({ isEditing = false }: { isEditing?: boolean }) {
       className: 'md:col-span-2',
       fields: (
         <>
-          <FormTextarea label="Address" value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Street, building, area..." />
+          <FormTextarea
+            label="Address"
+            value={form.address}
+            onChange={(e) => update('address', e.target.value)}
+            placeholder="Street, building, area..."
+          />
           <div className="grid gap-4 sm:grid-cols-3">
-            <FormInput label="City" value={form.city} onChange={(e) => update('city', e.target.value)} placeholder="City" />
-            <FormInput label="District" value={form.district} onChange={(e) => update('district', e.target.value)} placeholder="District" />
-            <FormInput label="State" value={form.state} onChange={(e) => update('state', e.target.value)} placeholder="State" />
+            <FormInput
+              label="City"
+              value={form.city}
+              onChange={(e) => update('city', e.target.value)}
+              placeholder="City"
+            />
+            <FormInput
+              label="District"
+              value={form.district}
+              onChange={(e) => update('district', e.target.value)}
+              placeholder="District"
+            />
+            <FormInput
+              label="State"
+              value={form.state}
+              onChange={(e) => update('state', e.target.value)}
+              placeholder="State"
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormInput label="Pincode" value={form.pincode} onChange={(e) => update('pincode', e.target.value)} placeholder="PIN code" />
-            <FormInput label="GST Number" value={form.gstin} onChange={(e) => update('gstin', e.target.value)} placeholder="22AAAAA0000A1Z5" />
+            <FormInput
+              label="Pincode"
+              value={form.pincode}
+              onChange={(e) => update('pincode', e.target.value)}
+              placeholder="PIN code"
+            />
+            <FormInput
+              label="GST Number"
+              value={form.gstin}
+              onChange={(e) => update('gstin', e.target.value)}
+              placeholder="22AAAAA0000A1Z5"
+            />
           </div>
         </>
       ),
@@ -139,11 +224,18 @@ function WarehouseFormPage({ isEditing = false }: { isEditing?: boolean }) {
               className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
             <div>
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Main Warehouse</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Main Warehouse
+              </p>
               <p className="text-xs text-slate-500">Mark as the primary warehouse</p>
             </div>
           </label>
-          <FormTextarea label="Remarks" value={form.remarks} onChange={(e) => update('remarks', e.target.value)} placeholder="Additional notes..." />
+          <FormTextarea
+            label="Remarks"
+            value={form.remarks}
+            onChange={(e) => update('remarks', e.target.value)}
+            placeholder="Additional notes..."
+          />
         </>
       ),
     },

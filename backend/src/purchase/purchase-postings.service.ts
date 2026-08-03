@@ -1,7 +1,13 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 
-import { DatabaseService } from '../database/database.service';
 import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
+import { DatabaseService } from '../database/database.service';
 
 function generateEntryNumber(prefix: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -18,6 +24,16 @@ export class PurchasePostingEngineService {
     private readonly transactionManager: TransactionManager,
   ) {}
 
+  /** Purchase Settings → Default Payment Mode (Settings Hub → Purchase). */
+  private async loadSettings(): Promise<any> {
+    try {
+      const r = await this.database.purchaseSettings.findAll({ page: 1, pageSize: 1 } as any);
+      return r.data?.[0] || null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Post a purchase invoice with full accounting in a single transaction.
    * Creates:
@@ -27,7 +43,10 @@ export class PurchasePostingEngineService {
    *   - Round off handling
    *   - Updates invoice status to 'posted'
    */
-  async postInvoice(invoiceId: string, userId: string): Promise<{
+  async postInvoice(
+    invoiceId: string,
+    userId: string,
+  ): Promise<{
     success: boolean;
     message: string;
     errors: string[];
@@ -36,13 +55,21 @@ export class PurchasePostingEngineService {
 
     // Load invoice
     const invoice = await this.database.purchaseInvoices.findById(invoiceId);
-    if (!invoice) throw new NotFoundException('Purchase invoice not found');
-    if (invoice.status === 'posted') throw new BadRequestException('Invoice already posted');
-    if (invoice.status === 'cancelled') throw new BadRequestException('Cannot post cancelled invoice');
+    if (!invoice) {
+      throw new NotFoundException('Purchase invoice not found');
+    }
+    if (invoice.status === 'posted') {
+      throw new BadRequestException('Invoice already posted');
+    }
+    if (invoice.status === 'cancelled') {
+      throw new BadRequestException('Cannot post cancelled invoice');
+    }
 
     // Validate: supplier must exist
     const supplier = await this.database.suppliers.findById(invoice.supplierId);
-    if (!supplier) throw new BadRequestException('Supplier not found');
+    if (!supplier) {
+      throw new BadRequestException('Supplier not found');
+    }
 
     return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
       const errors: string[] = [];
@@ -141,11 +168,17 @@ export class PurchasePostingEngineService {
       }
 
       // Verify balanced
-      const totalDebit = journalEntries.filter(e => e.accountType === 'debit').reduce((s, e) => s + e.amount, 0);
-      const totalCredit = journalEntries.filter(e => e.accountType === 'credit').reduce((s, e) => s + e.amount, 0);
+      const totalDebit = journalEntries
+        .filter((e) => e.accountType === 'debit')
+        .reduce((s, e) => s + e.amount, 0);
+      const totalCredit = journalEntries
+        .filter((e) => e.accountType === 'credit')
+        .reduce((s, e) => s + e.amount, 0);
       if (Math.abs(totalDebit - totalCredit) > 0.01) {
         errors.push(`Journal unbalanced: debit ${totalDebit} vs credit ${totalCredit}`);
-        throw new ConflictException(`Journal unbalanced: debit ${totalDebit} vs credit ${totalCredit}`);
+        throw new ConflictException(
+          `Journal unbalanced: debit ${totalDebit} vs credit ${totalCredit}`,
+        );
       }
 
       // Persist journal entries
@@ -174,8 +207,8 @@ export class PurchasePostingEngineService {
       this.logger.log(`3/7 ✓ ${journalCount} journal entries created`);
 
       // ── 4. GST LEDGER ──────────────────────────────────
-      const gstEntries = journalEntries.filter(e =>
-        e.accountName.includes('GST') || e.accountName.includes('CESS'),
+      const gstEntries = journalEntries.filter(
+        (e) => e.accountName.includes('GST') || e.accountName.includes('CESS'),
       );
       for (const gstEntry of gstEntries) {
         try {
@@ -209,8 +242,9 @@ export class PurchasePostingEngineService {
           customerId: invoice.supplierId,
           grandTotal: invoice.grandTotal || 0,
           paidAmount: invoice.paidAmount || 0,
-          balanceAmount: (invoice.balanceAmount || 0) || (invoice.grandTotal || 0),
-          paymentMode: 'credit',
+          balanceAmount: invoice.balanceAmount || 0 || invoice.grandTotal || 0,
+          paymentMode:
+            (await this.loadSettings())?.defaultPaymentMode || invoice.paymentMode || 'credit',
           createdAt: timestamp,
         });
         this.logger.log('5/7 ✓ Cash book entry created');
@@ -226,7 +260,11 @@ export class PurchasePostingEngineService {
           event: 'purchase_invoice_posted',
           resource: 'purchase_invoice',
           action: 'post',
-          details: JSON.stringify({ invoiceId, invoiceNumber: invoice.invoiceNumber, grandTotal: invoice.grandTotal }),
+          details: JSON.stringify({
+            invoiceId,
+            invoiceNumber: invoice.invoiceNumber,
+            grandTotal: invoice.grandTotal,
+          }),
           ipAddress: '127.0.0.1',
         });
         this.logger.log('6/7 ✓ Audit log created');
@@ -264,15 +302,25 @@ export class PurchasePostingEngineService {
    */
   async previewPosting(invoiceId: string): Promise<any> {
     const invoice = await this.database.purchaseInvoices.findById(invoiceId);
-    if (!invoice) throw new NotFoundException('Purchase invoice not found');
+    if (!invoice) {
+      throw new NotFoundException('Purchase invoice not found');
+    }
 
     const supplier = await this.database.suppliers.findById(invoice.supplierId);
     const issues: string[] = [];
 
-    if (invoice.status === 'posted') issues.push('Invoice already posted');
-    if (invoice.status === 'cancelled') issues.push('Invoice is cancelled');
-    if (!supplier) issues.push('Supplier not found');
-    if (!invoice.grandTotal || invoice.grandTotal <= 0) issues.push('Grand total must be positive');
+    if (invoice.status === 'posted') {
+      issues.push('Invoice already posted');
+    }
+    if (invoice.status === 'cancelled') {
+      issues.push('Invoice is cancelled');
+    }
+    if (!supplier) {
+      issues.push('Supplier not found');
+    }
+    if (!invoice.grandTotal || invoice.grandTotal <= 0) {
+      issues.push('Grand total must be positive');
+    }
 
     return {
       canPost: issues.length === 0,

@@ -1,17 +1,7 @@
 import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
   ArrowLeft,
   Building2,
   Check,
-
   Edit3,
   Eye,
   Filter,
@@ -33,10 +23,12 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
-import { apiRequest } from '@/services/api-client';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/services/api-client';
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -119,10 +111,7 @@ interface CustomerFiltersProps {
 }
 
 function CustomerFiltersSection({ filters, onChange, onClose }: CustomerFiltersProps) {
-  const update = <K extends keyof CustomerFiltersState>(
-    key: K,
-    value: CustomerFiltersState[K],
-  ) => {
+  const update = <K extends keyof CustomerFiltersState>(key: K, value: CustomerFiltersState[K]) => {
     onChange({ ...filters, [key]: value });
   };
 
@@ -164,9 +153,7 @@ function CustomerFiltersSection({ filters, onChange, onClose }: CustomerFiltersP
 
         {/* Status */}
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Status
-          </label>
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Status</label>
           <select
             value={filters.status}
             onChange={(e) => update('status', e.target.value)}
@@ -183,43 +170,37 @@ function CustomerFiltersSection({ filters, onChange, onClose }: CustomerFiltersP
 
         {/* District */}
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            District
-          </label>
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">District</label>
           <input
             type="text"
             value={filters.district}
             onChange={(e) => update('district', e.target.value)}
             placeholder="Filter by district..."
-            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
+            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
           />
         </div>
 
         {/* Taluka */}
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Taluka
-          </label>
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Taluka</label>
           <input
             type="text"
             value={filters.taluka}
             onChange={(e) => update('taluka', e.target.value)}
             placeholder="Filter by taluka..."
-            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
+            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
           />
         </div>
 
         {/* Village */}
         <div className="space-y-1">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Village
-          </label>
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">Village</label>
           <input
             type="text"
             value={filters.village}
             onChange={(e) => update('village', e.target.value)}
             placeholder="Filter by village..."
-            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
+            className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
           />
         </div>
 
@@ -266,12 +247,12 @@ interface InfoRowProps {
 }
 
 function InfoRow({ icon, label, value, highlight, warning }: InfoRowProps) {
-  if (!value && value !== 0) return null;
+  if (!value && value !== 0) {
+    return null;
+  }
   return (
     <div className="flex items-start gap-2.5 py-2">
-      <span className="mt-0.5 shrink-0 text-slate-400 dark:text-slate-500">
-        {icon}
-      </span>
+      <span className="mt-0.5 shrink-0 text-slate-400 dark:text-slate-500">{icon}</span>
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-500">
           {label}
@@ -324,9 +305,7 @@ function CustomerPreviewPanel({ customer }: CustomerPreviewPanelProps) {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-2xl font-bold">
-                {customer.name.charAt(0).toUpperCase()}
-              </span>
+              <span className="text-2xl font-bold">{customer.name.charAt(0).toUpperCase()}</span>
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -393,7 +372,11 @@ function CustomerPreviewPanel({ customer }: CustomerPreviewPanelProps) {
             Address
           </p>
           <InfoRow icon={<MapPin className="h-4 w-4" />} label="Address" value={customer.address} />
-          <InfoRow icon={<MapPin className="h-4 w-4" />} label="District" value={customer.district} />
+          <InfoRow
+            icon={<MapPin className="h-4 w-4" />}
+            label="District"
+            value={customer.district}
+          />
           <InfoRow icon={<MapPin className="h-4 w-4" />} label="Taluka" value={customer.taluka} />
           <InfoRow icon={<MapPin className="h-4 w-4" />} label="Village" value={customer.village} />
         </div>
@@ -436,7 +419,7 @@ function CustomerPreviewPanel({ customer }: CustomerPreviewPanelProps) {
             icon={<ShoppingCart className="h-4 w-4" />}
             label="Total Purchases"
             value={
-              customer.totalPurchases != null
+              typeof customer.totalPurchases === 'number'
                 ? `₹${customer.totalPurchases.toLocaleString('en-IN')}`
                 : null
             }
@@ -445,7 +428,7 @@ function CustomerPreviewPanel({ customer }: CustomerPreviewPanelProps) {
             icon={<PiggyBank className="h-4 w-4" />}
             label="Total Payments"
             value={
-              customer.totalPayments != null
+              typeof customer.totalPayments === 'number'
                 ? `₹${customer.totalPayments.toLocaleString('en-IN')}`
                 : null
             }
@@ -454,8 +437,8 @@ function CustomerPreviewPanel({ customer }: CustomerPreviewPanelProps) {
             icon={<IndianRupee className="h-4 w-4" />}
             label="Current Balance"
             value={
-              customer.outstanding != null
-                ? `₹${(customer.outstanding).toLocaleString('en-IN')}`
+              typeof customer.outstanding === 'number'
+                ? `₹${customer.outstanding.toLocaleString('en-IN')}`
                 : null
             }
           />
@@ -524,25 +507,43 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
       }
 
       // Add filters
-      if (filters.customerType) params.set('type', filters.customerType);
-      if (filters.status) params.set('status', filters.status);
-      if (filters.district) params.set('district', filters.district);
-      if (filters.taluka) params.set('taluka', filters.taluka);
-      if (filters.village) params.set('village', filters.village);
-      if (filters.outstandingOnly) params.set('outstandingOnly', 'true');
-      if (filters.creditLimitExceeded) params.set('creditLimitExceeded', 'true');
+      if (filters.customerType) {
+        params.set('type', filters.customerType);
+      }
+      if (filters.status) {
+        params.set('status', filters.status);
+      }
+      if (filters.district) {
+        params.set('district', filters.district);
+      }
+      if (filters.taluka) {
+        params.set('taluka', filters.taluka);
+      }
+      if (filters.village) {
+        params.set('village', filters.village);
+      }
+      if (filters.outstandingOnly) {
+        params.set('outstandingOnly', 'true');
+      }
+      if (filters.creditLimitExceeded) {
+        params.set('creditLimitExceeded', 'true');
+      }
 
       const res = await apiRequest<{ data: CustomerRecord[]; total: number }>(
         `/customers?${params}`,
       );
-      const list = Array.isArray(res) ? res : res?.data ?? [];
+      const list = Array.isArray(res) ? res : (res?.data ?? []);
       const totalCount = !Array.isArray(res) ? (res?.total ?? list.length) : list.length;
+      // Alphabetical sort — naam A→Z (case-insensitive), list jaldi scan karne ke liye
+      list.sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
       setCustomers(list);
       setTotal(totalCount);
       setFocusedIndex(-1);
       setSelectedCustomer((prev) => {
         // Keep selection if still in results
-        if (prev && list.some((c) => c.id === prev.id)) return prev;
+        if (prev && list.some((c) => c.id === prev.id)) {
+          return prev;
+        }
         return null;
       });
     } catch (err) {
@@ -567,7 +568,9 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearchChange = useCallback((value: string) => {
     // Clear previous timer
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
     // Debounce: wait for typing to settle, then update both query and page
     searchTimerRef.current = setTimeout(() => {
       setSearchQuery(value);
@@ -576,7 +579,9 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
   }, []);
   useEffect(() => {
     return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
     };
   }, []);
 
@@ -642,10 +647,8 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
   // ── Status Badge ────────────────────────────────────
   const statusBadge = (status: string): ReactNode => {
     const styles: Record<string, string> = {
-      active:
-        'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
-      inactive:
-        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+      active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+      inactive: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
       blocked: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
     };
     return (
@@ -672,7 +675,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
   }, [searchMode]);
 
   return (
-    <div className="flex h-full flex-col animate-in fade-in duration-200">
+    <div className="animate-in fade-in flex h-full flex-col duration-200">
       {/* ═══════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════ */}
@@ -704,7 +707,9 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
             size="sm"
             icon={<Eye className="h-4 w-4" />}
             onClick={() => {
-              if (selectedCustomer) navigate(`/customers/${selectedCustomer.id}/ledger`);
+              if (selectedCustomer) {
+                navigate(`/customers/${selectedCustomer.id}/ledger`);
+              }
             }}
             disabled={!selectedCustomer}
           >
@@ -715,7 +720,9 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
             size="sm"
             icon={<Edit3 className="h-4 w-4" />}
             onClick={() => {
-              if (selectedCustomer) navigate(`/customers/${selectedCustomer.id}/edit`);
+              if (selectedCustomer) {
+                navigate(`/customers/${selectedCustomer.id}/edit`);
+              }
             }}
             disabled={!selectedCustomer}
           >
@@ -742,7 +749,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
           <div className="border-b border-slate-100 p-4 dark:border-slate-700/50">
             <div className="flex flex-wrap items-center gap-3">
               {/* Search Input */}
-              <div className="relative flex-1 min-w-[240px]">
+              <div className="relative min-w-[240px] flex-1">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   ref={searchInputRef}
@@ -751,7 +758,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder={searchPlaceholder}
-                  className="h-[42px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  className="h-[42px] w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                   autoComplete="off"
                   aria-label="Search customers"
                 />
@@ -826,8 +833,19 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
               <div className="flex h-48 items-center justify-center">
                 <div className="flex items-center gap-3 text-sm text-slate-400">
                   <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
                   </svg>
                   Loading customers...
                 </div>
@@ -891,8 +909,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
                     const isSelected = selectedCustomer?.id === customer.id;
                     const isFocused = index === focusedIndex;
                     const isOverLimit =
-                      customer.creditLimit > 0 &&
-                      customer.outstanding > customer.creditLimit;
+                      customer.creditLimit > 0 && customer.outstanding > customer.creditLimit;
 
                     return (
                       <tr
@@ -958,9 +975,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
                         <td className="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-400">
                           ₹{customer.creditLimit.toLocaleString('en-IN')}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          {statusBadge(customer.status)}
-                        </td>
+                        <td className="px-4 py-3 text-center">{statusBadge(customer.status)}</td>
                       </tr>
                     );
                   })}
@@ -973,8 +988,8 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 dark:border-slate-700">
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Showing {(page - 1) * TABLE_PAGE_SIZE + 1}–
-                {Math.min(page * TABLE_PAGE_SIZE, total)} of {total}
+                Showing {(page - 1) * TABLE_PAGE_SIZE + 1}–{Math.min(page * TABLE_PAGE_SIZE, total)}{' '}
+                of {total}
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -989,7 +1004,9 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   const start = Math.max(1, Math.min(page - 2, totalPages - 4));
                   const p = start + i;
-                  if (p > totalPages) return null;
+                  if (p > totalPages) {
+                    return null;
+                  }
                   return (
                     <button
                       key={p}
@@ -1021,7 +1038,7 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
         </div>
 
         {/* ── Right: Preview Panel ────────────────────── */}
-        <div className="hidden w-[380px] shrink-0 border-l border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/30 lg:block">
+        <div className="hidden w-[380px] shrink-0 border-l border-slate-200 bg-white lg:block dark:border-slate-700 dark:bg-slate-800/30">
           <CustomerPreviewPanel customer={selectedCustomer} />
         </div>
       </div>

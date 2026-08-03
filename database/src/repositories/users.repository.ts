@@ -1,5 +1,7 @@
-import { eq, and, isNull, count } from 'drizzle-orm';
 import crypto from 'node:crypto';
+
+import { eq, and, isNull, count } from 'drizzle-orm';
+
 import type { DatabaseClient } from '../client/index';
 import { sqliteUsers, pgUsers } from '../schema/auth';
 import type { PaginatedResult, PaginationParams } from '../types/index';
@@ -18,6 +20,7 @@ export interface UserRecord {
   failedLoginAttempts: number;
   lockedUntil: string | null;
   refreshTokenVersion: number;
+  allowedModules?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -34,7 +37,10 @@ export class UsersRepository {
   }
 
   async findById(id: string): Promise<UserRecord | null> {
-    const rows = await (this.db as any).select().from(this.table).where(eq((this.table as any).id, id));
+    const rows = await (this.db as any)
+      .select()
+      .from(this.table)
+      .where(eq((this.table as any).id, id));
     return rows.length > 0 ? (rows[0] as unknown as UserRecord) : null;
   }
 
@@ -46,23 +52,42 @@ export class UsersRepository {
     return rows.length > 0 ? (rows[0] as unknown as UserRecord) : null;
   }
 
-  async create(data: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isDeleted'>): Promise<UserRecord> {
+  async create(
+    data: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'isDeleted'>,
+  ): Promise<UserRecord> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
-    const values = { ...data, id, createdAt: now, updatedAt: now, deletedAt: null, isDeleted: false };
+    const values = {
+      ...data,
+      id,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      isDeleted: false,
+    };
     await (this.db as any).insert(this.table).values(values);
     return values as unknown as UserRecord;
   }
 
-  async update(id: string, data: Partial<Omit<UserRecord, 'id' | 'createdAt'>>): Promise<UserRecord | null> {
+  async update(
+    id: string,
+    data: Partial<Omit<UserRecord, 'id' | 'createdAt'>>,
+  ): Promise<UserRecord | null> {
     const existing = await this.findById(id);
-    if (!existing) return null;
+    if (!existing) {
+      return null;
+    }
     const updateData = { ...data, updatedAt: new Date().toISOString() };
-    await (this.db as any).update(this.table).set(updateData).where(eq((this.table as any).id, id));
+    await (this.db as any)
+      .update(this.table)
+      .set(updateData)
+      .where(eq((this.table as any).id, id));
     return { ...existing, ...updateData } as UserRecord;
   }
 
-  async findAll(params: PaginationParams = { page: 1, pageSize: 50 }): Promise<PaginatedResult<UserRecord>> {
+  async findAll(
+    params: PaginationParams = { page: 1, pageSize: 50 },
+  ): Promise<PaginatedResult<UserRecord>> {
     const { page, pageSize } = params;
     const offset = (page - 1) * pageSize;
     const [rows, countResult] = await Promise.all([
@@ -74,7 +99,10 @@ export class UsersRepository {
   }
 
   async incrementFailedAttempts(id: string, attempts: number): Promise<void> {
-    await (this.db as any).update(this.table).set({ failedLoginAttempts: attempts }).where(eq((this.table as any).id, id));
+    await (this.db as any)
+      .update(this.table)
+      .set({ failedLoginAttempts: attempts })
+      .where(eq((this.table as any).id, id));
   }
 
   async lockAccount(id: string, lockedUntil: string, attempts: number): Promise<void> {
@@ -103,7 +131,10 @@ export class UsersRepository {
     if (user) {
       await (this.db as any)
         .update(this.table)
-        .set({ refreshTokenVersion: user.refreshTokenVersion + 1, updatedAt: new Date().toISOString() })
+        .set({
+          refreshTokenVersion: user.refreshTokenVersion + 1,
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq((this.table as any).id, id));
     }
   }

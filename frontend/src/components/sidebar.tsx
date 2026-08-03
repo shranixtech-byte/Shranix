@@ -24,13 +24,20 @@ import {
   ClipboardList,
   ArrowRightLeft,
   Activity,
-  FileSpreadsheet,  DollarSign, Undo2, FileEdit, FileSearch,
+  FileSpreadsheet,
+  DollarSign,
+  Undo2,
+  FileEdit,
+  FileSearch,
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
+import { useAuth } from '@/context/AuthContext';
+import { hasModuleAccess } from '@/lib/module-access';
 import { cn } from '@/lib/utils';
+
 import { Logo } from './brand/Logo';
 
 // ═══════════════════════════════════════════════════════════
@@ -47,6 +54,7 @@ interface NavItem {
 interface SectionGroup {
   label: string;
   icon: string;
+  module: string;
   items: NavItem[];
 }
 
@@ -64,18 +72,19 @@ const sections: SectionGroup[] = [
   {
     label: 'डॅशबोर्ड',
     icon: 'LayoutDashboard',
-    items: [
-      { label: 'डॅशबोर्ड', icon: 'LayoutDashboard', path: '/' },
-    ],
+    module: 'dashboard',
+    items: [{ label: 'डॅशबोर्ड', icon: 'LayoutDashboard', path: '/' }],
   },
   {
     label: 'विक्री',
     icon: 'ShoppingCart',
+    module: 'sales',
     items: [
       {
-        label: 'बिलिंग', icon: 'FileText',
+        label: 'बिलिंग',
+        icon: 'FileText',
         children: [
-          { label: 'विक्री बीजक', icon: 'Receipt', path: '/sales/invoices' },
+          { label: 'विक्री बीजक', icon: 'Receipt', path: '/sales/invoices/create' },
           { label: 'कोटेशन', icon: 'FileSearch', path: '/sales/quotations' },
         ],
       },
@@ -88,6 +97,7 @@ const sections: SectionGroup[] = [
   {
     label: 'खरेदी',
     icon: 'Receipt',
+    module: 'purchase',
     items: [
       { label: 'खरेदी नोंद', icon: 'FileEdit', path: '/purchase/invoices' },
       { label: 'खरेदी ऑर्डर', icon: 'FileText', path: '/purchase/orders' },
@@ -98,6 +108,7 @@ const sections: SectionGroup[] = [
   {
     label: 'स्टॉक',
     icon: 'Package',
+    module: 'stock',
     items: [
       { label: 'वस्तू मास्टर', icon: 'Package', path: '/inventory/products' },
       { label: 'बॅच आणि लॉट', icon: 'ListTodo', path: '/inventory/batches' },
@@ -112,20 +123,19 @@ const sections: SectionGroup[] = [
   {
     label: 'ग्राहक',
     icon: 'Users',
-    items: [
-      { label: 'ग्राहक', icon: 'Users', path: '/customers' },
-    ],
+    module: 'customers',
+    items: [{ label: 'ग्राहक', icon: 'Users', path: '/customers' }],
   },
   {
     label: 'पुरवठादार',
     icon: 'Truck',
-    items: [
-      { label: 'पुरवठादार', icon: 'Truck', path: '/suppliers' },
-    ],
+    module: 'suppliers',
+    items: [{ label: 'पुरवठादार', icon: 'Truck', path: '/suppliers' }],
   },
   {
     label: 'उत्पादने',
     icon: 'Boxes',
+    module: 'products',
     items: [
       { label: 'उत्पादने', icon: 'Boxes', path: '/inventory/products' },
       { label: 'श्रेण्या', icon: 'Boxes', path: '/categories' },
@@ -134,6 +144,7 @@ const sections: SectionGroup[] = [
   {
     label: 'देयके',
     icon: 'Wallet',
+    module: 'payments',
     items: [
       { label: 'देयके', icon: 'Wallet', path: '/sales/customer-prices' },
       { label: 'क्रेडिट नियंत्रण', icon: 'DollarSign', path: '/sales/credit/dashboard' },
@@ -142,6 +153,7 @@ const sections: SectionGroup[] = [
   {
     label: 'अहवाल',
     icon: 'BarChart3',
+    module: 'reports',
     items: [
       { label: 'विक्री अहवाल', icon: 'BarChart3', path: '/sales/reports/dashboard' },
       { label: 'खरेदी अहवाल', icon: 'BarChart3', path: '/purchase/reports/purchase-register' },
@@ -152,6 +164,7 @@ const sections: SectionGroup[] = [
   {
     label: 'खाते',
     icon: 'BookOpen',
+    module: 'accounts',
     items: [
       { label: 'खात्यांचा तक्ता', icon: 'BookOpen', path: '/finance/chart-of-accounts' },
       { label: 'जर्नल नोंदी', icon: 'FileEdit', path: '/finance/journal-entries' },
@@ -161,25 +174,14 @@ const sections: SectionGroup[] = [
   {
     label: 'एसएमएस / ईमेल',
     icon: 'MessageSquare',
-    items: [
-      { label: 'एसएमएस / ईमेल', icon: 'MessageSquare', path: '/sms' },
-    ],
+    module: 'communication',
+    items: [{ label: 'एसएमएस / ईमेल', icon: 'MessageSquare', path: '/sms' }],
   },
   {
     label: 'ऑफर',
     icon: 'Gift',
-    items: [
-      { label: 'ऑफर', icon: 'Gift', path: '/offers' },
-    ],
-  },
-  {
-    label: 'सेटिंग्ज',
-    icon: 'Settings',
-    items: [
-      { label: 'वापरकर्ते', icon: 'Users', path: '/executive/admin' },
-      { label: 'भूमिका', icon: 'Settings', path: '/executive/operations' },
-      { label: 'सेटिंग्ज', icon: 'Settings', path: '/finance/settings' },
-    ],
+    module: 'offers',
+    items: [{ label: 'ऑफर', icon: 'Gift', path: '/offers' }],
   },
 ];
 
@@ -188,11 +190,36 @@ const sections: SectionGroup[] = [
 // ═══════════════════════════════════════════════════════════
 
 const iconMap: Record<string, LucideIcon> = {
-  LayoutDashboard, ShoppingCart, Receipt, Package, Users, Truck, Boxes,
-  Wallet, BarChart3, BookOpen, MessageSquare, Gift, Settings, Headset,
-  FileText, ListTodo, Scan, Warehouse, ClipboardList, ArrowRightLeft,
-  Activity, FileSpreadsheet, DollarSign, Undo2, FileEdit, FileSearch,
-  Star, ChevronDown, ChevronRight, PanelRightClose,
+  LayoutDashboard,
+  ShoppingCart,
+  Receipt,
+  Package,
+  Users,
+  Truck,
+  Boxes,
+  Wallet,
+  BarChart3,
+  BookOpen,
+  MessageSquare,
+  Gift,
+  Settings,
+  Headset,
+  FileText,
+  ListTodo,
+  Scan,
+  Warehouse,
+  ClipboardList,
+  ArrowRightLeft,
+  Activity,
+  FileSpreadsheet,
+  DollarSign,
+  Undo2,
+  FileEdit,
+  FileSearch,
+  Star,
+  ChevronDown,
+  ChevronRight,
+  PanelRightClose,
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -202,8 +229,11 @@ const iconMap: Record<string, LucideIcon> = {
 const FAVORITES_KEY = 'shranix_sidebar_favorites';
 
 function loadFavorites(): string[] {
-  try { return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+  } catch {
+    return [];
+  }
 }
 function saveFavorites(favs: string[]) {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
@@ -247,7 +277,9 @@ function SubMenuGroup({
   );
 
   useEffect(() => {
-    if (isActive) setIsOpen(true);
+    if (isActive) {
+      setIsOpen(true);
+    }
   }, [isActive]);
 
   return (
@@ -260,7 +292,7 @@ function SubMenuGroup({
           'font-poppins text-sm font-medium',
           isOpen || isActive
             ? 'text-white'
-            : 'text-[#8899B0] hover:text-[#E0E6ED] hover:bg-[#163D63]',
+            : 'text-[#8899B0] hover:bg-[#163D63] hover:text-[#E0E6ED]',
         )}
         style={{ fontFamily: "'Poppins', sans-serif" }}
       >
@@ -271,10 +303,10 @@ function SubMenuGroup({
           )}
           strokeWidth={2}
         />
-        <span className="flex shrink-0 items-center justify-center w-5 h-5">
-          <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+          <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
         </span>
-        <span className="truncate flex-1 text-left">{item.label}</span>
+        <span className="flex-1 truncate text-left">{item.label}</span>
       </button>
       <div
         className={cn(
@@ -282,11 +314,9 @@ function SubMenuGroup({
           isOpen ? 'max-h-[50vh]' : 'max-h-0',
         )}
       >
-        <div className="ml-3 pl-3 border-l border-white/[0.06] space-y-1 py-1">
-          {item.children?.map((child) => (              <NavItemLink
-                  key={child.path}
-                  item={child}
-                  onNavigate={onNavigate} />
+        <div className="ml-3 space-y-1 border-l border-white/[0.06] py-1 pl-3">
+          {item.children?.map((child) => (
+            <NavItemLink key={child.path} item={child} onNavigate={onNavigate} />
           ))}
         </div>
       </div>
@@ -315,7 +345,9 @@ function NavItemLink({
 }) {
   const Icon = iconMap[item.icon] || LayoutDashboard;
 
-  if (!item.path) return null;
+  if (!item.path) {
+    return null;
+  }
 
   if (collapsed) {
     return (
@@ -326,14 +358,14 @@ function NavItemLink({
         title={item.label}
         className={({ isActive }) =>
           cn(
-            'flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all duration-200',
+            'mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
             isActive
               ? 'sidebar-premium-active sidebar-premium-text'
               : 'text-[#A7B4C8] hover:bg-[#163D63] hover:text-white',
           )
         }
       >
-        <Icon className="w-5 h-5" strokeWidth={1.5} />
+        <Icon className="h-5 w-5" strokeWidth={1.5} />
       </NavLink>
     );
   }
@@ -352,15 +384,22 @@ function NavItemLink({
       }
     >
       <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
-      <span className="truncate flex-1">{item.label}</span>
+      <span className="flex-1 truncate">{item.label}</span>
       {showPin && onTogglePin && (
         <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTogglePin(e); }}
-          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePin(e);
+          }}
+          className="shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
           title={isPinned ? 'आवडीतून काढा' : 'आवडीत जोडा'}
         >
           <Star
-            className={cn('w-3.5 h-3.5', isPinned ? 'text-amber-400 fill-amber-400' : 'text-[#5A6B82]')}
+            className={cn(
+              'h-3.5 w-3.5',
+              isPinned ? 'fill-amber-400 text-amber-400' : 'text-[#5A6B82]',
+            )}
             strokeWidth={1.5}
           />
         </button>
@@ -400,14 +439,20 @@ function NavSection({
     return (
       <div className="flex flex-col items-center gap-0.5">
         {flattenItems(section.items).map((item) => (
-          <NavItemLink key={item.path || item.label} item={item} collapsed onNavigate={onNavigate} />
+          <NavItemLink
+            key={item.path || item.label}
+            item={item}
+            collapsed
+            onNavigate={onNavigate}
+          />
         ))}
       </div>
     );
   }
 
   // ── Single-item sections with direct path → render as NavLink (no accordion) ──
-  const isDirectLink = section.items.length === 1 && !section.items[0].children && section.items[0].path;
+  const isDirectLink =
+    section.items.length === 1 && !section.items[0].children && section.items[0].path;
 
   if (isDirectLink) {
     const directItem = section.items[0];
@@ -417,15 +462,11 @@ function NavSection({
         end={directItem.path === '/'}
         onClick={onNavigate}
         className={({ isActive }) =>
-          cn(
-            'sidebar-menu-item w-full',
-            isActive && 'active',
-            !isActive && 'text-[#A7B4C8]',
-          )
+          cn('sidebar-menu-item w-full', isActive && 'active', !isActive && 'text-[#A7B4C8]')
         }
       >
         <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
-        <span className="flex-1 text-left truncate">{section.label}</span>
+        <span className="flex-1 truncate text-left">{section.label}</span>
       </NavLink>
     );
   }
@@ -443,10 +484,10 @@ function NavSection({
         style={{ fontFamily: "'Poppins', sans-serif" }}
       >
         <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
-        <span className="flex-1 text-left truncate">{section.label}</span>
+        <span className="flex-1 truncate text-left">{section.label}</span>
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 transition-transform duration-200 text-[#5A6B82]',
+            'h-4 w-4 shrink-0 text-[#5A6B82] transition-transform duration-200',
             isOpen && 'rotate-180',
           )}
           strokeWidth={2}
@@ -460,7 +501,7 @@ function NavSection({
           isOpen ? 'max-h-[500px]' : 'max-h-0',
         )}
       >
-        <div className="ml-2 pl-2 border-l border-white/[0.06] space-y-1 py-1">
+        <div className="ml-2 space-y-1 border-l border-white/[0.06] py-1 pl-2">
           {section.items.map((item) =>
             item.children ? (
               <SubMenuGroup
@@ -500,9 +541,13 @@ function HoverExpandPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      return;
+    }
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+      }
     };
     const handleClickOutside = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
@@ -517,17 +562,17 @@ function HoverExpandPanel({
     };
   }, [visible, onClose]);
 
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
 
   return (
     <div
       ref={panelRef}
-      className="fixed left-14 top-0 z-50 h-full w-64 rounded-r-xl border-r border-white/[0.06] shadow-2xl shadow-black/50 animate-in slide-in-from-left-1 fade-in duration-200"
+      className="animate-in slide-in-from-left-1 fade-in fixed left-14 top-0 z-50 h-full w-64 rounded-r-xl border-r border-white/[0.06] shadow-2xl shadow-black/50 duration-200"
       style={{ background: '#163D63' }}
     >
-      <div className="h-full overflow-y-auto px-3 py-4 sidebar-scrollbar-premium">
-        {children}
-      </div>
+      <div className="sidebar-scrollbar-premium h-full overflow-y-auto px-3 py-4">{children}</div>
     </div>
   );
 }
@@ -536,27 +581,36 @@ function HoverExpandPanel({
 // PREMIUM FOOTER
 // ═══════════════════════════════════════════════════════════
 
-function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; onToggle?: () => void }) {
+function PremiumFooter({
+  collapsed,
+  onToggle: toggleFn,
+}: {
+  collapsed: boolean;
+  onToggle?: () => void;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   if (collapsed) {
     return (
-      <div className="relative z-10 flex flex-col items-center border-t border-white/[0.06] pt-2 pb-3">
+      <div className="relative z-10 flex flex-col items-center border-t border-white/[0.06] pb-3 pt-2">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-[#A7B4C8] hover:bg-[#163D63] hover:text-white transition-all duration-200"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-[#A7B4C8] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
           title="सहाय्य"
         >
-          <Headset className="w-5 h-5" strokeWidth={1.5} />
+          <Headset className="h-5 w-5" strokeWidth={1.5} />
         </button>
         {expanded && (
           <div
             className="absolute bottom-full left-0 right-0 mx-2 mb-2 rounded-xl border border-white/[0.06] p-3 shadow-xl"
             style={{ background: '#0C2338' }}
           >
-            <div className="flex items-center gap-2 mb-2">
-              <Headset className="w-4 h-4 text-[#1E88E5]" strokeWidth={1.5} />
-              <span className="text-xs font-medium text-white" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            <div className="mb-2 flex items-center gap-2">
+              <Headset className="h-4 w-4 text-[#1E88E5]" strokeWidth={1.5} />
+              <span
+                className="text-xs font-medium text-white"
+                style={{ fontFamily: "'Poppins', sans-serif" }}
+              >
                 SHRANIX काळजी
               </span>
             </div>
@@ -564,7 +618,7 @@ function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; 
               <p>+91-XXXXXXXXXX</p>
               <p>support@shranix.com</p>
             </div>
-            <div className="mt-2 pt-2 border-t border-white/[0.06] text-[9px] text-[#5A6B82]">
+            <div className="mt-2 border-t border-white/[0.06] pt-2 text-[9px] text-[#5A6B82]">
               v1.0.0
             </div>
           </div>
@@ -590,14 +644,14 @@ function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; 
         {/* Support Header */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[#8899B0] hover:bg-[#163D63] hover:text-white transition-all duration-200"
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[#8899B0] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
           style={{ fontFamily: "'Poppins', sans-serif" }}
         >
-          <Headset className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+          <Headset className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           <span className="truncate">SHRANIX काळजी</span>
           <ChevronDown
             className={cn(
-              'h-3 w-3 ml-auto transition-transform duration-200',
+              'ml-auto h-3 w-3 transition-transform duration-200',
               expanded && 'rotate-180',
             )}
             strokeWidth={2}
@@ -611,7 +665,7 @@ function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; 
             expanded ? 'max-h-32' : 'max-h-0',
           )}
         >
-          <div className="px-2 py-1.5 space-y-1">
+          <div className="space-y-1 px-2 py-1.5">
             <div className="flex items-center gap-2 text-[11px] text-[#8899B0]">
               <span className="text-[#5A6B82]">📞</span>
               <span>+91-XXXXXXXXXX</span>
@@ -624,16 +678,19 @@ function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; 
         </div>
 
         {/* Version */}
-        <div className="flex items-center justify-between mt-1 px-2">
-          <span className="text-[9px] font-medium text-[#5A6B82]" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <div className="mt-1 flex items-center justify-between px-2">
+          <span
+            className="text-[9px] font-medium text-[#5A6B82]"
+            style={{ fontFamily: "'Poppins', sans-serif" }}
+          >
             v1.0.0
           </span>
           <button
             onClick={toggleFn}
-            className="flex items-center justify-center w-6 h-6 rounded-md text-[#5A6B82] hover:bg-[#163D63] hover:text-white transition-all duration-200"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[#5A6B82] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
             title="बाजूची पट्टी लपवा"
           >
-            <PanelRightClose className="w-3.5 h-3.5" strokeWidth={1.5} />
+            <PanelRightClose className="h-3.5 w-3.5" strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -647,16 +704,27 @@ function PremiumFooter({ collapsed, onToggle: toggleFn }: { collapsed: boolean; 
 
 export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
   const [favorites, setFavorites] = useState<string[]>(loadFavorites);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
+  // ── Module-wise access — ticked modules ke alawa sab hidden ──
+  const visibleSections = useMemo(
+    () => sections.filter((s) => hasModuleAccess(user, s.module)),
+    [user],
+  );
+
   // ── Close on Escape key (mobile drawer) ──
   useEffect(() => {
-    if (!onClose) return;
+    if (!onClose) {
+      return;
+    }
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+      }
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
@@ -664,14 +732,14 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
 
   // ── Derive which section the current path belongs to ──
   const currentSectionLabel = useMemo(() => {
-    for (const section of sections) {
+    for (const section of visibleSections) {
       const allLeafItems = flattenItems(section.items);
       if (allLeafItems.some((i) => i.path === location.pathname)) {
         return section.label;
       }
     }
     return null;
-  }, [location.pathname]);
+  }, [visibleSections, location.pathname]);
 
   // ── Auto-open the section containing current page ──
   useEffect(() => {
@@ -681,12 +749,14 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   }, [currentSectionLabel]);
 
   // ── Persist to localStorage ──
-  useEffect(() => { saveFavorites(favorites); }, [favorites]);
+  useEffect(() => {
+    saveFavorites(favorites);
+  }, [favorites]);
 
   // ── Flatten all items ──
   const allItems = useMemo(
-    () => sections.flatMap((s) => flattenItems(s.items)),
-    [],
+    () => visibleSections.flatMap((s) => flattenItems(s.items)),
+    [visibleSections],
   );
 
   // ── Favorite items data ──
@@ -702,11 +772,15 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
 
   // ── Collapsed hover expand ──
   const handleMouseEnter = useCallback(() => {
-    if (collapsed) setHoverExpanded(true);
+    if (collapsed) {
+      setHoverExpanded(true);
+    }
   }, [collapsed]);
 
   const handleMouseLeave = useCallback(() => {
-    if (collapsed) setHoverExpanded(false);
+    if (collapsed) {
+      setHoverExpanded(false);
+    }
   }, [collapsed]);
 
   return (
@@ -714,7 +788,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       {/* ── Mobile Backdrop Overlay ── */}
       {onClose && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="animate-in fade-in fixed inset-0 z-40 bg-black/60 backdrop-blur-sm duration-200"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -727,7 +801,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         style={{ background: '#0C2338' }}
         className={cn(
           'relative flex flex-col',
-          'transition-all duration-200 ease-in-out shrink-0',
+          'shrink-0 transition-all duration-200 ease-in-out',
           collapsed ? 'w-16' : 'w-64',
           onClose && [
             'fixed left-0 top-0 z-50 h-full shadow-2xl shadow-black/50',
@@ -739,8 +813,8 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         aria-label={onClose ? 'नेव्हिगेशन मेनू' : undefined}
       >
         {/* ── Ambient glow effects ── */}
-        <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 bg-[#1E88E5]/[0.08] blur-3xl rounded-full" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 bg-[#1E88E5]/[0.04] blur-3xl rounded-full" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-[#1E88E5]/[0.08] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#1E88E5]/[0.04] blur-3xl" />
 
         {/* ── Brand Header ── */}
         <div
@@ -749,15 +823,11 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
             collapsed ? 'h-24' : 'h-28 px-4',
           )}
         >
-          {collapsed ? (
-            <Logo variant="icon-only" />
-          ) : (
-            <Logo variant="sidebar" />
-          )}
+          {collapsed ? <Logo variant="icon-only" /> : <Logo variant="sidebar" />}
         </div>
 
         {/* ── Navigation Body ── */}
-        <nav className="relative z-10 flex-1 overflow-y-auto px-3 py-4 sidebar-scrollbar-premium space-y-1">
+        <nav className="sidebar-scrollbar-premium relative z-10 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {/* ⭐ आवडते */}
           {!collapsed && favoriteItems.length > 0 && (
             <div className="mb-2">
@@ -765,24 +835,20 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
                 className="flex items-center gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[#A7B4C8]"
                 style={{ fontFamily: "'Poppins', sans-serif" }}
               >
-                <Star className="w-3 h-3 text-amber-400/60" strokeWidth={1.5} />
+                <Star className="h-3 w-3 text-amber-400/60" strokeWidth={1.5} />
                 आवडते
               </div>
               <div className="space-y-0.5">
                 {favoriteItems.map((item) => (
-                  <NavItemLink
-                    key={item.path}
-                    item={item}
-                    onNavigate={onClose}
-                  />
+                  <NavItemLink key={item.path} item={item} onNavigate={onClose} />
                 ))}
               </div>
-              <div className="my-1 mx-2 border-t border-white/[0.04]" />
+              <div className="mx-2 my-1 border-t border-white/[0.04]" />
             </div>
           )}
 
           {/* All Sections */}
-          {sections.map((section) => (
+          {visibleSections.map((section) => (
             <NavSection
               key={section.label}
               section={section}
@@ -796,14 +862,29 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         </nav>
 
         {/* ── Agriculture-themed Decorative Bottom ── */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 overflow-hidden z-0 opacity-[0.07]">
-          <svg viewBox="0 0 400 200" className="w-full h-full" preserveAspectRatio="xMidYMax slice">
-            <path d="M0,150 C30,140 60,160 90,145 C120,130 150,110 180,125 C210,140 240,155 270,140 C300,125 330,110 360,130 C390,150 400,145 400,145 L400,200 L0,200 Z" fill="#4CAF50" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-0 h-48 overflow-hidden opacity-[0.07]">
+          <svg viewBox="0 0 400 200" className="h-full w-full" preserveAspectRatio="xMidYMax slice">
+            <path
+              d="M0,150 C30,140 60,160 90,145 C120,130 150,110 180,125 C210,140 240,155 270,140 C300,125 330,110 360,130 C390,150 400,145 400,145 L400,200 L0,200 Z"
+              fill="#4CAF50"
+            />
             <circle cx="80" cy="100" r="15" fill="#8BC34A" opacity="0.5" />
             <circle cx="200" cy="80" r="12" fill="#8BC34A" opacity="0.4" />
             <circle cx="320" cy="110" r="18" fill="#8BC34A" opacity="0.3" />
-            <path d="M120,120 Q130,95 140,120" stroke="#8BC34A" strokeWidth="2" fill="none" opacity="0.4" />
-            <path d="M260,100 Q270,75 280,100" stroke="#8BC34A" strokeWidth="2" fill="none" opacity="0.4" />
+            <path
+              d="M120,120 Q130,95 140,120"
+              stroke="#8BC34A"
+              strokeWidth="2"
+              fill="none"
+              opacity="0.4"
+            />
+            <path
+              d="M260,100 Q270,75 280,100"
+              stroke="#8BC34A"
+              strokeWidth="2"
+              fill="none"
+              opacity="0.4"
+            />
           </svg>
           <div className="absolute inset-0 bg-gradient-to-t from-[#0C2338] via-[#0C2338]/80 to-transparent" />
         </div>
@@ -822,7 +903,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         {favoriteItems.length > 0 && (
           <div className="mb-2">
             <div className="flex items-center gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-amber-400/60">
-              <Star className="w-3 h-3" strokeWidth={1.5} />
+              <Star className="h-3 w-3" strokeWidth={1.5} />
               आवडते
             </div>
             <div className="space-y-0.5">
@@ -830,11 +911,11 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
                 <NavItemLink key={item.path} item={item} />
               ))}
             </div>
-            <div className="my-1 mx-2 border-t border-white/[0.04]" />
+            <div className="mx-2 my-1 border-t border-white/[0.04]" />
           </div>
         )}
 
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <div key={section.label} className="mb-1">
             <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-medium uppercase tracking-[0.08em] text-[#8899B0]">
               {section.label}
@@ -854,13 +935,17 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
                     item={item}
                     showPin
                     isPinned={item.path ? favorites.includes(item.path) : false}
-                    onTogglePin={item.path ? () => {
-                      setFavorites((prev) =>
-                        prev.includes(item.path!)
-                          ? prev.filter((p) => p !== item.path)
-                          : [...prev, item.path!],
-                      );
-                    } : undefined}
+                    onTogglePin={
+                      item.path
+                        ? () => {
+                            setFavorites((prev) =>
+                              prev.includes(item.path!)
+                                ? prev.filter((p) => p !== item.path)
+                                : [...prev, item.path!],
+                            );
+                          }
+                        : undefined
+                    }
                     onNavigate={() => setHoverExpanded(false)}
                   />
                 ),

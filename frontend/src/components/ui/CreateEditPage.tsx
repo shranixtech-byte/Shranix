@@ -1,7 +1,9 @@
 import { ArrowLeft, Save, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+
 import { cn } from '@/lib/utils';
+
 import { Breadcrumb } from './Breadcrumb';
 import { Button } from './Button';
 import { FormCard } from './FormCard';
@@ -60,7 +62,7 @@ export function CreateEditPage({
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="animate-in fade-in space-y-6 duration-300">
         <div className="space-y-4">
           <div className="h-4 w-48 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
           <div className="flex items-center justify-between">
@@ -73,11 +75,17 @@ export function CreateEditPage({
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {[1, 2].map((card) => (
-            <div key={card} className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50">
+            <div
+              key={card}
+              className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50"
+            >
               <div className="h-5 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
               <div className="mt-4 space-y-3">
                 {[1, 2, 3].map((f) => (
-                  <div key={f} className="h-[42px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-700" />
+                  <div
+                    key={f}
+                    className="h-[42px] animate-pulse rounded-xl bg-slate-100 dark:bg-slate-700"
+                  />
                 ))}
               </div>
             </div>
@@ -88,7 +96,7 @@ export function CreateEditPage({
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="animate-in fade-in space-y-6 duration-300">
       {/* Breadcrumb */}
       <Breadcrumb items={breadcrumbs} />
 
@@ -115,13 +123,11 @@ export function CreateEditPage({
               {isEditing ? `Edit ${title}` : `Create ${title}`}
             </h1>
             {description && (
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {description}
-              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <Button variant="secondary" onClick={handleCancel} icon={<X className="h-4 w-4" />}>
             Cancel
           </Button>
@@ -155,9 +161,7 @@ export function CreateEditPage({
             description={section.description}
             className={section.className}
           >
-            <div className={cn('space-y-4', section.className)}>
-              {section.fields}
-            </div>
+            <div className={cn('space-y-4', section.className)}>{section.fields}</div>
           </FormCard>
         ))}
       </div>

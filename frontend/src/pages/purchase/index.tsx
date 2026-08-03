@@ -27,7 +27,9 @@ const statusStyles: Record<string, string> = {
 function getStatusBadge(status: string): React.ReactNode {
   const style = statusStyles[status] || statusStyles.draft;
   return (
-    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${style}`}>
+    <span
+      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${style}`}
+    >
       {status.replace(/_/g, ' ')}
     </span>
   );
@@ -87,11 +89,16 @@ const supplierFields: FormField[] = [
   { name: 'bankAccountNo', label: 'Bank Account No', type: 'text' },
   { name: 'bankIfsc', label: 'Bank IFSC', type: 'text' },
   { name: 'bankBranch', label: 'Bank Branch', type: 'text' },
-  { name: 'status', label: 'Status', type: 'select', options: [
-    { label: 'Active', value: 'active' },
-    { label: 'Inactive', value: 'inactive' },
-    { label: 'Blocked', value: 'blocked' },
-  ]},
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Active', value: 'active' },
+      { label: 'Inactive', value: 'inactive' },
+      { label: 'Blocked', value: 'blocked' },
+    ],
+  },
   { name: 'remarks', label: 'Remarks', type: 'textarea' },
 ];
 
@@ -115,10 +122,23 @@ const requisitionColumns: ColumnDef[] = [
   { key: 'department', label: 'Department' },
   { key: 'requestedBy', label: 'Requested By' },
   { key: 'requiredDate', label: 'Required Date' },
-  { key: 'priority', label: 'Priority', render: (v) => {
-    const colors: Record<string, string> = { low: 'text-gray-500', medium: 'text-yellow-600', high: 'text-orange-600', urgent: 'text-red-600' };
-    return <span className={`font-medium capitalize ${colors[v as string] || ''}`}>{(v as string) || '—'}</span>;
-  }},
+  {
+    key: 'priority',
+    label: 'Priority',
+    render: (v) => {
+      const colors: Record<string, string> = {
+        low: 'text-gray-500',
+        medium: 'text-yellow-600',
+        high: 'text-orange-600',
+        urgent: 'text-red-600',
+      };
+      return (
+        <span className={`font-medium capitalize ${colors[v as string] || ''}`}>
+          {(v as string) || '—'}
+        </span>
+      );
+    },
+  },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
   { key: 'remarks', label: 'Remarks' },
 ];
@@ -128,12 +148,17 @@ const requisitionFields: FormField[] = [
   { name: 'department', label: 'Department', type: 'text' },
   { name: 'requestedBy', label: 'Requested By', type: 'text' },
   { name: 'requiredDate', label: 'Required Date', type: 'date' },
-  { name: 'priority', label: 'Priority', type: 'select', options: [
-    { label: 'Low', value: 'low' },
-    { label: 'Medium', value: 'medium' },
-    { label: 'High', value: 'high' },
-    { label: 'Urgent', value: 'urgent' },
-  ]},
+  {
+    name: 'priority',
+    label: 'Priority',
+    type: 'select',
+    options: [
+      { label: 'Low', value: 'low' },
+      { label: 'Medium', value: 'medium' },
+      { label: 'High', value: 'high' },
+      { label: 'Urgent', value: 'urgent' },
+    ],
+  },
   { name: 'remarks', label: 'Remarks', type: 'textarea' },
 ];
 
@@ -159,7 +184,14 @@ interface DashboardData {
   purchaseValue: number;
   supplierOutstanding: number;
   topSuppliers: Array<{ id: string; name: string; count: number; amount: number }>;
-  recentPurchases: Array<{ id: string; poNumber: string; supplierId: string; orderDate: string; grandTotal: number; status: string }>;
+  recentPurchases: Array<{
+    id: string;
+    poNumber: string;
+    supplierId: string;
+    orderDate: string;
+    grandTotal: number;
+    status: string;
+  }>;
 }
 
 export function PurchaseDashboardPage() {
@@ -178,47 +210,76 @@ export function PurchaseDashboardPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="flex flex-col items-center gap-2">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
+          <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+          <p className="text-muted-foreground text-sm">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   const statCards = [
-    { label: 'Pending Purchase Orders', value: data?.pendingPos ?? '—', color: 'border-l-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/10' },
-    { label: 'Pending GRNs', value: data?.pendingGrns ?? '—', color: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/10' },
-    { label: "Today's Receipts", value: data?.todayReceipts ?? '—', color: 'border-l-green-500', bg: 'bg-green-50 dark:bg-green-900/10' },
-    { label: 'Purchase Value (Month)', value: data?.purchaseValue ? `₹${(data.purchaseValue).toLocaleString('en-IN')}` : '₹0', color: 'border-l-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/10' },
+    {
+      label: 'Pending Purchase Orders',
+      value: data?.pendingPos ?? '—',
+      color: 'border-l-yellow-500',
+      bg: 'bg-yellow-50 dark:bg-yellow-900/10',
+    },
+    {
+      label: 'Pending GRNs',
+      value: data?.pendingGrns ?? '—',
+      color: 'border-l-blue-500',
+      bg: 'bg-blue-50 dark:bg-blue-900/10',
+    },
+    {
+      label: "Today's Receipts",
+      value: data?.todayReceipts ?? '—',
+      color: 'border-l-green-500',
+      bg: 'bg-green-50 dark:bg-green-900/10',
+    },
+    {
+      label: 'Purchase Value (Month)',
+      value: data?.purchaseValue ? `₹${data.purchaseValue.toLocaleString('en-IN')}` : '₹0',
+      color: 'border-l-purple-500',
+      bg: 'bg-purple-50 dark:bg-purple-900/10',
+    },
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="animate-in fade-in space-y-6 duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Purchase Dashboard</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Overview of purchase operations, pending actions, and key metrics</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Overview of purchase operations, pending actions, and key metrics
+          </p>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (
-          <div key={card.label} className={`rounded-xl border-l-4 p-5 shadow-sm transition-all hover:shadow-md ${card.color} ${card.bg}`}>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{card.label}</p>
+          <div
+            key={card.label}
+            className={`rounded-xl border-l-4 p-5 shadow-sm transition-all hover:shadow-md ${card.color} ${card.bg}`}
+          >
+            <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              {card.label}
+            </p>
             <p className="mt-2 text-2xl font-bold">{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-xl border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           {[
@@ -231,7 +292,7 @@ export function PurchaseDashboardPage() {
             <button
               key={action.label}
               onClick={() => navigate(action.path)}
-              className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20 active:scale-[0.98]"
+              className="bg-primary/10 text-primary hover:bg-primary/20 rounded-lg px-4 py-2 text-sm font-medium transition-all active:scale-[0.98]"
             >
               {action.label}
             </button>
@@ -242,17 +303,22 @@ export function PurchaseDashboardPage() {
       {/* Top Suppliers + Recent Purchases */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Top Suppliers */}
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="bg-card rounded-xl border p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold">Top Suppliers</h2>
           {data?.topSuppliers && data.topSuppliers.length > 0 ? (
             <div className="space-y-3">
               {data.topSuppliers.map((s, i) => (
-                <div key={s.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-3 transition-colors hover:bg-muted/50">
+                <div
+                  key={s.id}
+                  className="bg-muted/30 hover:bg-muted/50 flex items-center justify-between rounded-lg p-3 transition-colors"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">#{i + 1}</span>
+                    <span className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold">
+                      #{i + 1}
+                    </span>
                     <div>
                       <p className="text-sm font-medium">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">{s.count} orders</p>
+                      <p className="text-muted-foreground text-xs">{s.count} orders</p>
                     </div>
                   </div>
                   <p className="text-sm font-semibold">{formatCurrency(s.amount)}</p>
@@ -260,20 +326,25 @@ export function PurchaseDashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No supplier data available</p>
+            <p className="text-muted-foreground text-sm">No supplier data available</p>
           )}
         </div>
 
         {/* Recent Purchases */}
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="bg-card rounded-xl border p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold">Recent Purchases</h2>
           {data?.recentPurchases && data.recentPurchases.length > 0 ? (
             <div className="space-y-2">
               {data.recentPurchases.slice(0, 8).map((po) => (
-                <div key={po.id} className="flex items-center justify-between rounded-lg p-2.5 transition-colors hover:bg-muted/30">
+                <div
+                  key={po.id}
+                  className="hover:bg-muted/30 flex items-center justify-between rounded-lg p-2.5 transition-colors"
+                >
                   <div>
                     <p className="text-sm font-medium">{po.poNumber}</p>
-                    <p className="text-xs text-muted-foreground">{po.supplierId} · {po.orderDate}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {po.supplierId} · {po.orderDate}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-sm font-semibold">{formatCurrency(po.grandTotal)}</p>
@@ -283,30 +354,54 @@ export function PurchaseDashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No recent purchases</p>
+            <p className="text-muted-foreground text-sm">No recent purchases</p>
           )}
         </div>
       </div>
 
       {/* Reports Section */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-xl border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Reports</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            { label: 'Purchase Register', desc: 'Complete purchase transaction log', path: '/purchase/reports/purchase-register' },
-            { label: 'GRN Register', desc: 'Goods receipt history with details', path: '/purchase/reports/grn-register' },
-            { label: 'GST Purchase Summary', desc: 'GST-wise purchase summary for returns', path: '/purchase/reports/gst-purchase' },
-            { label: 'Pending Purchase Orders', desc: 'All open and partially received POs', path: '/purchase/reports/pending-pos' },
-            { label: 'Purchase Return Report', desc: 'Return transactions with reasons', path: '/purchase/reports/purchase-returns' },
-            { label: 'Supplier-wise Purchase', desc: 'Supplier-wise purchase analysis', path: '/purchase/reports/supplier-wise' },
+            {
+              label: 'Purchase Register',
+              desc: 'Complete purchase transaction log',
+              path: '/purchase/reports/purchase-register',
+            },
+            {
+              label: 'GRN Register',
+              desc: 'Goods receipt history with details',
+              path: '/purchase/reports/grn-register',
+            },
+            {
+              label: 'GST Purchase Summary',
+              desc: 'GST-wise purchase summary for returns',
+              path: '/purchase/reports/gst-purchase',
+            },
+            {
+              label: 'Pending Purchase Orders',
+              desc: 'All open and partially received POs',
+              path: '/purchase/reports/pending-pos',
+            },
+            {
+              label: 'Purchase Return Report',
+              desc: 'Return transactions with reasons',
+              path: '/purchase/reports/purchase-returns',
+            },
+            {
+              label: 'Supplier-wise Purchase',
+              desc: 'Supplier-wise purchase analysis',
+              path: '/purchase/reports/supplier-wise',
+            },
           ].map((report) => (
             <div
               key={report.label}
               onClick={() => navigate(report.path)}
-              className="cursor-pointer rounded-lg border p-4 transition-all hover:bg-accent hover:shadow-sm"
+              className="hover:bg-accent cursor-pointer rounded-lg border p-4 transition-all hover:shadow-sm"
             >
-              <p className="font-medium text-sm">{report.label}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{report.desc}</p>
+              <p className="text-sm font-medium">{report.label}</p>
+              <p className="text-muted-foreground mt-1 text-xs">{report.desc}</p>
             </div>
           ))}
         </div>
@@ -396,7 +491,11 @@ const grnColumns: ColumnDef[] = [
   { key: 'poId', label: 'PO Ref' },
   { key: 'supplierId', label: 'Supplier' },
   { key: 'receivedDate', label: 'Received Date' },
-  { key: 'receiptType', label: 'Type', render: (v) => <span className="capitalize">{v as string}</span> },
+  {
+    key: 'receiptType',
+    label: 'Type',
+    render: (v) => <span className="capitalize">{v as string}</span>,
+  },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
 
@@ -406,10 +505,15 @@ const grnFields: FormField[] = [
   { name: 'supplierId', label: 'Supplier ID', type: 'text', required: true },
   { name: 'warehouseId', label: 'Warehouse', type: 'text' },
   { name: 'receivedDate', label: 'Received Date', type: 'date', required: true },
-  { name: 'receiptType', label: 'Receipt Type', type: 'select', options: [
-    { label: 'Full Receipt', value: 'full' },
-    { label: 'Partial Receipt', value: 'partial' },
-  ]},
+  {
+    name: 'receiptType',
+    label: 'Receipt Type',
+    type: 'select',
+    options: [
+      { label: 'Full Receipt', value: 'full' },
+      { label: 'Partial Receipt', value: 'partial' },
+    ],
+  },
   { name: 'deliveryChallanNo', label: 'Delivery Challan No', type: 'text' },
   { name: 'transporterName', label: 'Transporter', type: 'text' },
   { name: 'vehicleNo', label: 'Vehicle No', type: 'text' },
@@ -513,7 +617,7 @@ const priceColumns: ColumnDef[] = [
   { key: 'discountPercent', label: 'Disc %' },
   { key: 'minQuantity', label: 'Min Qty' },
   { key: 'effectiveFrom', label: 'Effective From' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const priceFields: FormField[] = [
@@ -552,21 +656,32 @@ const approvalColumns: ColumnDef[] = [
 ];
 
 const approvalFields: FormField[] = [
-  { name: 'documentType', label: 'Document Type', type: 'select', options: [
-    { label: 'Purchase Order', value: 'po' },
-    { label: 'Quotation', value: 'quotation' },
-    { label: 'Invoice', value: 'invoice' },
-    { label: 'Return', value: 'return' },
-    { label: 'Requisition', value: 'requisition' },
-  ], required: true },
+  {
+    name: 'documentType',
+    label: 'Document Type',
+    type: 'select',
+    options: [
+      { label: 'Purchase Order', value: 'po' },
+      { label: 'Quotation', value: 'quotation' },
+      { label: 'Invoice', value: 'invoice' },
+      { label: 'Return', value: 'return' },
+      { label: 'Requisition', value: 'requisition' },
+    ],
+    required: true,
+  },
   { name: 'documentId', label: 'Document ID', type: 'text', required: true },
   { name: 'requestedBy', label: 'Requested By', type: 'text', required: true },
   { name: 'approvalLevel', label: 'Approval Level', type: 'number' },
-  { name: 'status', label: 'Status', type: 'select', options: [
-    { label: 'Pending', value: 'pending' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'Rejected', value: 'rejected' },
-  ]},
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Pending', value: 'pending' },
+      { label: 'Approved', value: 'approved' },
+      { label: 'Rejected', value: 'rejected' },
+    ],
+  },
   { name: 'comments', label: 'Comments', type: 'textarea' },
 ];
 
@@ -589,9 +704,47 @@ const settingsFields: FormField[] = [
   { name: 'autoPoNumber', label: 'Auto PO Numbering', type: 'boolean' },
   { name: 'poPrefix', label: 'PO Prefix', type: 'text' },
   { name: 'poNextNumber', label: 'Next PO Number', type: 'number' },
-  { name: 'requireApproval', label: 'Require Approval', type: 'boolean' },
+  { name: 'quotationPrefix', label: 'Quotation Prefix', type: 'text' },
+  { name: 'quotationNextNumber', label: 'Next Quotation Number', type: 'number' },
+  { name: 'grnPrefix', label: 'GRN Prefix', type: 'text' },
+  { name: 'grnNextNumber', label: 'Next GRN Number', type: 'number' },
+  { name: 'invoicePrefix', label: 'Invoice Prefix', type: 'text' },
+  { name: 'invoiceNextNumber', label: 'Next Invoice Number', type: 'number' },
+  { name: 'returnPrefix', label: 'Purchase Return Prefix', type: 'text' },
+  { name: 'returnNextNumber', label: 'Next Return Number', type: 'number' },
+  { name: 'autoGrn', label: 'Auto GRN on PO Approval', type: 'boolean' },
+  { name: 'requireApproval', label: 'Require Purchase Approval', type: 'boolean' },
   { name: 'approvalLevels', label: 'Approval Levels', type: 'number' },
+  { name: 'supplierCreditDays', label: 'Supplier Credit Days', type: 'number' },
+  { name: 'defaultSupplierCategory', label: 'Supplier Category (Default)', type: 'text' },
+  {
+    name: 'defaultVendorRating',
+    label: 'Vendor Rating (Default)',
+    type: 'select',
+    options: [
+      { label: '⭐ 1 — Poor', value: '1' },
+      { label: '⭐⭐ 2 — Fair', value: '2' },
+      { label: '⭐⭐⭐ 3 — Good', value: '3' },
+      { label: '⭐⭐⭐⭐ 4 — Very Good', value: '4' },
+      { label: '⭐⭐⭐⭐⭐ 5 — Excellent', value: '5' },
+    ],
+  },
+  { name: 'defaultGstRate', label: 'Default GST Rate (%)', type: 'number' },
+  { name: 'requireVendorApproval', label: 'Vendor Approval Required', type: 'boolean' },
   { name: 'defaultPaymentTerms', label: 'Default Payment Terms', type: 'text' },
+  { name: 'defaultTaxGroupId', label: 'Default Tax Group', type: 'text' },
+  { name: 'defaultWarehouseId', label: 'Default Warehouse', type: 'text' },
+  {
+    name: 'defaultPaymentMode',
+    label: 'Default Payment Mode',
+    type: 'select',
+    options: [
+      { label: 'Credit', value: 'credit' },
+      { label: 'Cash', value: 'cash' },
+      { label: 'UPI', value: 'upi' },
+      { label: 'Bank Transfer', value: 'bank_transfer' },
+    ],
+  },
   { name: 'gstEnabled', label: 'GST Enabled', type: 'boolean' },
   { name: 'roundOffDecimals', label: 'Round Off Decimals', type: 'number' },
 ];
@@ -600,8 +753,16 @@ export function PurchaseSettingsPage() {
   return (
     <MasterDataPage
       title="Purchase Settings"
-      description="Global purchase configuration: numbering, approvals, payment terms, GST"
-      columns={[{ key: 'autoPoNumber', label: 'Auto PO#' }, { key: 'requireApproval', label: 'Approval Required', render: (v) => v ? '✅ Yes' : '❌ No' }]}
+      description="Global purchase configuration: numbering, auto GRN, approvals, credit days, defaults"
+      columns={[
+        { key: 'autoPoNumber', label: 'Auto PO#' },
+        { key: 'autoGrn', label: 'Auto GRN', render: (v) => (v ? '✅ Yes' : '❌ No') },
+        {
+          key: 'requireApproval',
+          label: 'Approval Required',
+          render: (v) => (v ? '✅ Yes' : '❌ No'),
+        },
+      ]}
       apiPath="/purchase/settings"
       formFields={settingsFields}
     />
@@ -647,15 +808,36 @@ const grnReportColumns: ColumnDef[] = [
 ];
 
 export function PurchaseRegisterReport() {
-  return <ReportPage title="Purchase Register" description="Complete purchase transaction log" apiPath="/purchase/reports/purchase-register" columns={reportColumns} />;
+  return (
+    <ReportPage
+      title="Purchase Register"
+      description="Complete purchase transaction log"
+      apiPath="/purchase/reports/purchase-register"
+      columns={reportColumns}
+    />
+  );
 }
 
 export function GrnRegisterReport() {
-  return <ReportPage title="GRN Register" description="Goods receipt history with details" apiPath="/purchase/reports/grn-register" columns={grnReportColumns} />;
+  return (
+    <ReportPage
+      title="GRN Register"
+      description="Goods receipt history with details"
+      apiPath="/purchase/reports/grn-register"
+      columns={grnReportColumns}
+    />
+  );
 }
 
 export function PendingPOReport() {
-  return <ReportPage title="Pending Purchase Orders" description="All open and partially received POs" apiPath="/purchase/reports/pending-pos" columns={reportColumns} />;
+  return (
+    <ReportPage
+      title="Pending Purchase Orders"
+      description="All open and partially received POs"
+      apiPath="/purchase/reports/pending-pos"
+      columns={reportColumns}
+    />
+  );
 }
 
 export function PurchaseReturnReport() {
@@ -667,11 +849,25 @@ export function PurchaseReturnReport() {
     { key: 'grandTotal', label: 'Amount ₹', render: (v) => formatCurrency(v) },
     { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
   ];
-  return <ReportPage title="Purchase Return Report" description="Return transactions with reasons" apiPath="/purchase/reports/purchase-returns" columns={returnReportColumns} />;
+  return (
+    <ReportPage
+      title="Purchase Return Report"
+      description="Return transactions with reasons"
+      apiPath="/purchase/reports/purchase-returns"
+      columns={returnReportColumns}
+    />
+  );
 }
 
 export function GstPurchaseReport() {
-  return <ReportPage title="GST Purchase Summary" description="GST-wise purchase summary for returns" apiPath="/purchase/reports/gst-purchase" columns={reportColumns} />;
+  return (
+    <ReportPage
+      title="GST Purchase Summary"
+      description="GST-wise purchase summary for returns"
+      apiPath="/purchase/reports/gst-purchase"
+      columns={reportColumns}
+    />
+  );
 }
 
 export { CreateSupplierPage, EditSupplierPage } from './supplier-form';

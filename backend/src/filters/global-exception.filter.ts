@@ -1,5 +1,11 @@
-import { ExceptionFilter, ArgumentsHost} from '@nestjs/common';
-import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  ArgumentsHost,
+  Catch,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { AbstractHttpAdapter } from '@nestjs/core';
 import { Request } from 'express';
 
@@ -93,7 +99,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     for (const msg of messages) {
       const match = msg.match(/^(\w+)\s/);
       const key = match ? match[1].toLowerCase() : 'general';
-      if (!formatted[key]) {formatted[key] = [];}
+      if (!formatted[key]) {
+        formatted[key] = [];
+      }
       formatted[key].push(msg);
     }
     return formatted;

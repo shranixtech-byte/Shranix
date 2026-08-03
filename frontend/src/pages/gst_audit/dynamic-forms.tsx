@@ -1,7 +1,15 @@
 import { DynamicFormPage } from '@/components/ui/DynamicFormPage';
+
 import type { FormField } from '../masters/master-data-page';
 
-function makeFormPage(module: string, listPath: string, title: string, description: string, apiPath: string, fields: FormField[]) {
+function makeFormPage(
+  module: string,
+  listPath: string,
+  title: string,
+  description: string,
+  apiPath: string,
+  fields: FormField[],
+) {
   return function FormPage() {
     return (
       <DynamicFormPage
@@ -22,29 +30,62 @@ export const gstRegistrationFields: FormField[] = [
   { name: 'legalName', label: 'Legal Name', type: 'text' },
   { name: 'state', label: 'State', type: 'text' },
   { name: 'address', label: 'Address', type: 'textarea' },
-  { name: 'registrationType', label: 'Registration Type', type: 'select', options: [
-    { label: 'Regular', value: 'regular' }, { label: 'Composition', value: 'composition' },
-    { label: 'Unregistered', value: 'unregistered' },
-  ]},
-  { name: 'taxpayerType', label: 'Taxpayer Type', type: 'select', options: [
-    { label: 'Regular', value: 'regular' }, { label: 'Composition', value: 'composition' },
-  ]},
-  { name: 'returnType', label: 'Return Type', type: 'select', options: [
-    { label: 'GSTR-1', value: 'gstr1' }, { label: 'GSTR-3B', value: 'gstr3b' }, { label: 'GSTR-9', value: 'gstr9' },
-  ]},
-  { name: 'filingFrequency', label: 'Filing Frequency', type: 'select', options: [
-    { label: 'Monthly', value: 'monthly' }, { label: 'Quarterly', value: 'quarterly' }, { label: 'Annual', value: 'annual' },
-  ]},
+  {
+    name: 'registrationType',
+    label: 'Registration Type',
+    type: 'select',
+    options: [
+      { label: 'Regular', value: 'regular' },
+      { label: 'Composition', value: 'composition' },
+      { label: 'Unregistered', value: 'unregistered' },
+    ],
+  },
+  {
+    name: 'taxpayerType',
+    label: 'Taxpayer Type',
+    type: 'select',
+    options: [
+      { label: 'Regular', value: 'regular' },
+      { label: 'Composition', value: 'composition' },
+    ],
+  },
+  {
+    name: 'returnType',
+    label: 'Return Type',
+    type: 'select',
+    options: [
+      { label: 'GSTR-1', value: 'gstr1' },
+      { label: 'GSTR-3B', value: 'gstr3b' },
+      { label: 'GSTR-9', value: 'gstr9' },
+    ],
+  },
+  {
+    name: 'filingFrequency',
+    label: 'Filing Frequency',
+    type: 'select',
+    options: [
+      { label: 'Monthly', value: 'monthly' },
+      { label: 'Quarterly', value: 'quarterly' },
+      { label: 'Annual', value: 'annual' },
+    ],
+  },
   { name: 'isActive', label: 'Active', type: 'boolean' },
 ];
 
 export const taxPostingFields: FormField[] = [
   { name: 'voucherId', label: 'Voucher ID', type: 'text', required: true },
   { name: 'voucherDate', label: 'Voucher Date', type: 'date', required: true },
-  { name: 'voucherType', label: 'Voucher Type', type: 'select', options: [
-    { label: 'Sales', value: 'sales' }, { label: 'Purchase', value: 'purchase' },
-    { label: 'Sales Return', value: 'sales_return' }, { label: 'Purchase Return', value: 'purchase_return' },
-  ]},
+  {
+    name: 'voucherType',
+    label: 'Voucher Type',
+    type: 'select',
+    options: [
+      { label: 'Sales', value: 'sales' },
+      { label: 'Purchase', value: 'purchase' },
+      { label: 'Sales Return', value: 'sales_return' },
+      { label: 'Purchase Return', value: 'purchase_return' },
+    ],
+  },
   { name: 'gstin', label: 'GSTIN', type: 'text' },
   { name: 'taxableValue', label: 'Taxable Value', type: 'number' },
   { name: 'igst', label: 'IGST', type: 'number' },
@@ -60,13 +101,57 @@ export const numberSeriesFields: FormField[] = [
   { name: 'nextNumber', label: 'Next Number', type: 'number' },
   { name: 'suffix', label: 'Suffix', type: 'text' },
   { name: 'padding', label: 'Padding', type: 'number' },
-  { name: 'module', label: 'Module', type: 'select', options: [
-    { label: 'Sales', value: 'sales' }, { label: 'Purchase', value: 'purchase' },
-    { label: 'Finance', value: 'finance' }, { label: 'Inventory', value: 'inventory' },
-  ]},
+  {
+    name: 'module',
+    label: 'Module',
+    type: 'select',
+    options: [
+      { label: 'Sales', value: 'sales' },
+      { label: 'Purchase', value: 'purchase' },
+      { label: 'Finance', value: 'finance' },
+      { label: 'Inventory', value: 'inventory' },
+    ],
+  },
   { name: 'isActive', label: 'Active', type: 'boolean' },
 ];
 
-export const CreateGstRegistrationPage = makeFormPage('GST & Closing', '/gst/registrations', 'GST Registration', 'Manage GST registration details', '/gst/registrations', gstRegistrationFields);
-export const CreateTaxPostingPage = makeFormPage('GST & Closing', '/gst/tax-postings', 'Tax Posting', 'Create a GST tax posting entry', '/gst/tax-postings', taxPostingFields);
-export const CreateNumberSeriesPage = makeFormPage('GST & Closing', '/gst/number-series', 'Number Series', 'Configure auto-numbering series', '/gst/number-series', numberSeriesFields);
+export const gasFields: FormField[] = [
+  { name: 'settingKey', label: 'Setting Key', type: 'text', required: true },
+  { name: 'settingValue', label: 'Setting Value', type: 'text', required: true },
+  { name: 'settingGroup', label: 'Group', type: 'text', required: true },
+  { name: 'description', label: 'Description', type: 'textarea' },
+  { name: 'dataType', label: 'Data Type', type: 'text' },
+];
+
+export const CreateGstRegistrationPage = makeFormPage(
+  'GST & Closing',
+  '/gst/registrations',
+  'GST Registration',
+  'Manage GST registration details',
+  '/gst/registrations',
+  gstRegistrationFields,
+);
+export const CreateTaxPostingPage = makeFormPage(
+  'GST & Closing',
+  '/gst/tax-postings',
+  'Tax Posting',
+  'Create a GST tax posting entry',
+  '/gst/tax-postings',
+  taxPostingFields,
+);
+export const CreateNumberSeriesPage = makeFormPage(
+  'GST & Closing',
+  '/gst/number-series',
+  'Number Series',
+  'Configure auto-numbering series',
+  '/gst/number-series',
+  numberSeriesFields,
+);
+export const CreateGstAuditSettingsPage = makeFormPage(
+  'GST & Closing',
+  '/gst/settings',
+  'GST & Audit Setting',
+  'Add a configuration key for GST, audit, closing, number series, and approval settings',
+  '/gst/settings',
+  gasFields,
+);

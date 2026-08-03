@@ -3,8 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TransactionManager } from '../../automation/transaction.manager';
 
 import { WorkflowInstancesService } from './instances.service';
-import { StateMachineService} from './state-machine.service';
-import { DEFAULT_WORKFLOW_STATES, DEFAULT_TRANSITIONS } from './state-machine.service';
+import {
+  StateMachineService,
+  DEFAULT_WORKFLOW_STATES,
+  DEFAULT_TRANSITIONS,
+} from './state-machine.service';
 import { WorkflowTemplatesService } from './templates.service';
 
 export interface WorkflowIntegrationConfig {
@@ -61,7 +64,9 @@ export class WorkflowIntegrationService {
         config.userId,
       );
 
-      this.logger.log(`Workflow started for ${config.documentType} #${config.documentNumber || config.documentId}`);
+      this.logger.log(
+        `Workflow started for ${config.documentType} #${config.documentNumber || config.documentId}`,
+      );
       return instance;
     });
   }
@@ -100,9 +105,15 @@ export class WorkflowIntegrationService {
    * Check if a document's workflow allows a specific action.
    * Throws BadRequestException if the action is not allowed.
    */
-  async checkWorkflowState(documentType: string, documentId: string, expectedState: string): Promise<boolean> {
+  async checkWorkflowState(
+    documentType: string,
+    documentId: string,
+    expectedState: string,
+  ): Promise<boolean> {
     const instance = await this.instancesService.findByDocument(documentType, documentId);
-    if (!instance) {return false;}
+    if (!instance) {
+      return false;
+    }
     return (instance as any).currentState === expectedState;
   }
 
@@ -111,7 +122,9 @@ export class WorkflowIntegrationService {
    */
   async getDocumentWorkflowState(documentType: string, documentId: string): Promise<string | null> {
     const instance = await this.instancesService.findByDocument(documentType, documentId);
-    if (!instance) {return null;}
+    if (!instance) {
+      return null;
+    }
     return (instance as any).currentState;
   }
 

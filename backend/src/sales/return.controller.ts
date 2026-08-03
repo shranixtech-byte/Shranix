@@ -1,11 +1,29 @@
-import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
+
 import { SalesReturnEngineService } from './return-engine.service';
 
 @ApiTags('Sales - Returns Engine')
@@ -26,7 +44,9 @@ export class SalesReturnEngineController {
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get list of return reasons' })
-  getReasons() { return this.engine.getReturnReasons(); }
+  getReasons() {
+    return this.engine.getReturnReasons();
+  }
 
   // ═════════════════════════════════════════════════════════
   // VALIDATE RETURN
@@ -37,7 +57,10 @@ export class SalesReturnEngineController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validate return items against invoice' })
   @ApiBody({ description: 'Validation payload with invoiceId and items', required: true })
-  async validate(@Body() dto: { invoiceId: string; items: any[] }, @CurrentUser() _u: { id: string; name?: string }) {
+  async validate(
+    @Body() dto: { invoiceId: string; items: any[] },
+    @CurrentUser() _u: { id: string; name?: string },
+  ) {
     const invoice = await this.database.salesInvoices.findById(dto.invoiceId);
     return this.engine.validateReturn(dto.items, invoice);
   }
@@ -86,7 +109,9 @@ export class SalesReturnEngineController {
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all credit notes' })
-  async getAllCreditNotes() { return this.engine.findAllCreditNotes(); }
+  async getAllCreditNotes() {
+    return this.engine.findAllCreditNotes();
+  }
 
   @Post('credit-notes/:id/post')
   @Roles('admin', 'manager')
@@ -114,7 +139,9 @@ export class SalesReturnEngineController {
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'List all debit notes' })
-  async getAllDebitNotes() { return this.engine.findAllDebitNotes(); }
+  async getAllDebitNotes() {
+    return this.engine.findAllDebitNotes();
+  }
 
   @Post('debit-notes/:id/post')
   @Roles('admin', 'manager')
@@ -134,37 +161,54 @@ export class SalesReturnEngineController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sales return register' })
   async getReturnRegister(
-    @Query('page') page = 1, @Query('pageSize') pageSize = 50,
-    @Query('search') search?: string, @Query('status') status?: string,
-  ) { return this.engine.getReturnRegister({ page: Number(page), pageSize: Number(pageSize), search, status }); }
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 50,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.engine.getReturnRegister({
+      page: Number(page),
+      pageSize: Number(pageSize),
+      search,
+      status,
+    });
+  }
 
   @Get('reports/summary')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Return summary dashboard' })
-  async getReturnSummary() { return this.engine.getReturnSummary(); }
+  async getReturnSummary() {
+    return this.engine.getReturnSummary();
+  }
 
   @Get('reports/reason-analysis')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Return reason analysis' })
-  async getReasonAnalysis() { return this.engine.getReasonAnalysis(); }
+  async getReasonAnalysis() {
+    return this.engine.getReasonAnalysis();
+  }
 
   @Get('reports/credit-note-register')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Credit note register' })
-  async getCreditNoteRegister() { return this.engine.getCreditNoteRegister(); }
+  async getCreditNoteRegister() {
+    return this.engine.getCreditNoteRegister();
+  }
 
   @Get('reports/debit-note-register')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Debit note register' })
-  async getDebitNoteRegister() { return this.engine.getDebitNoteRegister(); }
+  async getDebitNoteRegister() {
+    return this.engine.getDebitNoteRegister();
+  }
 
   @Get('reports/customer/:customerId')
   @Roles('admin', 'manager', 'accountant')

@@ -1,5 +1,4 @@
-import { Module, Global } from '@nestjs/common';
-import { OnModuleDestroy } from '@nestjs/common';
+import { Module, Global, OnModuleDestroy } from '@nestjs/common';
 import { loadDatabaseConfig, createDatabaseClient, closeDatabaseClient } from '@shranix/database';
 
 import { DatabaseService } from './database.service';

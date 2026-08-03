@@ -1,4 +1,8 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/Button';
+import { UpiQrCode } from '@/components/ui/UpiQrCode';
+import { apiRequest } from '@/services/api-client';
 
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
 
@@ -47,10 +51,30 @@ function getPaymentBadge(status: string): React.ReactNode {
 // SALES DASHBOARD
 // ═════════════════════════════════════════════════════════
 const statCards = [
-  { label: 'Pending Quotations', value: '—', color: 'border-l-yellow-500', bg: 'bg-yellow-50 dark:bg-yellow-900/10' },
-  { label: 'Pending Orders', value: '—', color: 'border-l-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/10' },
-  { label: 'Overdue Invoices', value: '—', color: 'border-l-red-500', bg: 'bg-red-50 dark:bg-red-900/10' },
-  { label: 'Today\'s Despatches', value: '—', color: 'border-l-green-500', bg: 'bg-green-50 dark:bg-green-900/10' },
+  {
+    label: 'Pending Quotations',
+    value: '—',
+    color: 'border-l-yellow-500',
+    bg: 'bg-yellow-50 dark:bg-yellow-900/10',
+  },
+  {
+    label: 'Pending Orders',
+    value: '—',
+    color: 'border-l-blue-500',
+    bg: 'bg-blue-50 dark:bg-blue-900/10',
+  },
+  {
+    label: 'Overdue Invoices',
+    value: '—',
+    color: 'border-l-red-500',
+    bg: 'bg-red-50 dark:bg-red-900/10',
+  },
+  {
+    label: "Today's Despatches",
+    value: '—',
+    color: 'border-l-green-500',
+    bg: 'bg-green-50 dark:bg-green-900/10',
+  },
 ];
 
 export function SalesDashboardPage() {
@@ -58,7 +82,7 @@ export function SalesDashboardPage() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Sales Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Overview of sales operations, pending actions, and key metrics
         </p>
       </div>
@@ -70,20 +94,26 @@ export function SalesDashboardPage() {
             key={card.label}
             className={`rounded-lg border-l-4 p-4 shadow-sm ${card.color} ${card.bg}`}
           >
-            <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+            <p className="text-muted-foreground text-sm font-medium">{card.label}</p>
             <p className="mt-1 text-2xl font-bold">{card.value}</p>
           </div>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-lg border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          {['New Sales Order', 'New Delivery Challan', 'New Sales Invoice', 'View Returns', 'Customer Price List'].map((action) => (
+          {[
+            'New Sales Order',
+            'New Delivery Challan',
+            'New Sales Invoice',
+            'View Returns',
+            'Customer Price List',
+          ].map((action) => (
             <button
               key={action}
-              className="rounded-md bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+              className="bg-primary/10 text-primary hover:bg-primary/20 rounded-md px-4 py-2 text-sm font-medium transition-colors"
             >
               {action}
             </button>
@@ -92,7 +122,7 @@ export function SalesDashboardPage() {
       </div>
 
       {/* Reports Section */}
-      <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <div className="bg-card rounded-lg border p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold">Reports</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
@@ -106,10 +136,10 @@ export function SalesDashboardPage() {
           ].map((report) => (
             <div
               key={report.label}
-              className="cursor-pointer rounded-md border p-3 transition-colors hover:bg-accent"
+              className="hover:bg-accent cursor-pointer rounded-md border p-3 transition-colors"
             >
               <p className="font-medium">{report.label}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{report.desc}</p>
+              <p className="text-muted-foreground mt-1 text-xs">{report.desc}</p>
             </div>
           ))}
         </div>
@@ -126,7 +156,11 @@ const quoteColumns: ColumnDef[] = [
   { key: 'customerId', label: 'Customer' },
   { key: 'quoteDate', label: 'Date' },
   { key: 'validTill', label: 'Valid Till' },
-  { key: 'grandTotal', label: 'Total ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'grandTotal',
+    label: 'Total ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
 
@@ -162,7 +196,11 @@ const orderColumns: ColumnDef[] = [
   { key: 'customerId', label: 'Customer' },
   { key: 'orderDate', label: 'Order Date' },
   { key: 'deliveryDate', label: 'Delivery Date' },
-  { key: 'grandTotal', label: 'Total ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'grandTotal',
+    label: 'Total ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
 
@@ -212,10 +250,15 @@ const challanFields: FormField[] = [
   { name: 'customerId', label: 'Customer ID', type: 'text', required: true },
   { name: 'warehouseId', label: 'Warehouse', type: 'text' },
   { name: 'dispatchDate', label: 'Dispatch Date', type: 'date', required: true },
-  { name: 'dispatchType', label: 'Dispatch Type', type: 'select', options: [
-    { label: 'Full Dispatch', value: 'full' },
-    { label: 'Partial Dispatch', value: 'partial' },
-  ]},
+  {
+    name: 'dispatchType',
+    label: 'Dispatch Type',
+    type: 'select',
+    options: [
+      { label: 'Full Dispatch', value: 'full' },
+      { label: 'Partial Dispatch', value: 'partial' },
+    ],
+  },
   { name: 'vehicleNo', label: 'Vehicle No', type: 'text' },
   { name: 'vehicleType', label: 'Vehicle Type', type: 'text' },
   { name: 'driverName', label: 'Driver Name', type: 'text' },
@@ -246,7 +289,11 @@ const invoiceColumns: ColumnDef[] = [
   { key: 'customerId', label: 'Customer' },
   { key: 'invoiceDate', label: 'Date' },
   { key: 'dueDate', label: 'Due Date' },
-  { key: 'grandTotal', label: 'Amount ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'grandTotal',
+    label: 'Amount ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'paymentStatus', label: 'Payment', render: (v) => getPaymentBadge(v as string) },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
@@ -284,7 +331,11 @@ const returnColumns: ColumnDef[] = [
   { key: 'invoiceId', label: 'Invoice Ref' },
   { key: 'returnDate', label: 'Return Date' },
   { key: 'returnReason', label: 'Reason' },
-  { key: 'grandTotal', label: 'Amount ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` },
+  {
+    key: 'grandTotal',
+    label: 'Amount ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'creditNoteNo', label: 'Credit Note' },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
@@ -322,7 +373,7 @@ const priceColumns: ColumnDef[] = [
   { key: 'discountPercent', label: 'Disc %' },
   { key: 'minQuantity', label: 'Min Qty' },
   { key: 'effectiveFrom', label: 'Effective From' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
 const priceFields: FormField[] = [
@@ -361,20 +412,31 @@ const approvalColumns: ColumnDef[] = [
 ];
 
 const approvalFields: FormField[] = [
-  { name: 'documentType', label: 'Document Type', type: 'select', options: [
-    { label: 'Quotation', value: 'quotation' },
-    { label: 'Order', value: 'order' },
-    { label: 'Invoice', value: 'invoice' },
-    { label: 'Return', value: 'return' },
-  ], required: true },
+  {
+    name: 'documentType',
+    label: 'Document Type',
+    type: 'select',
+    options: [
+      { label: 'Quotation', value: 'quotation' },
+      { label: 'Order', value: 'order' },
+      { label: 'Invoice', value: 'invoice' },
+      { label: 'Return', value: 'return' },
+    ],
+    required: true,
+  },
   { name: 'documentId', label: 'Document ID', type: 'text', required: true },
   { name: 'requestedBy', label: 'Requested By', type: 'text', required: true },
   { name: 'approvalLevel', label: 'Approval Level', type: 'number' },
-  { name: 'status', label: 'Status', type: 'select', options: [
-    { label: 'Pending', value: 'pending' },
-    { label: 'Approved', value: 'approved' },
-    { label: 'Rejected', value: 'rejected' },
-  ]},
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Pending', value: 'pending' },
+      { label: 'Approved', value: 'approved' },
+      { label: 'Rejected', value: 'rejected' },
+    ],
+  },
   { name: 'comments', label: 'Comments', type: 'textarea' },
 ];
 
@@ -407,26 +469,176 @@ const settingsFields: FormField[] = [
   { name: 'invoiceNextNumber', label: 'Next Invoice Number', type: 'number' },
   { name: 'returnPrefix', label: 'Return Prefix', type: 'text' },
   { name: 'returnNextNumber', label: 'Next Return Number', type: 'number' },
-  { name: 'requireApproval', label: 'Require Approval', type: 'boolean' },
+  { name: 'quotationExpiryDays', label: 'Quotation Expiry (days)', type: 'number' },
+  { name: 'requireApproval', label: 'Require Sales Approval', type: 'boolean' },
   { name: 'approvalLevels', label: 'Approval Levels', type: 'number' },
+  { name: 'discountApproval', label: 'Discount Approval', type: 'boolean' },
+  { name: 'discountApprovalLimit', label: 'Discount Approval Limit (%)', type: 'number' },
+  { name: 'enforceCreditLimit', label: 'Enforce Credit Limit', type: 'boolean' },
+  { name: 'overdueAlert', label: 'Overdue Alert', type: 'boolean' },
+  { name: 'overdueAlertDays', label: 'Overdue Alert (days before)', type: 'number' },
+  { name: 'salesmanMandatory', label: 'Salesman Mandatory', type: 'boolean' },
   { name: 'gstEnabled', label: 'GST Enabled', type: 'boolean' },
   { name: 'roundOffDecimals', label: 'Round Off Decimals', type: 'number' },
   { name: 'defaultPaymentTerms', label: 'Default Payment Terms', type: 'text' },
+  // Customer Settings — defaults, groups, loyalty, validations
+  { name: 'defaultCreditLimit', label: 'Default Credit Limit', type: 'number' },
+  { name: 'customerGroups', label: 'Customer Groups (comma separated)', type: 'text' },
+  { name: 'defaultCustomerGroup', label: 'Default Customer Group', type: 'text' },
+  { name: 'loyaltyEnabled', label: 'Loyalty Program', type: 'boolean' },
+  { name: 'loyaltyPointsPerAmount', label: 'Loyalty Points per ₹100', type: 'number' },
+  {
+    name: 'defaultPriceList',
+    label: 'Default Price List',
+    type: 'select',
+    options: [
+      { label: 'Standard', value: 'standard' },
+      { label: 'Wholesale', value: 'wholesale' },
+      { label: 'Retail', value: 'retail' },
+      { label: 'Promotional', value: 'promotional' },
+      { label: 'Contract', value: 'contract' },
+    ],
+  },
+  { name: 'gstValidation', label: 'GST Validation', type: 'boolean' },
+  { name: 'panValidation', label: 'PAN Validation', type: 'boolean' },
 ];
+
+// ── UPI Payment settings card (dukandar ka UPI ID → bill ka QR) ──────
+function UpiSettingsCard() {
+  const [upiId, setUpiId] = useState('');
+  const [saved, setSaved] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiRequest<{ upiId?: string }>('/sales/settings/upi')
+      .then((r) => {
+        const id = (r as any)?.upiId || '';
+        setUpiId(id);
+        setSaved(id);
+      })
+      .catch(() => setError('UPI ID load nahi hua'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const clean = upiId.trim();
+      const res = await apiRequest<{ upiId: string }>('/sales/settings/upi', {
+        method: 'PUT',
+        body: JSON.stringify({ upiId: clean }),
+      });
+      setSaved((res as any)?.upiId || clean);
+      setMessage('✅ UPI ID save ho gaya! Ab bill par QR code dikhega');
+    } catch (err) {
+      setError((err as Error).message || 'Save nahi hua');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm dark:border-emerald-800 dark:from-emerald-900/20 dark:to-slate-800/50">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        {/* Input side */}
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              💳 UPI Payment (Bill QR Code)
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Customer UPI se pay karega to bill par amount wala QR dikhega — GPay/PhonePe/Paytm se
+              scan hoga
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Aapka UPI ID
+            </label>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="text"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                placeholder="jaise: dukandar@upi"
+                className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+              <Button
+                variant="primary"
+                onClick={handleSave}
+                disabled={saving}
+                className="h-10 shrink-0"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+            {error && <p className="mt-1.5 text-xs font-medium text-red-500">{error}</p>}
+            {message && (
+              <p className="mt-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                {message}
+              </p>
+            )}
+            {!loading && !saved && !message && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                ⚠️ UPI ID set nahi hai — customer UPI mode select karega to QR ke liye ye zaroori
+                hai
+              </p>
+            )}
+          </div>
+
+          {loading && <p className="text-xs text-slate-400">UPI ID load ho raha hai...</p>}
+        </div>
+
+        {/* QR preview */}
+        <div className="shrink-0 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-600 dark:bg-slate-800">
+          {saved ? (
+            <UpiQrCode upiId={saved} amount={0} name="Shranix Krushi ERP" size={130} />
+          ) : (
+            <div className="flex h-[130px] w-[130px] items-center justify-center rounded-lg bg-slate-50 text-center text-[10px] text-slate-400 dark:bg-slate-700/50">
+              UPI ID save karo — QR yahin dikhega
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SalesSettingsPage() {
   return (
-    <MasterDataPage
-      title="Sales Settings"
-      description="Global sales configuration: numbering, approvals, payment terms, GST"
-      columns={[{ key: 'autoQuoteNumber', label: 'Auto Quote#' }, { key: 'requireApproval', label: 'Approval Required', render: (v) => v ? '✅ Yes' : '❌ No' }]}
-      apiPath="/sales/settings"
-      formFields={settingsFields}
-    />
+    <div className="space-y-6">
+      <UpiSettingsCard />
+      <MasterDataPage
+        title="Sales Settings"
+        description="Global sales configuration: numbering, approvals, discount & credit rules, alerts"
+        columns={[
+          { key: 'autoQuoteNumber', label: 'Auto Quote#' },
+          {
+            key: 'requireApproval',
+            label: 'Approval Required',
+            render: (v) => (v ? '✅ Yes' : '❌ No'),
+          },
+          {
+            key: 'discountApproval',
+            label: 'Discount Approval',
+            render: (v) => (v ? '✅ Yes' : '❌ No'),
+          },
+        ]}
+        apiPath="/sales/settings"
+        formFields={settingsFields}
+      />
+    </div>
   );
 }
 
 export { CustomersPage } from './customers-page';
 export { CreateCustomerPage, EditCustomerPage } from './customer-form';
 export { CreateSalesInvoicePage } from './create-invoice-page';
+export { SimpleInvoicePage } from './simple-invoice-page';
 export { CustomerSelectionScreen } from './customer-selection-screen';

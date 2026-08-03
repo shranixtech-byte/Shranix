@@ -13,6 +13,7 @@ import {
   BankBookController,
   CostCentersController,
   AccountingSettingsController,
+  SettingsSecurityController,
 } from './controllers';
 import {
   AccountGroupsService,
@@ -23,6 +24,7 @@ import {
   BankBookService,
   CostCentersService,
   AccountingSettingsService,
+  SettingsSecurityService,
 } from './services';
 
 @Module({
@@ -36,6 +38,7 @@ import {
     BankBookController,
     CostCentersController,
     AccountingSettingsController,
+    SettingsSecurityController,
   ],
   providers: [
     AccountGroupsService,
@@ -46,6 +49,7 @@ import {
     BankBookService,
     CostCentersService,
     AccountingSettingsService,
+    SettingsSecurityService,
     DatabaseService,
     AuditService,
   ],

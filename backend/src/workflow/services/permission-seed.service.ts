@@ -1,5 +1,4 @@
-import { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { OnModuleInit, Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
 
@@ -15,14 +14,54 @@ export class PermissionSeedService implements OnModuleInit {
 
   async seedWorkflowPermissions(): Promise<void> {
     const workflowPermissions = [
-      { name: 'workflow.create', description: 'Create workflow instances', resource: 'workflow', action: 'create' },
-      { name: 'workflow.read', description: 'Read workflow instances', resource: 'workflow', action: 'read' },
-      { name: 'workflow.update', description: 'Update workflow instances', resource: 'workflow', action: 'update' },
-      { name: 'workflow.delete', description: 'Delete workflow instances', resource: 'workflow', action: 'delete' },
-      { name: 'workflow.approve', description: 'Approve workflow tasks', resource: 'workflow', action: 'approve' },
-      { name: 'workflow.reject', description: 'Reject workflow tasks', resource: 'workflow', action: 'reject' },
-      { name: 'workflow.comment', description: 'Comment on workflows', resource: 'workflow', action: 'comment' },
-      { name: 'workflow.escalate', description: 'Escalate workflow tasks', resource: 'workflow', action: 'escalate' },
+      {
+        name: 'workflow.create',
+        description: 'Create workflow instances',
+        resource: 'workflow',
+        action: 'create',
+      },
+      {
+        name: 'workflow.read',
+        description: 'Read workflow instances',
+        resource: 'workflow',
+        action: 'read',
+      },
+      {
+        name: 'workflow.update',
+        description: 'Update workflow instances',
+        resource: 'workflow',
+        action: 'update',
+      },
+      {
+        name: 'workflow.delete',
+        description: 'Delete workflow instances',
+        resource: 'workflow',
+        action: 'delete',
+      },
+      {
+        name: 'workflow.approve',
+        description: 'Approve workflow tasks',
+        resource: 'workflow',
+        action: 'approve',
+      },
+      {
+        name: 'workflow.reject',
+        description: 'Reject workflow tasks',
+        resource: 'workflow',
+        action: 'reject',
+      },
+      {
+        name: 'workflow.comment',
+        description: 'Comment on workflows',
+        resource: 'workflow',
+        action: 'comment',
+      },
+      {
+        name: 'workflow.escalate',
+        description: 'Escalate workflow tasks',
+        resource: 'workflow',
+        action: 'escalate',
+      },
     ];
 
     for (const perm of workflowPermissions) {
@@ -57,7 +96,9 @@ export class PermissionSeedService implements OnModuleInit {
           const permission = await this.database.permissions.findByName(perm.name);
           if (permission) {
             // Check if already assigned
-            const existingPermissions = await this.database.permissions.getPermissionsByRole(adminRole.id);
+            const existingPermissions = await this.database.permissions.getPermissionsByRole(
+              adminRole.id,
+            );
             const alreadyAssigned = existingPermissions.some((p: any) => p.name === perm.name);
             if (!alreadyAssigned) {
               await this.database.roles.assignPermissionToRole(adminRole.id, permission.id);
@@ -67,7 +108,9 @@ export class PermissionSeedService implements OnModuleInit {
         }
       }
     } catch (error) {
-      this.logger.warn(`Failed to assign workflow permissions to admin: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to assign workflow permissions to admin: ${(error as Error).message}`,
+      );
     }
 
     this.logger.log('Workflow permissions seeding completed');

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
 import { FormSelect } from '@/components/ui/FormSelect';
+import { apiRequest } from '@/services/api-client';
 
 interface UnitForm {
   name: string;
@@ -33,7 +34,11 @@ function UnitFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<UnitForm>(`/units/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as UnitForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as UnitForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -66,13 +71,31 @@ function UnitFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Measurement unit information',
       fields: (
         <>
-          <FormInput label="Unit Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Kilogram" />
-          <FormInput label="Short Name" required value={form.shortName} onChange={(e) => update('shortName', e.target.value)} placeholder="kg" />
-          <FormSelect label="Type" value={form.type} onChange={(e) => update('type', e.target.value)}
+          <FormInput
+            label="Unit Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Kilogram"
+          />
+          <FormInput
+            label="Short Name"
+            required
+            value={form.shortName}
+            onChange={(e) => update('shortName', e.target.value)}
+            placeholder="kg"
+          />
+          <FormSelect
+            label="Type"
+            value={form.type}
+            onChange={(e) => update('type', e.target.value)}
             options={[
-              { label: 'General', value: 'general' }, { label: 'Weight', value: 'weight' },
-              { label: 'Volume', value: 'volume' }, { label: 'Length', value: 'length' },
-              { label: 'Area', value: 'area' }, { label: 'Count', value: 'count' },
+              { label: 'General', value: 'general' },
+              { label: 'Weight', value: 'weight' },
+              { label: 'Volume', value: 'volume' },
+              { label: 'Length', value: 'length' },
+              { label: 'Area', value: 'area' },
+              { label: 'Count', value: 'count' },
             ]}
           />
         </>

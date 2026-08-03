@@ -3,6 +3,13 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [
+      {
+        "include": "pdf/assets/*.woff2",
+        "outDir": "dist"
+      }
+    ],
+    "watchAssets": true
   }
 }

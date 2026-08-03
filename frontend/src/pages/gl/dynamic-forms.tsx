@@ -1,7 +1,15 @@
 import { DynamicFormPage } from '@/components/ui/DynamicFormPage';
+
 import type { FormField } from '../masters/master-data-page';
 
-function makeFormPage(module: string, listPath: string, title: string, description: string, apiPath: string, fields: FormField[]) {
+function makeFormPage(
+  module: string,
+  listPath: string,
+  title: string,
+  description: string,
+  apiPath: string,
+  fields: FormField[],
+) {
   return function FormPage() {
     return (
       <DynamicFormPage
@@ -44,13 +52,41 @@ export const postingRuleFields: FormField[] = [
 export const closingFields: FormField[] = [
   { name: 'financialYearId', label: 'Financial Year ID', type: 'text', required: true },
   { name: 'closingDate', label: 'Closing Date', type: 'date', required: true },
-  { name: 'closingType', label: 'Closing Type', type: 'select', options: [
-    { label: 'Monthly', value: 'monthly' }, { label: 'Quarterly', value: 'quarterly' }, { label: 'Yearly', value: 'yearly' },
-  ]},
+  {
+    name: 'closingType',
+    label: 'Closing Type',
+    type: 'select',
+    options: [
+      { label: 'Monthly', value: 'monthly' },
+      { label: 'Quarterly', value: 'quarterly' },
+      { label: 'Yearly', value: 'yearly' },
+    ],
+  },
   { name: 'retainedEarningsAccountId', label: 'Retained Earnings Account', type: 'text' },
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
-export const CreateGlEntryPage = makeFormPage('GL & Reports', '/gl/entries', 'GL Entry', 'Create a general ledger entry', '/gl/entries', glEntryFields);
-export const CreatePostingRulePage = makeFormPage('GL & Reports', '/gl/posting-rules', 'Posting Rule', 'Define auto-posting debit/credit mappings', '/gl/posting-rules', postingRuleFields);
-export const CreateFiscalClosingPage = makeFormPage('GL & Reports', '/gl/fiscal-closing', 'Fiscal Closing', 'Period-end closing record', '/gl/fiscal-closing', closingFields);
+export const CreateGlEntryPage = makeFormPage(
+  'GL & Reports',
+  '/gl/entries',
+  'GL Entry',
+  'Create a general ledger entry',
+  '/gl/entries',
+  glEntryFields,
+);
+export const CreatePostingRulePage = makeFormPage(
+  'GL & Reports',
+  '/gl/posting-rules',
+  'Posting Rule',
+  'Define auto-posting debit/credit mappings',
+  '/gl/posting-rules',
+  postingRuleFields,
+);
+export const CreateFiscalClosingPage = makeFormPage(
+  'GL & Reports',
+  '/gl/fiscal-closing',
+  'Fiscal Closing',
+  'Period-end closing record',
+  '/gl/fiscal-closing',
+  closingFields,
+);

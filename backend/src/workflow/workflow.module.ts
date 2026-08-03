@@ -27,13 +27,13 @@ import {
   GstWorkflowIntegration,
 } from './services/module-integration.service';
 import { NotificationEngineService } from './services/notification-engine.service';
+import { PermissionSeedService } from './services/permission-seed.service';
 import { StateMachineService } from './services/state-machine.service';
-import { WorkflowTemplatesService } from './services/templates.service';
 import { TaskEngineService } from './services/task-engine.service';
+import { WorkflowTemplatesService } from './services/templates.service';
 import { WorkflowHookService } from './services/workflow-hook.service';
 import { WorkflowIntegrationService } from './services/workflow-integration.service';
 import { WorkflowModuleBridgeService } from './services/workflow-module-bridge.service';
-import { PermissionSeedService } from './services/permission-seed.service';
 
 @Module({
   imports: [forwardRef(() => AutomationModule)],

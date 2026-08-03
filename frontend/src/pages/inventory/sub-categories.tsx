@@ -4,10 +4,10 @@ const subCategoryColumns: ColumnDef[] = [
   { key: 'name', label: 'Sub Category Name' },
   { key: 'categoryId', label: 'Category ID' },
   { key: 'description', label: 'Description' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const subCategoryFields: FormField[] = [
+export const subCategoryFields: FormField[] = [
   { name: 'name', label: 'Sub Category Name', type: 'text', required: true },
   { name: 'categoryId', label: 'Category ID', type: 'text' },
   { name: 'description', label: 'Description', type: 'textarea' },

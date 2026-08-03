@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
-import { FormTextarea } from '@/components/ui/FormTextarea';
 import { FormSelect } from '@/components/ui/FormSelect';
+import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface CategoryForm {
   name: string;
@@ -35,7 +36,11 @@ function CategoryFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<CategoryForm>(`/categories/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as CategoryForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as CategoryForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -68,14 +73,31 @@ function CategoryFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Category identification and type',
       fields: (
         <>
-          <FormInput label="Category Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter category name" />
-          <FormSelect label="Type" value={form.type} onChange={(e) => update('type', e.target.value)}
+          <FormInput
+            label="Category Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter category name"
+          />
+          <FormSelect
+            label="Type"
+            value={form.type}
+            onChange={(e) => update('type', e.target.value)}
             options={[
-              { label: 'Item', value: 'item' }, { label: 'Party', value: 'party' },
-              { label: 'Expense', value: 'expense' }, { label: 'Income', value: 'income' },
+              { label: 'Item', value: 'item' },
+              { label: 'Party', value: 'party' },
+              { label: 'Expense', value: 'expense' },
+              { label: 'Income', value: 'income' },
             ]}
           />
-          <FormInput label="Sort Order" type="number" value={String(form.sortOrder)} onChange={(e) => update('sortOrder', Number(e.target.value))} placeholder="0" />
+          <FormInput
+            label="Sort Order"
+            type="number"
+            value={String(form.sortOrder)}
+            onChange={(e) => update('sortOrder', Number(e.target.value))}
+            placeholder="0"
+          />
         </>
       ),
     },
@@ -84,7 +106,12 @@ function CategoryFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Additional details',
       fields: (
         <>
-          <FormTextarea label="Description" value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Category description..." />
+          <FormTextarea
+            label="Description"
+            value={form.description}
+            onChange={(e) => update('description', e.target.value)}
+            placeholder="Category description..."
+          />
         </>
       ),
     },

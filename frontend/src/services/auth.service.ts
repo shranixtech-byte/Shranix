@@ -29,6 +29,7 @@ export interface UserData {
   role: string;
   permissions: string[];
   isActive: boolean;
+  allowedModules?: string[] | string | null;
 }
 
 export interface AuthResponse {
@@ -48,7 +49,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
     const jsonPayload = decodeURIComponent(
       atob(base64)
         .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`)
         .join(''),
     );
     return JSON.parse(jsonPayload);
@@ -100,7 +101,9 @@ class AuthService {
 
     // Decode JWT to enrich user data with role/permissions from the token
     const userData = body.data.user;
-    const payload = body.data.tokens.accessToken ? decodeJwtPayload(body.data.tokens.accessToken) : null;
+    const payload = body.data.tokens.accessToken
+      ? decodeJwtPayload(body.data.tokens.accessToken)
+      : null;
     if (payload && typeof payload.role === 'string') {
       userData.role = payload.role;
     }
@@ -127,7 +130,9 @@ class AuthService {
 
     // Decode JWT to enrich user data with role/permissions from the token
     const userData = body.data.user;
-    const payload = body.data.tokens.accessToken ? decodeJwtPayload(body.data.tokens.accessToken) : null;
+    const payload = body.data.tokens.accessToken
+      ? decodeJwtPayload(body.data.tokens.accessToken)
+      : null;
     if (payload && typeof payload.role === 'string') {
       userData.role = payload.role;
     }
@@ -168,7 +173,9 @@ class AuthService {
 
   async getMe(): Promise<UserData | null> {
     const token = this.accessToken;
-    if (!token) {return null;}
+    if (!token) {
+      return null;
+    }
 
     // Try to get fresh data from API
     try {
@@ -209,9 +216,7 @@ class AuthService {
     if (token) {
       try {
         // Read CSRF token from cookie (httpOnly: false, readable by JS)
-        const csrfCookie = document.cookie
-          .split('; ')
-          .find((c) => c.startsWith('csrf_token='));
+        const csrfCookie = document.cookie.split('; ').find((c) => c.startsWith('csrf_token='));
         const csrfToken = csrfCookie ? csrfCookie.split('=').slice(1).join('=') : undefined;
 
         const headers: Record<string, string> = {
@@ -234,7 +239,9 @@ class AuthService {
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     const token = this.accessToken;
-    if (!token) {throw new Error('Not authenticated');}
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
 
     const res = await fetch(`${API_BASE}/change-password`, {
       method: 'POST',
@@ -257,7 +264,9 @@ class AuthService {
 
   async validateSession(): Promise<boolean> {
     const token = this.accessToken;
-    if (!token) {return false;}
+    if (!token) {
+      return false;
+    }
 
     // Try to refresh if needed
     try {
@@ -265,7 +274,9 @@ class AuthService {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {return true;}
+      if (res.ok) {
+        return true;
+      }
 
       // Token expired, try refresh
       const newTokens = await this.refreshToken();

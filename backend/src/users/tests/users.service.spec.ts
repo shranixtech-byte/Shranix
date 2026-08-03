@@ -18,7 +18,15 @@ describe('UsersService', () => {
       })),
       findById: vi.fn().mockResolvedValue(null),
       findByEmail: vi.fn().mockResolvedValue(null),
-      findAll: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, pageSize: 20, totalPages: 0, hasNext: false, hasPrevious: false }),
+      findAll: vi.fn().mockResolvedValue({
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevious: false,
+      }),
       updateLastLogin: vi.fn().mockResolvedValue(undefined),
       resetFailedAttempts: vi.fn().mockResolvedValue(undefined),
       incrementFailedAttempts: vi.fn().mockResolvedValue(undefined),
@@ -38,9 +46,13 @@ describe('UsersService', () => {
     service = new UsersService(mockDb as any);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   const createDto: CreateUserDto = {
     email: 'test@example.com',
-    passwordHash: 'hashed-password',
+    password: 'testpass123',
     firstName: 'Test',
     lastName: 'User',
     phone: '1234567890',
@@ -56,7 +68,9 @@ describe('UsersService', () => {
 
   describe('findByEmail', () => {
     it('should find user by email', async () => {
-      (service as any).database.users.findByEmail = vi.fn().mockResolvedValue({ ...createDto, id: 'test-id' });
+      (service as any).database.users.findByEmail = vi
+        .fn()
+        .mockResolvedValue({ ...createDto, id: 'test-id' });
       const found = await service.findByEmail(createDto.email);
       expect(found).not.toBeNull();
     });
@@ -66,7 +80,12 @@ describe('UsersService', () => {
     it('should return users', async () => {
       (service as any).database.users.findAll = vi.fn().mockResolvedValue({
         data: [{ ...createDto, id: '1' }],
-        total: 1, page: 1, pageSize: 20, totalPages: 1, hasNext: false, hasPrevious: false,
+        total: 1,
+        page: 1,
+        pageSize: 20,
+        totalPages: 1,
+        hasNext: false,
+        hasPrevious: false,
       });
       const users = await service.findAll();
       expect(users.length).toBeGreaterThanOrEqual(1);

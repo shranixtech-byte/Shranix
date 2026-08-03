@@ -3,6 +3,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 
 import { RATE_LIMIT_TTL, RATE_LIMIT_MAX } from '../constants/app.constants';
 
+import { RequestContextService } from './context/request-context.service';
 import { AuditService } from './services/audit.service';
 import { CsrfService } from './services/csrf.service';
 import { PermissionCacheService } from './services/permission-cache.service';
@@ -17,7 +18,7 @@ import { PermissionCacheService } from './services/permission-cache.service';
       },
     ]),
   ],
-  providers: [CsrfService, PermissionCacheService, AuditService],
-  exports: [CsrfService, PermissionCacheService, AuditService],
+  providers: [CsrfService, PermissionCacheService, AuditService, RequestContextService],
+  exports: [CsrfService, PermissionCacheService, AuditService, RequestContextService],
 })
 export class CommonModule {}

@@ -18,6 +18,7 @@ import {
   VoucherApprovalsController,
   FinanceAnalyticsController,
   GstAuditSettingsController,
+  GstConfigController,
   GstReportsController,
   GstEngineController,
 } from './controllers';
@@ -35,6 +36,7 @@ import {
   VoucherApprovalsService,
   FinanceAnalyticsService,
   GstAuditSettingsService,
+  GstConfigService,
   GstSummaryService,
   GstRegisterService,
   TaxLedgerService,
@@ -44,7 +46,6 @@ import {
   TaxPostingEngineService,
   FinancialClosingEngineService,
 } from './services';
-
 
 const services = [
   GstRegistrationsService,
@@ -60,6 +61,7 @@ const services = [
   VoucherApprovalsService,
   FinanceAnalyticsService,
   GstAuditSettingsService,
+  GstConfigService,
   GstSummaryService,
   GstRegisterService,
   TaxLedgerService,
@@ -84,6 +86,7 @@ const controllers = [
   VoucherApprovalsController,
   FinanceAnalyticsController,
   GstAuditSettingsController,
+  GstConfigController,
   GstReportsController,
   GstEngineController,
 ];

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { roundAmount, type RoundingRule } from '../common/utils/rounding.util';
 import { DatabaseService } from '../database/database.service';
 
 /**
@@ -49,6 +50,11 @@ export interface GstPostingInput {
   }>;
 }
 
+export interface GstRoundingConfig {
+  rule: RoundingRule;
+  decimals: number;
+}
+
 @Injectable()
 export class GstCalculationEngine {
   private readonly logger = new Logger(GstCalculationEngine.name);
@@ -57,9 +63,15 @@ export class GstCalculationEngine {
 
   /**
    * Calculate GST for a single line item.
+   * Rounding follows Financial Settings → Rounding Rules (nearest default).
    */
-  calculateGst(input: GstCalculationInput): GstCalculationResult {
+  calculateGst(
+    input: GstCalculationInput,
+    rounding: GstRoundingConfig = { rule: 'nearest', decimals: 2 },
+  ): GstCalculationResult {
     const { taxableValue, gstRate, supplyType, cessPercent = 0, reverseCharge = false } = input;
+    const { rule, decimals } = rounding;
+    const r = (v: number) => roundAmount(v, decimals, rule);
 
     const totalGstRate = gstRate;
     let cgst = 0;
@@ -76,17 +88,20 @@ export class GstCalculationEngine {
     }
 
     const cess = (taxableValue * cessPercent) / 100;
-    const totalGst = cgst + sgst + igst + cess;
-    const totalAmount = taxableValue + totalGst;
+    // Intentional: totalGst = sum of individually-rounded components (each tax head is
+    // rounded to the configured precision first, then summed). This is standard GST
+    // practice and matches line-item totals — not the rounded sum of unrounded parts.
+    const totalGst = r(cgst) + r(sgst) + r(igst) + r(cess);
+    const totalAmount = r(taxableValue) + totalGst;
 
     return {
-      taxableValue,
-      cgst: Math.round(cgst * 100) / 100,
-      sgst: Math.round(sgst * 100) / 100,
-      igst: Math.round(igst * 100) / 100,
-      cess: Math.round(cess * 100) / 100,
-      totalGst: Math.round(totalGst * 100) / 100,
-      totalAmount: Math.round(totalAmount * 100) / 100,
+      taxableValue: r(taxableValue),
+      cgst: r(cgst),
+      sgst: r(sgst),
+      igst: r(igst),
+      cess: r(cess),
+      totalGst,
+      totalAmount,
       gstRate,
       supplyType,
       reverseCharge,
@@ -110,15 +125,29 @@ export class GstCalculationEngine {
     let totalInput = 0;
     let totalOutput = 0;
 
+    // Financial Settings → Rounding Rules (defaults: nearest, 2dp)
+    const settings = await this.database.accountingSettings.findAll({
+      page: 1,
+      pageSize: 1,
+    } as any);
+    const rounding: GstRoundingConfig = {
+      rule: (settings.data?.[0]?.roundingRule || 'nearest') as RoundingRule,
+      decimals: Number(settings.data?.[0]?.roundOffDecimals ?? 2),
+    };
+
     for (const item of input.items) {
-      const result = this.calculateGst(item);
+      const result = this.calculateGst(item, rounding);
       calculations.push(result);
 
-      this.logger.log(`GST Calc: ${result.taxableValue} @ ${result.gstRate}% = CGST:${result.cgst} SGST:${result.sgst} IGST:${result.igst} CESS:${result.cess}`);
+      this.logger.log(
+        `GST Calc: ${result.taxableValue} @ ${result.gstRate}% = CGST:${result.cgst} SGST:${result.sgst} IGST:${result.igst} CESS:${result.cess}`,
+      );
     }
 
     // Determine input/output based on voucher type
-    const inputOutput = ['purchase', 'expense', 'purchase_return'].includes(input.voucherType) ? 'input' : 'output';
+    const inputOutput = ['purchase', 'expense', 'purchase_return'].includes(input.voucherType)
+      ? 'input'
+      : 'output';
 
     // Post GST to GST Ledger
     for (const calc of calculations) {
@@ -206,8 +235,11 @@ export class GstCalculationEngine {
         } as any);
       }
 
-      if (inputOutput === 'input') {totalInput += calc.totalGst;}
-      else {totalOutput += calc.totalGst;}
+      if (inputOutput === 'input') {
+        totalInput += calc.totalGst;
+      } else {
+        totalOutput += calc.totalGst;
+      }
     }
 
     const totalEntries = calculations.length * 4; // Up to 4 entries per calculation (CGST/SGST/IGST/CESS)
@@ -257,20 +289,38 @@ export class GstCalculationEngine {
     if (entries.data) {
       for (const entry of entries.data as any[]) {
         // Apply date filter
-        if (params.fromDate && entry.voucherDate < params.fromDate) {continue;}
-        if (params.toDate && entry.voucherDate > params.toDate) {continue;}
-        if (params.gstin && entry.gstin !== params.gstin) {continue;}
+        if (params.fromDate && entry.voucherDate < params.fromDate) {
+          continue;
+        }
+        if (params.toDate && entry.voucherDate > params.toDate) {
+          continue;
+        }
+        if (params.gstin && entry.gstin !== params.gstin) {
+          continue;
+        }
 
         if (entry.inputOutput === 'input') {
           totalInputTax += Number(entry.gstAmount) || 0;
-          if (entry.gstType === 'CGST') {cgstInput += Number(entry.gstAmount) || 0;}
-          if (entry.gstType === 'SGST') {sgstInput += Number(entry.gstAmount) || 0;}
-          if (entry.gstType === 'IGST') {igstInput += Number(entry.gstAmount) || 0;}
+          if (entry.gstType === 'CGST') {
+            cgstInput += Number(entry.gstAmount) || 0;
+          }
+          if (entry.gstType === 'SGST') {
+            sgstInput += Number(entry.gstAmount) || 0;
+          }
+          if (entry.gstType === 'IGST') {
+            igstInput += Number(entry.gstAmount) || 0;
+          }
         } else {
           totalOutputTax += Number(entry.gstAmount) || 0;
-          if (entry.gstType === 'CGST') {cgstOutput += Number(entry.gstAmount) || 0;}
-          if (entry.gstType === 'SGST') {sgstOutput += Number(entry.gstAmount) || 0;}
-          if (entry.gstType === 'IGST') {igstOutput += Number(entry.gstAmount) || 0;}
+          if (entry.gstType === 'CGST') {
+            cgstOutput += Number(entry.gstAmount) || 0;
+          }
+          if (entry.gstType === 'SGST') {
+            sgstOutput += Number(entry.gstAmount) || 0;
+          }
+          if (entry.gstType === 'IGST') {
+            igstOutput += Number(entry.gstAmount) || 0;
+          }
         }
       }
     }

@@ -16,6 +16,12 @@ export class CreateCompanyDto {
   @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() cin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() licenseNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pesticidesLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() seedsLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() cottonLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() fertilizerLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() retailLicense?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isHeadOffice?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() financialYearStart?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
@@ -126,6 +132,12 @@ export class UpdateCompanyDto implements Partial<CreateCompanyDto> {
   @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() cin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() licenseNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pesticidesLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() seedsLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() cottonLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() fertilizerLicense?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() retailLicense?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isHeadOffice?: boolean;
 }

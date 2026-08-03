@@ -11,18 +11,26 @@ const itemColumns: ColumnDef[] = [
   { key: 'salesRate', label: 'Sales ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'mrp', label: 'MRP ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'currentStock', label: 'Stock' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const itemFields: FormField[] = [
+export const itemFields: FormField[] = [
   { name: 'name', label: 'Item Name', type: 'text', required: true },
   { name: 'sku', label: 'SKU Code', type: 'text', required: true },
   { name: 'shortName', label: 'Short Name', type: 'text' },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'Product', value: 'product' }, { label: 'Service', value: 'service' },
-    { label: 'Raw Material', value: 'raw_material' }, { label: 'Packaging', value: 'packaging' },
-    { label: 'Consumable', value: 'consumable' }, { label: 'Asset', value: 'asset' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'Product', value: 'product' },
+      { label: 'Service', value: 'service' },
+      { label: 'Raw Material', value: 'raw_material' },
+      { label: 'Packaging', value: 'packaging' },
+      { label: 'Consumable', value: 'consumable' },
+      { label: 'Asset', value: 'asset' },
+    ],
+  },
   { name: 'description', label: 'Description', type: 'textarea' },
   { name: 'categoryId', label: 'Category', type: 'text' },
   { name: 'brandId', label: 'Brand', type: 'text' },
@@ -66,10 +74,10 @@ export function ItemsPage() {
 const groupColumns: ColumnDef[] = [
   { key: 'name', label: 'Group Name' },
   { key: 'description', label: 'Description' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const groupFields: FormField[] = [
+export const groupFields: FormField[] = [
   { name: 'name', label: 'Group Name', type: 'text', required: true },
   { name: 'description', label: 'Description', type: 'textarea' },
 ];
@@ -94,10 +102,10 @@ const variantColumns: ColumnDef[] = [
   { key: 'sku', label: 'SKU' },
   { key: 'barcode', label: 'Barcode' },
   { key: 'salesRate', label: 'Rate ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const variantFields: FormField[] = [
+export const variantFields: FormField[] = [
   { name: 'name', label: 'Variant Name', type: 'text', required: true },
   { name: 'sku', label: 'SKU Code', type: 'text', required: true },
   { name: 'barcode', label: 'Barcode', type: 'text' },
@@ -128,19 +136,24 @@ const pricingColumns: ColumnDef[] = [
   { key: 'salesRate', label: 'Rate ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'discountPercent', label: 'Disc %' },
   { key: 'minQuantity', label: 'Min Qty' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const pricingFields: FormField[] = [
+export const pricingFields: FormField[] = [
   { name: 'itemId', label: 'Item ID', type: 'text', required: true },
   { name: 'variantId', label: 'Variant ID', type: 'text' },
-  { name: 'priceList', label: 'Price List', type: 'select', options: [
-    { label: 'Standard', value: 'standard' },
-    { label: 'Wholesale', value: 'wholesale' },
-    { label: 'Retail', value: 'retail' },
-    { label: 'Promotional', value: 'promotional' },
-    { label: 'Contract', value: 'contract' },
-  ]},
+  {
+    name: 'priceList',
+    label: 'Price List',
+    type: 'select',
+    options: [
+      { label: 'Standard', value: 'standard' },
+      { label: 'Wholesale', value: 'wholesale' },
+      { label: 'Retail', value: 'retail' },
+      { label: 'Promotional', value: 'promotional' },
+      { label: 'Contract', value: 'contract' },
+    ],
+  },
   { name: 'purchaseRate', label: 'Purchase Rate', type: 'number' },
   { name: 'salesRate', label: 'Sales Rate', type: 'number' },
   { name: 'mrp', label: 'MRP', type: 'number' },
@@ -167,20 +180,25 @@ export function ItemPricingPage() {
 const barcodeColumns: ColumnDef[] = [
   { key: 'barcode', label: 'Barcode' },
   { key: 'type', label: 'Type' },
-  { key: 'isDefault', label: 'Default', render: (v) => v ? '✅ Yes' : '—' },
+  { key: 'isDefault', label: 'Default', render: (v) => (v ? '✅ Yes' : '—') },
 ];
 
-const barcodeFields: FormField[] = [
+export const barcodeFields: FormField[] = [
   { name: 'itemId', label: 'Item ID', type: 'text', required: true },
   { name: 'variantId', label: 'Variant ID', type: 'text' },
   { name: 'barcode', label: 'Barcode', type: 'text', required: true },
-  { name: 'type', label: 'Barcode Type', type: 'select', options: [
-    { label: 'EAN-13', value: 'ean13' },
-    { label: 'UPC', value: 'upc' },
-    { label: 'Code-128', value: 'code128' },
-    { label: 'QR Code', value: 'qr' },
-    { label: 'Custom', value: 'custom' },
-  ]},
+  {
+    name: 'type',
+    label: 'Barcode Type',
+    type: 'select',
+    options: [
+      { label: 'EAN-13', value: 'ean13' },
+      { label: 'UPC', value: 'upc' },
+      { label: 'Code-128', value: 'code128' },
+      { label: 'QR Code', value: 'qr' },
+      { label: 'Custom', value: 'custom' },
+    ],
+  },
   { name: 'isDefault', label: 'Default Barcode', type: 'boolean' },
 ];
 
@@ -206,16 +224,21 @@ const hsnColumns: ColumnDef[] = [
   { key: 'igst', label: 'IGST %' },
   { key: 'cgst', label: 'CGST %' },
   { key: 'sgst', label: 'SGST %' },
-  { key: 'isActive', label: 'Status', render: (v) => v ? '🟢 Active' : '🔴 Inactive' },
+  { key: 'isActive', label: 'Status', render: (v) => (v ? '🟢 Active' : '🔴 Inactive') },
 ];
 
-const hsnFields: FormField[] = [
+export const hsnFields: FormField[] = [
   { name: 'code', label: 'HSN/SAC Code', type: 'text', required: true },
   { name: 'description', label: 'Description', type: 'textarea' },
-  { name: 'type', label: 'Type', type: 'select', options: [
-    { label: 'HSN', value: 'hsn' },
-    { label: 'SAC', value: 'sac' },
-  ]},
+  {
+    name: 'type',
+    label: 'Type',
+    type: 'select',
+    options: [
+      { label: 'HSN', value: 'hsn' },
+      { label: 'SAC', value: 'sac' },
+    ],
+  },
   { name: 'gstRate', label: 'GST Rate %', type: 'number' },
   { name: 'igst', label: 'IGST %', type: 'number' },
   { name: 'cgst', label: 'CGST %', type: 'number' },
@@ -246,10 +269,10 @@ const stockColumns: ColumnDef[] = [
   { key: 'quantity', label: 'Qty' },
   { key: 'rate', label: 'Rate ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'amount', label: 'Amount ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'isPosted', label: 'Posted', render: (v) => v ? '✅ Posted' : '⏳ Pending' },
+  { key: 'isPosted', label: 'Posted', render: (v) => (v ? '✅ Posted' : '⏳ Pending') },
 ];
 
-const stockFields: FormField[] = [
+export const stockFields: FormField[] = [
   { name: 'itemId', label: 'Item ID', type: 'text', required: true },
   { name: 'variantId', label: 'Variant ID', type: 'text' },
   { name: 'warehouseId', label: 'Warehouse ID', type: 'text' },
@@ -279,11 +302,11 @@ export function StockOpeningPage() {
 const imageColumns: ColumnDef[] = [
   { key: 'itemId', label: 'Item ID' },
   { key: 'url', label: 'Image URL' },
-  { key: 'isPrimary', label: 'Primary', render: (v) => v ? '⭐ Yes' : '—' },
+  { key: 'isPrimary', label: 'Primary', render: (v) => (v ? '⭐ Yes' : '—') },
   { key: 'sortOrder', label: 'Order' },
 ];
 
-const imageFields: FormField[] = [
+export const imageFields: FormField[] = [
   { name: 'itemId', label: 'Item ID', type: 'text', required: true },
   { name: 'variantId', label: 'Variant ID', type: 'text' },
   { name: 'url', label: 'Image URL', type: 'text', required: true },
@@ -308,18 +331,28 @@ export function ItemImagesPage() {
 // ═════════════════════════════════════════════════════════
 // 9. INVENTORY SETTINGS
 // ═════════════════════════════════════════════════════════
-const settingsFields: FormField[] = [
-  { name: 'method', label: 'Valuation Method', type: 'select', options: [
-    { label: 'FIFO', value: 'fifo' },
-    { label: 'LIFO', value: 'lifo' },
-    { label: 'Weighted Average', value: 'weighted_average' },
-    { label: 'Standard', value: 'standard' },
-  ]},
-  { name: 'stockValuation', label: 'Stock Valuation', type: 'select', options: [
-    { label: 'Cost', value: 'cost' },
-    { label: 'MRP', value: 'mrp' },
-    { label: 'Sales', value: 'sales' },
-  ]},
+export const settingsFields: FormField[] = [
+  {
+    name: 'method',
+    label: 'Valuation Method',
+    type: 'select',
+    options: [
+      { label: 'FIFO', value: 'fifo' },
+      { label: 'LIFO', value: 'lifo' },
+      { label: 'Weighted Average', value: 'weighted_average' },
+      { label: 'Standard', value: 'standard' },
+    ],
+  },
+  {
+    name: 'stockValuation',
+    label: 'Stock Valuation',
+    type: 'select',
+    options: [
+      { label: 'Cost', value: 'cost' },
+      { label: 'MRP', value: 'mrp' },
+      { label: 'Sales', value: 'sales' },
+    ],
+  },
   { name: 'negativeStock', label: 'Allow Negative Stock', type: 'boolean' },
   { name: 'autoReorder', label: 'Auto Reorder', type: 'boolean' },
   { name: 'batchTracking', label: 'Batch Tracking', type: 'boolean' },
@@ -337,7 +370,10 @@ export function InventorySettingsPage() {
     <MasterDataPage
       title="Inventory Settings"
       description="Global inventory configuration: valuation, tracking, warehouse management"
-      columns={[{ key: 'method', label: 'Method' }, { key: 'enableWarehouse', label: 'Warehouse', render: (v) => v ? '✅ On' : '❌ Off' }]}
+      columns={[
+        { key: 'method', label: 'Method' },
+        { key: 'enableWarehouse', label: 'Warehouse', render: (v) => (v ? '✅ On' : '❌ Off') },
+      ]}
       apiPath="/inventory/settings"
       formFields={settingsFields}
     />
@@ -347,8 +383,25 @@ export function InventorySettingsPage() {
 export { BatchesPage } from './batches';
 export { StockMovementsPage } from './stock-movements';
 export { WarehouseLocationsPage } from './warehouse-locations';
-export { NearExpiryPage, DamageRegisterPage, RecallRegisterPage, DistributorReturnsPage, ReplacementQueuePage } from './agriculture';
-export { InventorySummaryPage, StockLedgerPage, BatchLedgerPage, ExpiryReportPage, MovementReportPage, ValuationReportPage, WarehouseReportPage, DeadStockPage, FastMovingPage, SlowMovingPage } from './reports';
+export {
+  NearExpiryPage,
+  DamageRegisterPage,
+  RecallRegisterPage,
+  DistributorReturnsPage,
+  ReplacementQueuePage,
+} from './agriculture';
+export {
+  InventorySummaryPage,
+  StockLedgerPage,
+  BatchLedgerPage,
+  ExpiryReportPage,
+  MovementReportPage,
+  ValuationReportPage,
+  WarehouseReportPage,
+  DeadStockPage,
+  FastMovingPage,
+  SlowMovingPage,
+} from './reports';
 export { BarcodeGenPage } from './barcode-gen';
 export { ProductsPage } from './products';
 export { ProductDetailPage } from './product-detail';

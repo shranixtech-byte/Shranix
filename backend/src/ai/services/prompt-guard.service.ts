@@ -50,6 +50,7 @@ export class PromptGuardService {
 
   sanitize(prompt: string): string {
     // Remove null bytes and control characters
+    // eslint-disable-next-line no-control-regex -- intentional control-character stripping
     let sanitized = prompt.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
     // Strip excessive whitespace

@@ -1,5 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { UserRecord } from '@shranix/database';
 
 import { UpdateUserDto } from '../auth/dto/update-user.dto';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -15,13 +26,40 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // passwordHash kabhi client ko mat bhejo; allowedModules JSON string → array
+  private sanitize(user: UserRecord | null | undefined) {
+    if (!user) {
+      return user;
+    }
+    const {
+      passwordHash: _passwordHash,
+      refreshTokenVersion: _rtv,
+      allowedModules: rawModules,
+      ...rest
+    } = user as any;
+    let allowedModules: string[] | null = null;
+    if (typeof rawModules === 'string' && rawModules) {
+      try {
+        const parsed = JSON.parse(rawModules);
+        if (Array.isArray(parsed)) {
+          allowedModules = parsed.filter((m: unknown) => typeof m === 'string');
+        }
+      } catch {
+        // invalid JSON — no restriction
+      }
+    } else if (Array.isArray(rawModules)) {
+      allowedModules = rawModules.filter((m: unknown) => typeof m === 'string');
+    }
+    return { ...rest, allowedModules };
+  }
+
   @Post()
   @Roles('admin')
   @Permissions('users.create')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user' })
   async create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
+    return this.sanitize(await this.usersService.create(dto));
   }
 
   @Get()
@@ -31,7 +69,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all users' })
   async findAll() {
     const result = await this.usersService.findAll();
-    return { data: result, total: result.length };
+    return { data: result.map((u) => this.sanitize(u)), total: result.length };
   }
 
   @Get(':id')
@@ -44,9 +82,7 @@ export class UsersController {
     if (!user) {
       return { message: 'User not found' };
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash, ...sanitized } = user;
-    return { data: sanitized };
+    return { data: this.sanitize(user) };
   }
 
   @Put(':id')

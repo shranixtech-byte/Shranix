@@ -95,6 +95,7 @@ import {
   JournalEntryItemsRepository,
   CashBookRepository,
   BankBookRepository,
+  BankAccountsRepository,
   CostCentersRepository,
   AccountingSettingsRepository,
   GlEntriesRepository,
@@ -131,8 +132,9 @@ import {
   OcrResultsRepository,
   DocumentAccessLogsRepository,
   loadDatabaseConfig,
+  DatabaseClient,
+  DatabaseConfig,
 } from '@shranix/database';
-import { DatabaseClient, DatabaseConfig } from '@shranix/database';
 
 @Injectable()
 export class DatabaseService implements OnApplicationShutdown {
@@ -238,6 +240,7 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly journalEntryItems: JournalEntryItemsRepository;
   public readonly cashBook: CashBookRepository;
   public readonly bankBook: BankBookRepository;
+  public readonly bankAccounts: BankAccountsRepository;
   public readonly costCenters: CostCentersRepository;
   public readonly accountingSettings: AccountingSettingsRepository;
 
@@ -297,7 +300,7 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly budgets: any;
   public readonly webhooks: any;
   public readonly apiKeys: any;
-  public readonly  importLogs: any;
+  public readonly importLogs: any;
   public readonly dataRetentionPolicies: any;
   public readonly legalHolds: any;
 
@@ -427,6 +430,7 @@ export class DatabaseService implements OnApplicationShutdown {
     this.journalEntryItems = new JournalEntryItemsRepository(db as any, isPostgres);
     this.cashBook = new CashBookRepository(db as any, isPostgres);
     this.bankBook = new BankBookRepository(db as any, isPostgres);
+    this.bankAccounts = new BankAccountsRepository(db as any, isPostgres);
     this.costCenters = new CostCentersRepository(db as any, isPostgres);
     this.accountingSettings = new AccountingSettingsRepository(db as any, isPostgres);
 
@@ -474,14 +478,24 @@ export class DatabaseService implements OnApplicationShutdown {
     // ── In-memory generic repository factory ──
     const genericStores = new Map<string, Map<string, any>>();
     const createGenericRepo = (storeName: string) => {
-      if (!genericStores.has(storeName)) {genericStores.set(storeName, new Map());}
+      if (!genericStores.has(storeName)) {
+        genericStores.set(storeName, new Map());
+      }
       const store = genericStores.get(storeName)!;
       let counter = 1;
       return {
         create: async (data: any) => {
           const id = `${storeName}_${counter++}`;
-          const record = { id, ...data, createdAt: new Date().toISOString(), deletedAt: null, isDeleted: false };
-          store.set(id, record);
+          const record = {
+            id,
+            ...data,
+            createdAt: new Date().toISOString(),
+            deletedAt: null,
+            isDeleted: false,
+          };
+          // record.id hi canonical key hai — services explicit UUID pass karti hain
+          // (e.g. webhooks/apiKeys), to store key bhi wahi hona chahiye warna findById 404 deta.
+          store.set(record.id, record);
           return record;
         },
         findAll: async (params: any) => {
@@ -492,15 +506,23 @@ export class DatabaseService implements OnApplicationShutdown {
           let filtered = all;
           if (search) {
             const q = search.toLowerCase();
-            filtered = all.filter((r) => Object.values(r).some((v) => String(v).toLowerCase().includes(q)));
+            filtered = all.filter((r) =>
+              Object.values(r).some((v) => String(v).toLowerCase().includes(q)),
+            );
           }
           const start = (p - 1) * ps;
-          return { data: filtered.slice(start, start + ps), total: filtered.length, totalPages: Math.ceil(filtered.length / ps) };
+          return {
+            data: filtered.slice(start, start + ps),
+            total: filtered.length,
+            totalPages: Math.ceil(filtered.length / ps),
+          };
         },
         findById: async (id: string) => store.get(id) || null,
         update: async (id: string, data: any) => {
           const existing = store.get(id);
-          if (!existing) {return null;}
+          if (!existing) {
+            return null;
+          }
           const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
           store.set(id, updated);
           return updated;
@@ -551,7 +573,9 @@ export class DatabaseService implements OnApplicationShutdown {
     (this as any)['subCategories'] = createGenericRepo('subCategories');
     (this as any)['stockTransfers'] = createGenericRepo('stockTransfers');
 
-    this.logger.log(`DatabaseService initialized with 88 repositories + 15 PRM-013 adapters + 9 PRM-015x inventory repos (provider: ${this.config.provider})`);
+    this.logger.log(
+      `DatabaseService initialized with 88 repositories + 15 PRM-013 adapters + 9 PRM-015x inventory repos (provider: ${this.config.provider})`,
+    );
   }
 
   async onApplicationShutdown(): Promise<void> {

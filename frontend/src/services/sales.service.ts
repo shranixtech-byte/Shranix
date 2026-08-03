@@ -1,5 +1,6 @@
-import { apiRequest } from './api-client';
 import type { InvoiceLineItem } from '@/pages/sales/product-selection-screen';
+
+import { apiRequest } from './api-client';
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -33,12 +34,14 @@ export interface CreateInvoicePayload {
   subTotal: number;
   discountPercent: number;
   discountAmount: number;
+  freight?: number;
   taxAmount: number;
   roundOff: number;
   grandTotal: number;
   paidAmount: number;
   balanceAmount: number;
   paymentStatus: string;
+  paymentTerms?: string;
   placeOfSupply?: string;
   billingAddress?: string;
   salesPerson?: string;
@@ -71,7 +74,7 @@ export interface InvoiceResponse {
 /**
  * Map frontend InvoiceLineItem to backend CreateInvoiceItemPayload.
  */
-function mapLineItemToPayload(item: InvoiceLineItem): CreateInvoiceItemPayload {
+export function mapLineItemToPayload(item: InvoiceLineItem): CreateInvoiceItemPayload {
   return {
     itemId: item.productId,
     description: item.productName,
@@ -97,9 +100,7 @@ function mapLineItemToPayload(item: InvoiceLineItem): CreateInvoiceItemPayload {
  * Create a new sales invoice with line items.
  * POST /api/v1/sales/invoices
  */
-export async function createSalesInvoice(
-  payload: CreateInvoicePayload,
-): Promise<InvoiceResponse> {
+export async function createSalesInvoice(payload: CreateInvoicePayload): Promise<InvoiceResponse> {
   return apiRequest<InvoiceResponse>('/sales/invoices', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -127,7 +128,9 @@ export async function getSalesInvoices(
     page: String(page),
     pageSize: String(pageSize),
   });
-  if (search) params.set('search', search);
+  if (search) {
+    params.set('search', search);
+  }
   return apiRequest(`/sales/invoices?${params}`);
 }
 
@@ -209,6 +212,7 @@ export function buildInvoicePayload(params: {
     paidAmount: totalPaid,
     balanceAmount: balance,
     paymentStatus,
+    paymentTerms: params.paymentTerms,
     placeOfSupply: params.placeOfSupply,
     billingAddress: params.billingAddress,
     salesPerson: params.salesPerson,

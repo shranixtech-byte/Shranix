@@ -1,5 +1,4 @@
-import { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { OnModuleInit, Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
 
@@ -20,12 +19,42 @@ export class AiPermissionSeedService implements OnModuleInit {
   async seedAiPermissions(): Promise<void> {
     const aiPermissions = [
       { name: 'ai.chat', description: 'Chat with AI Copilot', resource: 'ai', action: 'chat' },
-      { name: 'ai.query', description: 'Execute natural language queries', resource: 'ai', action: 'query' },
-      { name: 'ai.insights', description: 'View AI-generated insights', resource: 'ai', action: 'insights' },
-      { name: 'ai.predict', description: 'View AI predictions and forecasts', resource: 'ai', action: 'predict' },
-      { name: 'ai.documents', description: 'Analyze documents with AI', resource: 'ai', action: 'documents' },
-      { name: 'ai.automation', description: 'AI-assisted automation suggestions', resource: 'ai', action: 'automation' },
-      { name: 'ai.admin', description: 'AI administration (usage, provider switch)', resource: 'ai', action: 'admin' },
+      {
+        name: 'ai.query',
+        description: 'Execute natural language queries',
+        resource: 'ai',
+        action: 'query',
+      },
+      {
+        name: 'ai.insights',
+        description: 'View AI-generated insights',
+        resource: 'ai',
+        action: 'insights',
+      },
+      {
+        name: 'ai.predict',
+        description: 'View AI predictions and forecasts',
+        resource: 'ai',
+        action: 'predict',
+      },
+      {
+        name: 'ai.documents',
+        description: 'Analyze documents with AI',
+        resource: 'ai',
+        action: 'documents',
+      },
+      {
+        name: 'ai.automation',
+        description: 'AI-assisted automation suggestions',
+        resource: 'ai',
+        action: 'automation',
+      },
+      {
+        name: 'ai.admin',
+        description: 'AI administration (usage, provider switch)',
+        resource: 'ai',
+        action: 'admin',
+      },
     ];
 
     for (const perm of aiPermissions) {
@@ -56,7 +85,9 @@ export class AiPermissionSeedService implements OnModuleInit {
         for (const perm of aiPermissions) {
           const permission = await this.database.permissions.findByName(perm.name);
           if (permission) {
-            const existingPermissions = await this.database.permissions.getPermissionsByRole(adminRole.id);
+            const existingPermissions = await this.database.permissions.getPermissionsByRole(
+              adminRole.id,
+            );
             const alreadyAssigned = existingPermissions.some((p: any) => p.name === perm.name);
             if (!alreadyAssigned) {
               await this.database.roles.assignPermissionToRole(adminRole.id, permission.id);

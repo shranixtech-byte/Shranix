@@ -8,21 +8,34 @@
  *   TransactionManager.executeInTransaction() wraps operations in
  *   drizzleDb.transaction(). The __currentTx is stored on the drizzle db
  *   object so repositories can pick it up via the activeDb getter.
- *   If ANY step throws, drizzle auto-rollbacks EVERYTHING.
+ *   If a CRITICAL step throws, drizzle auto-rollbacks EVERYTHING.
+ *
+ * Posting engine design (v2):
+ *   - FATAL (throw → rollback): invoice header update, stock ledger movement
+ *   - BEST-EFFORT (catch → warn → posting continues): warehouse stock deduction,
+ *     GL entry, GST ledger, payment/cash book, audit log, loyalty, notifications
+ *     (fresh install par chart-of-accounts/accounts na hone par bhi invoice post
+ *     ho sake — isliye financial sub-ledgers graceful degrade karte hain)
  *
  * Test scenarios:
- *   Test 1: Force Inventory Failure → expect full rollback
- *   Test 2: Force Journal Failure → expect full rollback
- *   Test 3: Force GST Failure → expect full rollback
- *   Test 4: Force Customer Ledger Failure → expect full rollback
- *   Test 5: Success path → verify all 10 steps committed
- *   Test 6: No partial commit on mid-transaction failure
+ *   Test 1: Force Inventory (stock ledger) Failure → expect full rollback (fatal)
+ *   Test 2: Force GL/Journal Failure → best-effort, posting still succeeds
+ *   Test 3: Force GST Failure → best-effort, posting still succeeds
+ *   Test 4: Force Customer Ledger Failure → non-fatal, posting still succeeds
+ *   Test 5: Success path → all steps committed
+ *   Test 6: Force Payment/Cash Book Failure → best-effort, posting still succeeds
+ *   Test 7: Force Audit Failure → best-effort, posting still succeeds
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConflictException } from '@nestjs/common';
-import { PostingEngineService, type PostingPayload, type InvoicePostingInput } from '../../src/sales/posting-engine.service';
+import { describe, it, expect, beforeEach } from 'vitest';
+
 import { TransactionManager } from '../../src/automation/transaction.manager';
+import {
+  PostingEngineService,
+  type PostingPayload,
+  type InvoicePostingInput,
+} from '../../src/sales/posting-engine.service';
 
 // ═════════════════════════════════════════════════════════
 // TEST DATA HELPERS
@@ -80,9 +93,7 @@ function createMockInvoicePostingInput(): InvoicePostingInput {
         availableStock: 100,
       },
     ],
-    paymentSplits: [
-      { method: 'credit', amount: 118000, refNo: '', bankName: '' },
-    ],
+    paymentSplits: [{ method: 'credit', amount: 118000, refNo: '', bankName: '' }],
     userId: 'user-001',
     userEmail: 'user@example.com',
   };
@@ -105,10 +116,30 @@ function createMockPostingPayload(input: InvoicePostingInput): PostingPayload {
       voucherType: 'sales_invoice',
       narration: 'Test entry',
       entries: [
-        { accountName: 'Test Customer - Sundry Debtor', accountType: 'debit' as const, amount: input.grandTotal, narration: 'Test' },
-        { accountName: 'Sales Account', accountType: 'credit' as const, amount: input.taxableAfterDiscount, narration: 'Test' },
-        { accountName: 'CGST Output Account', accountType: 'credit' as const, amount: input.cgstTotal, narration: 'Test' },
-        { accountName: 'SGST Output Account', accountType: 'credit' as const, amount: input.sgstTotal, narration: 'Test' },
+        {
+          accountName: 'Test Customer - Sundry Debtor',
+          accountType: 'debit' as const,
+          amount: input.grandTotal,
+          narration: 'Test',
+        },
+        {
+          accountName: 'Sales Account',
+          accountType: 'credit' as const,
+          amount: input.taxableAfterDiscount,
+          narration: 'Test',
+        },
+        {
+          accountName: 'CGST Output Account',
+          accountType: 'credit' as const,
+          amount: input.cgstTotal,
+          narration: 'Test',
+        },
+        {
+          accountName: 'SGST Output Account',
+          accountType: 'credit' as const,
+          amount: input.sgstTotal,
+          narration: 'Test',
+        },
       ],
       totalDebit: input.grandTotal,
       totalCredit: input.taxableAfterDiscount + input.cgstTotal + input.sgstTotal,
@@ -124,40 +155,46 @@ function createMockPostingPayload(input: InvoicePostingInput): PostingPayload {
       closingBalance: input.grandTotal,
       runningBalance: input.grandTotal,
     },
-    stockPostings: [{
-      itemId: 'prod-001',
-      productName: 'Test Product',
-      sku: 'TP-001',
-      warehouse: 'Main',
-      quantity: 10,
-      batchNo: 'B-2026-001',
-      expiryDate: '2027-07-30',
-      costMethod: 'average',
-      unitCost: 7000,
-      totalCost: 70000,
-      closingQty: 90,
-    }],
-    batchManagement: [{
-      batchNo: 'B-2026-001',
-      expiryDate: '2027-07-30',
-      mfgDate: '2026-01-01',
-      openingQty: 100,
-      soldQty: 10,
-      closingQty: 90,
-      status: 'healthy',
-    }],
-    costing: [{
-      method: 'average',
-      itemId: 'prod-001',
-      productName: 'Test Product',
-      sellingRate: 10000,
-      unitCost: 7000,
-      quantity: 10,
-      totalRevenue: 118000,
-      totalCost: 70000,
-      grossMargin: 48000,
-      grossMarginPercent: 40.68,
-    }],
+    stockPostings: [
+      {
+        itemId: 'prod-001',
+        productName: 'Test Product',
+        sku: 'TP-001',
+        warehouse: 'Main',
+        quantity: 10,
+        batchNo: 'B-2026-001',
+        expiryDate: '2027-07-30',
+        costMethod: 'average',
+        unitCost: 7000,
+        totalCost: 70000,
+        closingQty: 90,
+      },
+    ],
+    batchManagement: [
+      {
+        batchNo: 'B-2026-001',
+        expiryDate: '2027-07-30',
+        mfgDate: '2026-01-01',
+        openingQty: 100,
+        soldQty: 10,
+        closingQty: 90,
+        status: 'healthy',
+      },
+    ],
+    costing: [
+      {
+        method: 'average',
+        itemId: 'prod-001',
+        productName: 'Test Product',
+        sellingRate: 10000,
+        unitCost: 7000,
+        quantity: 10,
+        totalRevenue: 118000,
+        totalCost: 70000,
+        grossMargin: 48000,
+        grossMarginPercent: 40.68,
+      },
+    ],
     auditLog: {
       event: 'invoice_posted',
       userId: input.userId,
@@ -178,8 +215,22 @@ function createMockPostingPayload(input: InvoicePostingInput): PostingPayload {
       approvalLevel: 1,
     },
     events: [
-      { event: 'created' as const, invoiceNumber: input.invoiceNumber, customerId: input.customerId, grandTotal: input.grandTotal, timestamp: input.invoiceDate, triggeredBy: input.userId },
-      { event: 'posted' as const, invoiceNumber: input.invoiceNumber, customerId: input.customerId, grandTotal: input.grandTotal, timestamp: new Date().toISOString(), triggeredBy: input.userId },
+      {
+        event: 'created' as const,
+        invoiceNumber: input.invoiceNumber,
+        customerId: input.customerId,
+        grandTotal: input.grandTotal,
+        timestamp: input.invoiceDate,
+        triggeredBy: input.userId,
+      },
+      {
+        event: 'posted' as const,
+        invoiceNumber: input.invoiceNumber,
+        customerId: input.customerId,
+        grandTotal: input.grandTotal,
+        timestamp: new Date().toISOString(),
+        triggeredBy: input.userId,
+      },
     ],
     timestamp: new Date().toISOString(),
     canPost: true,
@@ -208,7 +259,7 @@ type FailureMode = 'none' | 'inventory' | 'journal' | 'gst' | 'ledger' | 'paymen
  */
 function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls: CallRecord[] } {
   const calls: CallRecord[] = [];
-  let stepCounter = 0;
+  let _stepCounter = 0; // step counter (rollback ordering diagnostics)
 
   const record = (repo: string, method: string) => {
     calls.push({ repository: repo, method, timestamp: Date.now() });
@@ -217,7 +268,7 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
   const createRepo = (name: string) => ({
     create: async (data: any) => {
       record(name, 'create');
-      stepCounter++;
+      _stepCounter++;
       if (failureMode === 'inventory' && name === 'stockLedger') {
         throw new ConflictException(`Forced rollback: ${name}.create failed`);
       }
@@ -236,11 +287,20 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
       if (failureMode === 'audit' && name === 'auditLogs') {
         throw new ConflictException(`Forced rollback: ${name}.create failed`);
       }
-      return { id: 'mock-' + Date.now(), ...data };
+      return { id: `mock-${Date.now()}`, ...data };
     },
-    update: async (id: string, data: any) => { record(name, 'update'); return { id, ...data }; },
-    findById: async (id: string) => { record(name, 'findById'); return { id, status: 'draft' }; },
-    findAll: async (_params?: any) => { record(name, 'findAll'); return { data: [], total: 0 }; },
+    update: async (id: string, data: any) => {
+      record(name, 'update');
+      return { id, ...data };
+    },
+    findById: async (id: string) => {
+      record(name, 'findById');
+      return { id, status: 'draft' };
+    },
+    findAll: async (_params?: any) => {
+      record(name, 'findAll');
+      return { data: [], total: 0 };
+    },
   });
 
   // Drizzle-like db object with transaction support
@@ -272,6 +332,21 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
     cashBook: createRepo('cashBook'),
     auditLogs: createRepo('auditLogs'),
     notifications: createRepo('notifications'),
+    // GL/GST/Payment steps pehle chart of accounts lookup karte hain —
+    // receivable + cash account available ho to hi entry banati hain.
+    chartOfAccounts: {
+      ...createRepo('chartOfAccounts'),
+      findAll: async (_params?: any) => {
+        record('chartOfAccounts', 'findAll');
+        return {
+          data: [
+            { id: 'acct-receivable', accountName: 'Sundry Debtors', isControlAccount: true },
+            { id: 'acct-cash', accountName: 'Cash in Hand', isCashAccount: true },
+          ],
+          total: 2,
+        };
+      },
+    },
   };
 
   return { db: { ...repos, db: drizzleDb }, calls };
@@ -295,43 +370,62 @@ describe('PostingEngineService - Transaction Rollback', () => {
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    await expect(engine.triggerPosting(payload, 'user-001')).rejects.toThrow(ConflictException);
 
     // Verify that stockLedger.create was attempted (the failing step)
-    const stockLedgerCalls = mock.calls.filter(c => c.repository === 'stockLedger' && c.method === 'create');
+    const stockLedgerCalls = mock.calls.filter(
+      (c) => c.repository === 'stockLedger' && c.method === 'create',
+    );
     expect(stockLedgerCalls.length).toBeGreaterThan(0);
   });
 
-  it('Test 2: Force Journal Failure → expect rollback', async () => {
+  it('Test 2: Force Journal Failure → GL step is best-effort, posting still succeeds', async () => {
     const mock = createMockDatabase('journal');
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    // GL entry is non-fatal — a failure must NOT roll back / fail the whole posting
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.errors.length).toBe(0);
 
-    // glEntries.create should have been attempted
-    const glCalls = mock.calls.filter(c => c.repository === 'glEntries' && c.method === 'create');
+    // glEntries.create should still have been attempted (and gracefully contained)
+    const glCalls = mock.calls.filter((c) => c.repository === 'glEntries' && c.method === 'create');
     expect(glCalls.length).toBeGreaterThan(0);
   });
 
-  it('Test 3: Force GST Failure → expect rollback', async () => {
+  it('Test 3: Force GST Failure → GST step is best-effort, posting still succeeds', async () => {
     const mock = createMockDatabase('gst');
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.errors.length).toBe(0);
+
+    // gstLedger.create should still have been attempted
+    const gstCalls = mock.calls.filter(
+      (c) => c.repository === 'gstLedger' && c.method === 'create',
+    );
+    expect(gstCalls.length).toBeGreaterThan(0);
   });
 
-  it('Test 4: Force Customer Ledger Failure → expect rollback', async () => {
+  it('Test 4: Customer ledger is derived (not posted directly) → failure mode is non-fatal', async () => {
+    // NOTE: the posting engine no longer writes ledgerMaster directly (customer
+    // ledger is derived from GL + sales invoice). This test documents that a
+    // ledgerMaster failure mode can never fire — posting simply succeeds.
     const mock = createMockDatabase('ledger');
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.errors.length).toBe(0);
+    // The failing repo must never have been touched
+    const ledgerCalls = mock.calls.filter(
+      (c) => c.repository === 'ledgerMaster' && c.method === 'create',
+    );
+    expect(ledgerCalls.length).toBe(0);
   });
 
   it('Test 5: Success path → all 10 operations succeed', async () => {
@@ -345,26 +439,63 @@ describe('PostingEngineService - Transaction Rollback', () => {
     expect(result.errors.length).toBe(0);
 
     // Verify multiple repository operations were executed
-    const totalOps = mock.calls.filter(c => c.method === 'create' || c.method === 'update');
+    const totalOps = mock.calls.filter((c) => c.method === 'create' || c.method === 'update');
     expect(totalOps.length).toBeGreaterThan(5);
   });
 
-  it('Test 6: Force Payment Failure → expect rollback', async () => {
+  it('Test 6: Force Payment Failure → payment step is best-effort, posting still succeeds', async () => {
     const mock = createMockDatabase('payment');
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    // Cash book path tabhi chalta hai jab payment amount > 0 ho
+    payload.customerLedger.paymentAmount = 50000;
+
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.errors.length).toBe(0);
+
+    // cashBook.create should still have been attempted (and gracefully contained)
+    const cashCalls = mock.calls.filter(
+      (c) => c.repository === 'cashBook' && c.method === 'create',
+    );
+    expect(cashCalls.length).toBeGreaterThan(0);
   });
 
-  it('Test 7: Force Audit Failure → expect rollback', async () => {
+  it('Test 7: Force Audit Failure → audit step is best-effort, posting still succeeds', async () => {
     const mock = createMockDatabase('audit');
     const txManager = new TransactionManager(mock.db);
     const engine = new PostingEngineService(mock.db, txManager);
 
-    await expect(engine.triggerPosting(payload, 'user-001'))
-      .rejects.toThrow(ConflictException);
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.errors.length).toBe(0);
+
+    // auditLogs.create should still have been attempted
+    const auditCalls = mock.calls.filter(
+      (c) => c.repository === 'auditLogs' && c.method === 'create',
+    );
+    expect(auditCalls.length).toBeGreaterThan(0);
+  });
+
+  it('Test 8: Already-posted invoice → posting is skipped (idempotency guard)', async () => {
+    const mock = createMockDatabase('none');
+    // Simulate a retry / double-click / lost response: invoice is already posted
+    mock.db.salesInvoices.findById = async () => ({ id: payload.invoiceId, status: 'posted' });
+    const txManager = new TransactionManager(mock.db);
+    const engine = new PostingEngineService(mock.db, txManager);
+
+    const result = await engine.triggerPosting(payload, 'user-001');
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('already posted');
+
+    // Stock must NOT be deducted a second time
+    const stockCalls = mock.calls.filter(
+      (c) => c.repository === 'stockLedger' && c.method === 'create',
+    );
+    expect(stockCalls.length).toBe(0);
+    const glCalls = mock.calls.filter((c) => c.repository === 'glEntries' && c.method === 'create');
+    expect(glCalls.length).toBe(0);
   });
 });
 
@@ -392,7 +523,7 @@ describe('TransactionManager - activeDb propagation', () => {
     await expect(
       txManager.executeInTransaction(async (_ctx) => {
         throw new Error('Forced rollback error');
-      })
+      }),
     ).rejects.toThrow('Forced rollback error');
   });
 

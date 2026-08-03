@@ -1,8 +1,6 @@
-import { NestInterceptor, ExecutionContext, CallHandler} from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { NestInterceptor, ExecutionContext, CallHandler, Injectable, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable} from 'rxjs';
-import { tap } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 
 import { WorkflowModuleBridgeService } from '../services/workflow-module-bridge.service';
 
@@ -37,16 +35,22 @@ export class WorkflowAutoStartInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap((response: any) => {
         if (!response || !response.id) {
-          this.logger.warn(`No document ID returned for ${metadata.documentType}, skipping workflow`);
+          this.logger.warn(
+            `No document ID returned for ${metadata.documentType}, skipping workflow`,
+          );
           return;
         }
 
         const amount = metadata.amountField ? Number(response[metadata.amountField] || 0) : 0;
         const docNumber = metadata.numberField ? response[metadata.numberField] : undefined;
 
-        this.startWorkflow(metadata, response.id, docNumber, amount, user?.id, request).catch((err) => {
-          this.logger.warn(`Workflow auto-start failed for ${metadata.documentType} #${response.id}: ${err.message}`);
-        });
+        this.startWorkflow(metadata, response.id, docNumber, amount, user?.id, request).catch(
+          (err) => {
+            this.logger.warn(
+              `Workflow auto-start failed for ${metadata.documentType} #${response.id}: ${err.message}`,
+            );
+          },
+        );
       }),
     );
   }
@@ -64,7 +68,13 @@ export class WorkflowAutoStartInterceptor implements NestInterceptor {
     switch (documentType) {
       // Purchase
       case 'purchase_order':
-        await this.bridge.afterPurchaseOrderCreated(documentId, documentNumber, amount, userId, _request?.body?.supplierId);
+        await this.bridge.afterPurchaseOrderCreated(
+          documentId,
+          documentNumber,
+          amount,
+          userId,
+          _request?.body?.supplierId,
+        );
         break;
       case 'purchase_quotation':
         await this.bridge.afterPurchaseQuotationCreated(documentId, documentNumber, amount, userId);

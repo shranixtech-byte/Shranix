@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
-import { FormTextarea } from '@/components/ui/FormTextarea';
 import { FormSelect } from '@/components/ui/FormSelect';
+import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface CompanyForm {
   name: string;
@@ -18,6 +19,12 @@ interface CompanyForm {
   gstin: string;
   pan: string;
   cin: string;
+  licenseNo: string;
+  pesticidesLicense: string;
+  fertilizerLicense: string;
+  seedsLicense: string;
+  cottonLicense: string;
+  retailLicense: string;
   website: string;
   isHeadOffice: boolean;
   financialYearStart: string;
@@ -25,9 +32,27 @@ interface CompanyForm {
 }
 
 const initialForm: CompanyForm = {
-  name: '', alias: '', address: '', city: '', state: '', pincode: '',
-  phone: '', email: '', gstin: '', pan: '', cin: '', website: '',
-  isHeadOffice: false, financialYearStart: '', currency: 'INR',
+  name: '',
+  alias: '',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
+  phone: '',
+  email: '',
+  gstin: '',
+  pan: '',
+  cin: '',
+  licenseNo: '',
+  pesticidesLicense: '',
+  fertilizerLicense: '',
+  seedsLicense: '',
+  cottonLicense: '',
+  retailLicense: '',
+  website: '',
+  isHeadOffice: false,
+  financialYearStart: '',
+  currency: 'INR',
 };
 
 export function CreateCompanyPage() {
@@ -93,10 +118,32 @@ function CompanyFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Basic company identification details',
       fields: (
         <>
-          <FormInput label="Company Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter company name" />
-          <FormInput label="Alias" value={form.alias} onChange={(e) => update('alias', e.target.value)} placeholder="Short name / alias" />
-          <FormInput label="Website" type="url" value={form.website} onChange={(e) => update('website', e.target.value)} placeholder="https://example.com" />
-          <FormInput label="Currency" value={form.currency} onChange={(e) => update('currency', e.target.value)} placeholder="INR" />
+          <FormInput
+            label="Company Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter company name"
+          />
+          <FormInput
+            label="Alias"
+            value={form.alias}
+            onChange={(e) => update('alias', e.target.value)}
+            placeholder="Short name / alias"
+          />
+          <FormInput
+            label="Website"
+            type="url"
+            value={form.website}
+            onChange={(e) => update('website', e.target.value)}
+            placeholder="https://example.com"
+          />
+          <FormInput
+            label="Currency"
+            value={form.currency}
+            onChange={(e) => update('currency', e.target.value)}
+            placeholder="INR"
+          />
         </>
       ),
     },
@@ -105,13 +152,70 @@ function CompanyFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'GST, PAN and other registration details',
       fields: (
         <>
-          <FormInput label="GSTIN" value={form.gstin} onChange={(e) => update('gstin', e.target.value)} placeholder="22AAAAA0000A1Z5" />
-          <FormInput label="PAN" value={form.pan} onChange={(e) => update('pan', e.target.value)} placeholder="AAAAA0000A" />
-          <FormInput label="CIN" value={form.cin} onChange={(e) => update('cin', e.target.value)} placeholder="U12345MH2020PTC123456" />
-          <FormSelect label="FY Start Month" value={form.financialYearStart} onChange={(e) => update('financialYearStart', e.target.value)} placeholder="Select month"
+          <FormInput
+            label="GSTIN"
+            value={form.gstin}
+            onChange={(e) => update('gstin', e.target.value)}
+            placeholder="22AAAAA0000A1Z5"
+          />
+          <FormInput
+            label="License No"
+            value={form.licenseNo}
+            onChange={(e) => update('licenseNo', e.target.value)}
+            placeholder="FSSAI / trade license number"
+          />
+          <FormInput
+            label="Pesticides License"
+            value={form.pesticidesLicense}
+            onChange={(e) => update('pesticidesLicense', e.target.value)}
+            placeholder="LAIID09140035"
+          />
+          <FormInput
+            label="Fertilizer License"
+            value={form.fertilizerLicense}
+            onChange={(e) => update('fertilizerLicense', e.target.value)}
+            placeholder="LAFD09140031"
+          />
+          <FormInput
+            label="Seeds License"
+            value={form.seedsLicense}
+            onChange={(e) => update('seedsLicense', e.target.value)}
+            placeholder="LASD09140146"
+          />
+          <FormInput
+            label="Cotton License"
+            value={form.cottonLicense}
+            onChange={(e) => update('cottonLicense', e.target.value)}
+            placeholder="LACD09140032"
+          />
+          <FormInput
+            label="Retail License"
+            value={form.retailLicense}
+            onChange={(e) => update('retailLicense', e.target.value)}
+            placeholder="Retail / shop license"
+          />
+          <FormInput
+            label="PAN"
+            value={form.pan}
+            onChange={(e) => update('pan', e.target.value)}
+            placeholder="AAAAA0000A"
+          />
+          <FormInput
+            label="CIN"
+            value={form.cin}
+            onChange={(e) => update('cin', e.target.value)}
+            placeholder="U12345MH2020PTC123456"
+          />
+          <FormSelect
+            label="FY Start Month"
+            value={form.financialYearStart}
+            onChange={(e) => update('financialYearStart', e.target.value)}
+            placeholder="Select month"
             options={[
-              { label: 'April', value: 'april' }, { label: 'January', value: 'january' },
-              { label: 'July', value: 'july' }, { label: 'October', value: 'october' },
+              { label: 'April', value: 'april' },
+              { label: 'January', value: 'january' },
+              { label: 'July', value: 'july' },
+              { label: 'October', value: 'october' },
             ]}
           />
         </>
@@ -123,11 +227,31 @@ function CompanyFormPage({ isEditing = false }: { isEditing?: boolean }) {
       className: 'md:col-span-2',
       fields: (
         <>
-          <FormTextarea label="Address" value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Street, building, area..." />
+          <FormTextarea
+            label="Address"
+            value={form.address}
+            onChange={(e) => update('address', e.target.value)}
+            placeholder="Street, building, area..."
+          />
           <div className="grid gap-4 sm:grid-cols-3">
-            <FormInput label="City" value={form.city} onChange={(e) => update('city', e.target.value)} placeholder="City" />
-            <FormInput label="State" value={form.state} onChange={(e) => update('state', e.target.value)} placeholder="State" />
-            <FormInput label="Pincode" value={form.pincode} onChange={(e) => update('pincode', e.target.value)} placeholder="PIN code" />
+            <FormInput
+              label="City"
+              value={form.city}
+              onChange={(e) => update('city', e.target.value)}
+              placeholder="City"
+            />
+            <FormInput
+              label="State"
+              value={form.state}
+              onChange={(e) => update('state', e.target.value)}
+              placeholder="State"
+            />
+            <FormInput
+              label="Pincode"
+              value={form.pincode}
+              onChange={(e) => update('pincode', e.target.value)}
+              placeholder="PIN code"
+            />
           </div>
         </>
       ),
@@ -137,8 +261,20 @@ function CompanyFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Primary contact details',
       fields: (
         <>
-          <FormInput label="Phone" type="tel" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="+91-9876543210" />
-          <FormInput label="Email" type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="company@example.com" />
+          <FormInput
+            label="Phone"
+            type="tel"
+            value={form.phone}
+            onChange={(e) => update('phone', e.target.value)}
+            placeholder="+91-9876543210"
+          />
+          <FormInput
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => update('email', e.target.value)}
+            placeholder="company@example.com"
+          />
         </>
       ),
     },

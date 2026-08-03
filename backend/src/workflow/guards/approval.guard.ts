@@ -1,5 +1,10 @@
-import { CanActivate, ExecutionContext} from '@nestjs/common';
-import { Injectable, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 import { WorkflowIntegrationService } from '../services/workflow-integration.service';
@@ -27,10 +32,11 @@ export class ApprovalGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const metadata = this.reflector.get<{ documentType: string; documentIdParam: string; message?: string }>(
-      APPROVAL_REQUIRED_KEY,
-      context.getHandler(),
-    );
+    const metadata = this.reflector.get<{
+      documentType: string;
+      documentIdParam: string;
+      message?: string;
+    }>(APPROVAL_REQUIRED_KEY, context.getHandler());
 
     if (!metadata) {
       // No approval required — allow
@@ -41,7 +47,9 @@ export class ApprovalGuard implements CanActivate {
     const documentId = request.params?.[metadata.documentIdParam];
 
     if (!documentId) {
-      this.logger.warn(`ApprovalGuard: No document ID found in param "${metadata.documentIdParam}"`);
+      this.logger.warn(
+        `ApprovalGuard: No document ID found in param "${metadata.documentIdParam}"`,
+      );
       return true; // Let it pass if we can't determine the document
     }
 
@@ -49,8 +57,9 @@ export class ApprovalGuard implements CanActivate {
 
     if (!isApproved) {
       throw new ForbiddenException(
-        metadata.message || `Document ${metadata.documentType} #${documentId} has not been approved. ` +
-          `Workflow approval is required before this action can be performed.`,
+        metadata.message ||
+          `Document ${metadata.documentType} #${documentId} has not been approved. ` +
+            `Workflow approval is required before this action can be performed.`,
       );
     }
 
@@ -61,7 +70,11 @@ export class ApprovalGuard implements CanActivate {
 /**
  * Decorator to mark endpoints that require workflow approval before execution.
  */
-export const ApprovalRequired = (metadata: { documentType: string; documentIdParam: string; message?: string }) => {
+export const ApprovalRequired = (metadata: {
+  documentType: string;
+  documentIdParam: string;
+  message?: string;
+}) => {
   return (_target: any, _propertyKey: string, descriptor: PropertyDescriptor) => {
     Reflect.defineMetadata(APPROVAL_REQUIRED_KEY, metadata, descriptor.value);
     return descriptor;

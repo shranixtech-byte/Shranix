@@ -15,7 +15,15 @@ export type DocumentType =
   | 'credit_note'
   | 'debit_note';
 
-export type ApprovalStatus = 'draft' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'cancelled' | 'posted' | 'closed';
+export type ApprovalStatus =
+  | 'draft'
+  | 'pending'
+  | 'under_review'
+  | 'approved'
+  | 'rejected'
+  | 'cancelled'
+  | 'posted'
+  | 'closed';
 
 export interface ApprovalMaster {
   id: string;
@@ -117,21 +125,41 @@ export interface ApproverEntry {
 // API METHODS
 // ═════════════════════════════════════════════════════════
 
-export async function getApprovals(params: {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-  documentType?: string;
-  search?: string;
-  assignedTo?: string;
-} = {}): Promise<{ data: ApprovalMaster[]; total: number; page: number; pageSize: number; totalPages: number }> {
+export async function getApprovals(
+  params: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    documentType?: string;
+    search?: string;
+    assignedTo?: string;
+  } = {},
+): Promise<{
+  data: ApprovalMaster[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
   const qs = new URLSearchParams();
-  if (params.page) qs.set('page', String(params.page));
-  if (params.pageSize) qs.set('pageSize', String(params.pageSize));
-  if (params.status) qs.set('status', params.status);
-  if (params.documentType) qs.set('documentType', params.documentType);
-  if (params.search) qs.set('search', params.search);
-  if (params.assignedTo) qs.set('assignedTo', params.assignedTo);
+  if (params.page) {
+    qs.set('page', String(params.page));
+  }
+  if (params.pageSize) {
+    qs.set('pageSize', String(params.pageSize));
+  }
+  if (params.status) {
+    qs.set('status', params.status);
+  }
+  if (params.documentType) {
+    qs.set('documentType', params.documentType);
+  }
+  if (params.search) {
+    qs.set('search', params.search);
+  }
+  if (params.assignedTo) {
+    qs.set('assignedTo', params.assignedTo);
+  }
   const query = qs.toString();
   return apiRequest(`${API_PREFIX}${query ? `?${query}` : ''}`);
 }
@@ -158,35 +186,57 @@ export async function submitForApproval(dto: {
   });
 }
 
-export async function approveApproval(id: string, comment: string, reason?: string): Promise<ApprovalMaster> {
+export async function approveApproval(
+  id: string,
+  comment: string,
+  reason?: string,
+): Promise<ApprovalMaster> {
   return apiRequest<ApprovalMaster>(`${API_PREFIX}/${id}/approve`, {
     method: 'POST',
     body: JSON.stringify({ comment, reason }),
   });
 }
 
-export async function rejectApproval(id: string, comment: string, reason?: string): Promise<ApprovalMaster> {
+export async function rejectApproval(
+  id: string,
+  comment: string,
+  reason?: string,
+): Promise<ApprovalMaster> {
   return apiRequest<ApprovalMaster>(`${API_PREFIX}/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify({ comment, reason }),
   });
 }
 
-export async function sendBackApproval(id: string, comment: string, reason: string, targetLevel?: number): Promise<ApprovalMaster> {
+export async function sendBackApproval(
+  id: string,
+  comment: string,
+  reason: string,
+  targetLevel?: number,
+): Promise<ApprovalMaster> {
   return apiRequest<ApprovalMaster>(`${API_PREFIX}/${id}/send-back`, {
     method: 'POST',
     body: JSON.stringify({ comment, reason, targetLevel }),
   });
 }
 
-export async function assignApproval(id: string, assignToUserId: string, assignToUserName: string, comment?: string): Promise<ApprovalMaster> {
+export async function assignApproval(
+  id: string,
+  assignToUserId: string,
+  assignToUserName: string,
+  comment?: string,
+): Promise<ApprovalMaster> {
   return apiRequest<ApprovalMaster>(`${API_PREFIX}/${id}/assign`, {
     method: 'POST',
     body: JSON.stringify({ assignToUserId, assignToUserName, comment }),
   });
 }
 
-export async function addApprovalComment(id: string, comment: string, isInternal = false): Promise<ApprovalComment> {
+export async function addApprovalComment(
+  id: string,
+  comment: string,
+  isInternal = false,
+): Promise<ApprovalComment> {
   return apiRequest<ApprovalComment>(`${API_PREFIX}/${id}/comments`, {
     method: 'POST',
     body: JSON.stringify({ comment, isInternal }),
@@ -201,8 +251,12 @@ export async function getApprovalHistory(id: string): Promise<ApprovalHistory[]>
   return apiRequest<ApprovalHistory[]>(`${API_PREFIX}/${id}/history`);
 }
 
-export async function getMyApprovalNotifications(unreadOnly = false): Promise<ApprovalNotification[]> {
-  return apiRequest<ApprovalNotification[]>(`${API_PREFIX}/notifications/mine?unreadOnly=${unreadOnly}`);
+export async function getMyApprovalNotifications(
+  unreadOnly = false,
+): Promise<ApprovalNotification[]> {
+  return apiRequest<ApprovalNotification[]>(
+    `${API_PREFIX}/notifications/mine?unreadOnly=${unreadOnly}`,
+  );
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
@@ -217,7 +271,10 @@ export async function getApprovalMatrices(): Promise<ApprovalMatrix[]> {
   return apiRequest<ApprovalMatrix[]>(`${API_PREFIX}/settings/matrices`);
 }
 
-export async function updateApprovalMatrix(id: string, data: Partial<ApprovalMatrix>): Promise<ApprovalMatrix> {
+export async function updateApprovalMatrix(
+  id: string,
+  data: Partial<ApprovalMatrix>,
+): Promise<ApprovalMatrix> {
   return apiRequest<ApprovalMatrix>(`${API_PREFIX}/settings/matrices/${id}`, {
     method: 'POST',
     body: JSON.stringify(data),

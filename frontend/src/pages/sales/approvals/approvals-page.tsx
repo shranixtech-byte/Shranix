@@ -1,6 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
 import { Loader2, Search } from 'lucide-react';
-import { getApprovals, getApprovalById, type ApprovalMaster } from '@/services/sales-approval.service';
+import { useEffect, useState, useCallback } from 'react';
+
+import {
+  getApprovals,
+  getApprovalById,
+  type ApprovalMaster,
+} from '@/services/sales-approval.service';
+
 import { ApprovalCard } from './approval-card';
 import { CommentsPanel } from './comments-panel';
 
@@ -71,7 +77,9 @@ export function ApprovalsPage() {
 
   const handleRefresh = useCallback(() => {
     fetchData();
-    if (selectedId) handleSelect(selectedId);
+    if (selectedId) {
+      handleSelect(selectedId);
+    }
   }, [fetchData, selectedId, handleSelect]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -80,37 +88,45 @@ export function ApprovalsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Sales Approvals</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-sm">
           Multi-level approval workflow for all sales documents
         </p>
       </div>
 
       {/* Search & Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search by document#, customer..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full rounded-md border bg-background pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            className="bg-background focus:ring-primary/50 w-full rounded-md border py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-2"
           />
         </div>
         <select
           value={docType}
           onChange={(e) => setDocType(e.target.value)}
-          className="rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="bg-background focus:ring-primary/50 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
         >
           {documentTypes.map((dt) => (
-            <option key={dt.value} value={dt.value}>{dt.label}</option>
+            <option key={dt.value} value={dt.value}>
+              {dt.label}
+            </option>
           ))}
         </select>
-        <span className="text-xs text-muted-foreground">{total} approvals</span>
+        <span className="text-muted-foreground text-xs">{total} approvals</span>
         {selectedId && (
           <button
-            onClick={() => { setSelectedId(null); setSelectedApproval(null); }}
-            className="text-xs text-primary underline hover:text-primary/80"
+            onClick={() => {
+              setSelectedId(null);
+              setSelectedApproval(null);
+            }}
+            className="text-primary hover:text-primary/80 text-xs underline"
           >
             Back to list
           </button>
@@ -118,11 +134,14 @@ export function ApprovalsPage() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-card p-1 shadow-sm">
+      <div className="bg-card flex flex-wrap gap-1 rounded-lg border p-1 shadow-sm">
         {statusTabs.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => { setActiveTab(tab.value); setPage(1); }}
+            onClick={() => {
+              setActiveTab(tab.value);
+              setPage(1);
+            }}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               activeTab === tab.value
                 ? 'bg-primary text-primary-foreground shadow-sm'
@@ -136,17 +155,13 @@ export function ApprovalsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="text-primary h-8 w-8 animate-spin" />
         </div>
       ) : selectedId && selectedApproval ? (
         /* Detail View */
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4">
-            <ApprovalCard
-              approval={selectedApproval}
-              onRefresh={handleRefresh}
-              onView={() => {}}
-            />
+            <ApprovalCard approval={selectedApproval} onRefresh={handleRefresh} onView={() => {}} />
           </div>
           <div>
             <CommentsPanel
@@ -154,7 +169,9 @@ export function ApprovalsPage() {
               comments={selectedApproval.comments || []}
               history={selectedApproval.history || []}
               onRefresh={() => {
-                if (selectedId) handleSelect(selectedId);
+                if (selectedId) {
+                  handleSelect(selectedId);
+                }
               }}
             />
           </div>
@@ -172,7 +189,7 @@ export function ApprovalsPage() {
               />
             ))}
             {data.length === 0 && (
-              <div className="col-span-full rounded-lg border bg-card p-12 text-center text-sm text-muted-foreground">
+              <div className="bg-card text-muted-foreground col-span-full rounded-lg border p-12 text-center text-sm">
                 No approvals found matching the current filters
               </div>
             )}
@@ -184,17 +201,17 @@ export function ApprovalsPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-50 hover:bg-accent"
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
               >
                 Previous
               </button>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-muted-foreground text-xs">
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium disabled:opacity-50 hover:bg-accent"
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
               >
                 Next
               </button>

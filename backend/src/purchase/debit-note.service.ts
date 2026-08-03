@@ -1,10 +1,20 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+  Inject,
+} from '@nestjs/common';
+import type { EnterpriseQuery } from '@shranix/database';
 
+import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
-import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
-import { StockPostingService } from './services';
-import type { EnterpriseQuery } from '@shranix/database';
+
+// Type-only: DI token 'STOCK_POSTING_SERVICE' resolves the runtime instance.
+// Value import would create a cycle services.ts <-> debit-note.service.ts.
+import type { StockPostingService } from './services';
 
 function generateEntryNumber(prefix: string): string {
   const ts = Date.now().toString(36).toUpperCase();
@@ -34,7 +44,11 @@ export class PurchaseDebitNoteService {
    *   - Updates return status to 'posted'
    *   - Audit trail
    */
-  async createDebitNoteFromReturn(returnId: string, userId: string, debitNoteNumber?: string): Promise<{
+  async createDebitNoteFromReturn(
+    returnId: string,
+    userId: string,
+    debitNoteNumber?: string,
+  ): Promise<{
     success: boolean;
     message: string;
     debitNoteId?: string;
@@ -44,25 +58,37 @@ export class PurchaseDebitNoteService {
 
     // Load return
     const returnRecord = await this.database.purchaseReturns.findById(returnId);
-    if (!returnRecord) throw new NotFoundException('Purchase return not found');
-    if (returnRecord.status === 'posted') throw new BadRequestException('Return already posted, debit note already created');
-    if (returnRecord.status === 'cancelled') throw new BadRequestException('Cannot process cancelled return');
+    if (!returnRecord) {
+      throw new NotFoundException('Purchase return not found');
+    }
+    if (returnRecord.status === 'posted') {
+      throw new BadRequestException('Return already posted, debit note already created');
+    }
+    if (returnRecord.status === 'cancelled') {
+      throw new BadRequestException('Cannot process cancelled return');
+    }
 
     // Load return items
     const returnItemsQuery: EnterpriseQuery = {
-      page: 1, pageSize: 500,
+      page: 1,
+      pageSize: 500,
       fields: ['id', 'itemId', 'batchNo', 'warehouseId', 'quantity', 'rate', 'amount', 'reason'],
       filters: [{ field: 'returnId', operator: 'eq', value: returnId }],
     };
     const itemsResult = await this.database.purchaseReturnItems.findAll(returnItemsQuery);
     const returnItems = itemsResult?.data || [];
-    if (returnItems.length === 0) throw new BadRequestException('Return has no items');
+    if (returnItems.length === 0) {
+      throw new BadRequestException('Return has no items');
+    }
 
     // Load supplier
     const supplier = await this.database.suppliers.findById(returnRecord.supplierId);
-    if (!supplier) throw new BadRequestException('Supplier not found');
+    if (!supplier) {
+      throw new BadRequestException('Supplier not found');
+    }
 
-    const dnNumber = debitNoteNumber || `DN-${returnRecord.returnNumber || Date.now().toString(36).toUpperCase()}`;
+    const dnNumber =
+      debitNoteNumber || `DN-${returnRecord.returnNumber || Date.now().toString(36).toUpperCase()}`;
     const now = new Date().toISOString();
 
     return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
@@ -164,8 +190,12 @@ export class PurchaseDebitNoteService {
       }
 
       // Verify balanced
-      const totalDebit = journalEntries.filter(e => e.accountType === 'debit').reduce((s, e) => s + e.amount, 0);
-      const totalCredit = journalEntries.filter(e => e.accountType === 'credit').reduce((s, e) => s + e.amount, 0);
+      const totalDebit = journalEntries
+        .filter((e) => e.accountType === 'debit')
+        .reduce((s, e) => s + e.amount, 0);
+      const totalCredit = journalEntries
+        .filter((e) => e.accountType === 'credit')
+        .reduce((s, e) => s + e.amount, 0);
       if (Math.abs(totalDebit - totalCredit) > 0.01) {
         errors.push(`Journal unbalanced: debit ${totalDebit} vs credit ${totalCredit}`);
         throw new ConflictException(`Reversal journal unbalanced`);
@@ -315,8 +345,12 @@ export class PurchaseDebitNoteService {
    */
   async cancel(id: string, userId: string, reason?: string): Promise<any> {
     const dn = await this.database.debitNotes.findById(id);
-    if (!dn) throw new NotFoundException('Debit note not found');
-    if (dn.status !== 'draft') throw new BadRequestException('Only draft debit notes can be cancelled');
+    if (!dn) {
+      throw new NotFoundException('Debit note not found');
+    }
+    if (dn.status !== 'draft') {
+      throw new BadRequestException('Only draft debit notes can be cancelled');
+    }
 
     await this.database.debitNotes.update(id, {
       status: 'cancelled',

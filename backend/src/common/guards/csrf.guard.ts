@@ -1,5 +1,4 @@
-import { CanActivate, ExecutionContext} from '@nestjs/common';
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Reflector } from '@nestjs/core';
 

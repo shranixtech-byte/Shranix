@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { NotificationSettingsService, type NotificationChannel } from './settings.service';
+
 export interface EmailOptions {
   to: string;
   subject: string;
@@ -24,7 +26,18 @@ export interface PushOptions {
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  async sendEmail(options: EmailOptions): Promise<{ success: boolean }> {
+  constructor(private readonly settings: NotificationSettingsService) {}
+
+  /** Channel disabled hai to skip — settings se gate. */
+  private async channelEnabled(channel: NotificationChannel): Promise<boolean> {
+    return this.settings.isChannelEnabled(channel);
+  }
+
+  async sendEmail(options: EmailOptions): Promise<{ success: boolean; skipped?: boolean }> {
+    if (!(await this.channelEnabled('email'))) {
+      this.logger.log('Email channel disabled in settings — skipped');
+      return { success: true, skipped: true }; // skipped is NOT a failure
+    }
     this.logger.log(`Email: to=${options.to} subject="${options.subject}"`);
 
     // In production, integrate with nodemailer or SendGrid:
@@ -37,7 +50,11 @@ export class NotificationService {
     return { success: true };
   }
 
-  async sendSms(options: SmsOptions): Promise<{ success: boolean }> {
+  async sendSms(options: SmsOptions): Promise<{ success: boolean; skipped?: boolean }> {
+    if (!(await this.channelEnabled('sms'))) {
+      this.logger.log('SMS channel disabled in settings — skipped');
+      return { success: true, skipped: true }; // skipped is NOT a failure
+    }
     this.logger.log(`SMS: to=${options.to} message="${options.message}"`);
 
     // In production, integrate with Twilio, AWS SNS, or similar:
@@ -48,7 +65,11 @@ export class NotificationService {
     return { success: true };
   }
 
-  async sendPush(options: PushOptions): Promise<{ success: boolean }> {
+  async sendPush(options: PushOptions): Promise<{ success: boolean; skipped?: boolean }> {
+    if (!(await this.channelEnabled('push'))) {
+      this.logger.log('Push channel disabled in settings — skipped');
+      return { success: true, skipped: true }; // skipped is NOT a failure
+    }
     this.logger.log(`Push: to=${options.deviceToken} title="${options.title}"`);
 
     // In production, integrate with Firebase Cloud Messaging or Apple Push:

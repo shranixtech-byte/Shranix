@@ -1,12 +1,15 @@
-import { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { OnModuleInit, Injectable, Logger } from '@nestjs/common';
 
 import { defaultAiConfig, type AiModuleConfig } from '../ai.config';
 import { ClaudeProvider } from '../providers/claude.provider';
 import { GeminiProvider } from '../providers/gemini.provider';
 import { OllamaProvider } from '../providers/ollama.provider';
 import { OpenAIProvider } from '../providers/openai.provider';
-import { AiProvider, AiCompletionRequest, AiCompletionResponse } from '../providers/provider.interface';
+import {
+  AiProvider,
+  AiCompletionRequest,
+  AiCompletionResponse,
+} from '../providers/provider.interface';
 
 import { AiAuditService } from './ai-audit.service';
 import { CircuitBreakerService } from './circuit-breaker.service';
@@ -40,9 +43,13 @@ export class AiService implements OnModuleInit {
     if (this.config.fallbackProvider) {
       this.fallbackProvider = this.createProvider(this.config.fallbackProvider);
     }
-    this.logger.log(`AI module initialized with provider: ${this.provider.name}/${this.provider.model}`);
+    this.logger.log(
+      `AI module initialized with provider: ${this.provider.name}/${this.provider.model}`,
+    );
     if (this.fallbackProvider) {
-      this.logger.log(`Fallback provider: ${this.fallbackProvider.name}/${this.fallbackProvider.model}`);
+      this.logger.log(
+        `Fallback provider: ${this.fallbackProvider.name}/${this.fallbackProvider.model}`,
+      );
     }
   }
 
@@ -80,10 +87,14 @@ export class AiService implements OnModuleInit {
           const check = this.promptGuard.check(sanitized);
           if (!check.safe) {
             this.logger.warn(`Prompt injection detected: ${check.reason}`);
-            await this.aiAudit.logSecurityViolation(userId, `Prompt injection detected: ${check.reason}`, {
-              endpoint,
-              sanitizedPrompt: sanitized.substring(0, 200),
-            });
+            await this.aiAudit.logSecurityViolation(
+              userId,
+              `Prompt injection detected: ${check.reason}`,
+              {
+                endpoint,
+                sanitizedPrompt: sanitized.substring(0, 200),
+              },
+            );
             throw new Error(`Prompt rejected: ${check.reason}`);
           }
         }
@@ -137,19 +148,21 @@ export class AiService implements OnModuleInit {
     } finally {
       // 5. Audit Logging
       const latencyMs = Date.now() - startTime;
-      this.aiAudit.logAiInteraction({
-        userId,
-        action: 'complete',
-        provider: this.provider.name,
-        model: this.provider.model,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        latencyMs,
-        success,
-        error: errorMsg,
-        endpoint,
-      }).catch((err) => this.logger.error(`Audit log failed: ${(err as Error).message}`));
+      this.aiAudit
+        .logAiInteraction({
+          userId,
+          action: 'complete',
+          provider: this.provider.name,
+          model: this.provider.model,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          latencyMs,
+          success,
+          error: errorMsg,
+          endpoint,
+        })
+        .catch((err) => this.logger.error(`Audit log failed: ${(err as Error).message}`));
     }
   }
 
@@ -161,21 +174,33 @@ export class AiService implements OnModuleInit {
     const { systemPrompt, userPrompt } = this.promptManager.buildPrompt(templateId, variables);
     const template = this.promptManager.get(templateId);
 
-    return this.complete({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: template?.temperature ?? this.config.temperature,
-      maxTokens: template?.maxTokens ?? this.config.maxTokens,
-    }, userId);
+    return this.complete(
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: template?.temperature ?? this.config.temperature,
+        maxTokens: template?.maxTokens ?? this.config.maxTokens,
+      },
+      userId,
+    );
   }
 
-  async chat(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, userId?: string): Promise<AiCompletionResponse> {
+  async chat(
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+    userId?: string,
+  ): Promise<AiCompletionResponse> {
     return this.complete({ messages }, userId);
   }
 
-  async getHealth(): Promise<{ provider: string; model: string; available: boolean; latencyMs: number; fallbackAvailable: boolean }> {
+  async getHealth(): Promise<{
+    provider: string;
+    model: string;
+    available: boolean;
+    latencyMs: number;
+    fallbackAvailable: boolean;
+  }> {
     const startTime = Date.now();
 
     const getPrimaryHealth = async () => {
@@ -194,7 +219,9 @@ export class AiService implements OnModuleInit {
 
     const getFallbackHealth = async () => {
       const fb = this.fallbackProvider;
-      if (!fb) {return { available: false, latencyMs: 0 };}
+      if (!fb) {
+        return { available: false, latencyMs: 0 };
+      }
       try {
         return await this.circuitBreaker.call(
           `${fb.name}:health`,

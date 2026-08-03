@@ -1,10 +1,4 @@
 import {
-  memo,
-  useCallback,
-  useMemo,
-  useState,
-} from 'react';
-import {
   AlertTriangle,
   ArrowLeft,
   BadgePercent,
@@ -19,9 +13,12 @@ import {
   Tag,
   X,
 } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/services/api-client';
+
 import type { InvoiceLineItem } from './product-selection-screen';
 
 // ═════════════════════════════════════════════════════════
@@ -31,14 +28,26 @@ import type { InvoiceLineItem } from './product-selection-screen';
 type InvoiceDiscountMode = 'none' | 'percentage' | 'flat' | 'round_off' | 'custom';
 
 type DiscountRuleType =
-  | 'retail' | 'wholesale' | 'dealer' | 'farmer'
-  | 'festival' | 'seasonal' | 'scheme' | 'promotion'
-  | 'special' | 'manual';
+  | 'retail'
+  | 'wholesale'
+  | 'dealer'
+  | 'farmer'
+  | 'festival'
+  | 'seasonal'
+  | 'scheme'
+  | 'promotion'
+  | 'special'
+  | 'manual';
 
 type DiscountReason =
-  | 'customer_adjustment' | 'damaged_packing' | 'special_rate'
-  | 'promotion' | 'festival' | 'relationship'
-  | 'management_approval' | 'other';
+  | 'customer_adjustment'
+  | 'damaged_packing'
+  | 'special_rate'
+  | 'promotion'
+  | 'festival'
+  | 'relationship'
+  | 'management_approval'
+  | 'other';
 
 interface DiscountAuditEntry {
   id: string;
@@ -92,7 +101,9 @@ const DISCOUNT_REASONS: { label: string; value: DiscountReason }[] = [
 ];
 
 const MAX_DISCOUNT_PERCENT = 50; // Configurable limit
-const MAX_DISCOUNT_APPROVAL = 30; // Above this requires manager approval
+// Approval limit Settings Hub → Sales: discountApprovalLimit se aata hai
+// (default 30). discountApproval OFF asta tar approval gate band rehta hai.
+const DEFAULT_DISCOUNT_APPROVAL_LIMIT = 30;
 
 // ═════════════════════════════════════════════════════════
 // HELPERS
@@ -110,11 +121,16 @@ function calcInvoiceDiscount(
   customAmt: number,
 ): number {
   switch (mode) {
-    case 'percentage': return Math.round(grossTotal * (percent / 100) * 100) / 100;
-    case 'flat': return Math.min(flat, grossTotal);
-    case 'round_off': return 0; // Handled separately
-    case 'custom': return Math.min(customAmt, grossTotal);
-    default: return 0;
+    case 'percentage':
+      return Math.round(grossTotal * (percent / 100) * 100) / 100;
+    case 'flat':
+      return Math.min(flat, grossTotal);
+    case 'round_off':
+      return 0; // Handled separately
+    case 'custom':
+      return Math.min(customAmt, grossTotal);
+    default:
+      return 0;
   }
 }
 
@@ -132,7 +148,12 @@ interface InvoiceSummaryCardProps {
 }
 
 const InvoiceSummaryCard = memo(function InvoiceSummaryCard({
-  customerName, invoiceNumber, itemCount, grossAmount, currentDiscount, grandTotal,
+  customerName,
+  invoiceNumber,
+  itemCount,
+  grossAmount,
+  currentDiscount,
+  grandTotal,
 }: InvoiceSummaryCardProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -140,15 +161,25 @@ const InvoiceSummaryCard = memo(function InvoiceSummaryCard({
         {/* Customer + Invoice Info */}
         <div className="flex flex-wrap items-center gap-6">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Customer</p>
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{customerName || '—'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Customer
+            </p>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {customerName || '—'}
+            </p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Invoice</p>
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{invoiceNumber || '—'}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Invoice
+            </p>
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {invoiceNumber || '—'}
+            </p>
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Items</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Items
+            </p>
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{itemCount}</p>
           </div>
         </div>
@@ -156,16 +187,28 @@ const InvoiceSummaryCard = memo(function InvoiceSummaryCard({
         {/* Financial Summary */}
         <div className="flex flex-wrap items-center gap-5">
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Gross</p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formatINR(grossAmount)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Gross
+            </p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {formatINR(grossAmount)}
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Discount</p>
-            <p className="text-sm font-semibold text-red-600 dark:text-red-400">{formatINR(currentDiscount)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Discount
+            </p>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+              {formatINR(currentDiscount)}
+            </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Grand Total</p>
-            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatINR(grandTotal)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Grand Total
+            </p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+              {formatINR(grandTotal)}
+            </p>
           </div>
         </div>
       </div>
@@ -190,20 +233,33 @@ interface InvoiceDiscountPanelProps {
   state: DiscountEngineState;
   grossTotal: number;
   onStateChange: (patch: Partial<DiscountEngineState>) => void;
+  discountApprovalLimit: number;
+  discountApprovalEnabled: boolean;
 }
 
 const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
-  state, grossTotal, onStateChange,
+  state,
+  grossTotal,
+  onStateChange,
+  discountApprovalLimit,
+  discountApprovalEnabled,
 }: InvoiceDiscountPanelProps) {
   const discountAmount = calcInvoiceDiscount(
-    grossTotal, state.invoiceDiscountMode,
-    state.invoiceDiscountPercent, state.invoiceDiscountFlat, state.invoiceCustomAmount,
+    grossTotal,
+    state.invoiceDiscountMode,
+    state.invoiceDiscountPercent,
+    state.invoiceDiscountFlat,
+    state.invoiceCustomAmount,
   );
-  const exceedsLimit = state.invoiceDiscountPercent > MAX_DISCOUNT_PERCENT ||
+  const exceedsLimit =
+    state.invoiceDiscountPercent > MAX_DISCOUNT_PERCENT ||
     (state.invoiceDiscountMode === 'flat' && state.invoiceDiscountFlat > grossTotal * 0.5);
-  const needsApproval = state.invoiceDiscountPercent > MAX_DISCOUNT_APPROVAL ||
-    (state.invoiceDiscountMode === 'flat' && state.invoiceDiscountFlat > grossTotal * 0.3);
-  const showReason = state.selectedRule === 'manual' ||
+  const needsApproval =
+    discountApprovalEnabled &&
+    (state.invoiceDiscountPercent > discountApprovalLimit ||
+      (state.invoiceDiscountMode === 'flat' && state.invoiceDiscountFlat > grossTotal * 0.3));
+  const showReason =
+    state.selectedRule === 'manual' ||
     (state.invoiceDiscountMode !== 'none' && state.invoiceDiscountPercent > 0);
 
   return (
@@ -212,12 +268,14 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
       <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
           <BadgePercent className="h-4 w-4 text-emerald-500" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Invoice Level Discount</h3>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            Invoice Level Discount
+          </h3>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="space-y-4 p-4">
           {/* Mode Selection */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
             {(['none', 'percentage', 'flat', 'round_off', 'custom'] as const).map((mode) => (
               <button
                 key={mode}
@@ -226,11 +284,19 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                 className={cn(
                   'rounded-lg border px-2.5 py-2 text-[11px] font-semibold transition-all',
                   state.invoiceDiscountMode === mode
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-600'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-500',
                 )}
               >
-                {mode === 'none' ? 'No Disc' : mode === 'percentage' ? '% Percent' : mode === 'flat' ? '₹ Flat' : mode === 'round_off' ? 'Round Off' : 'Custom'}
+                {mode === 'none'
+                  ? 'No Disc'
+                  : mode === 'percentage'
+                    ? '% Percent'
+                    : mode === 'flat'
+                      ? '₹ Flat'
+                      : mode === 'round_off'
+                        ? 'Round Off'
+                        : 'Custom'}
               </button>
             ))}
           </div>
@@ -238,7 +304,7 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
           {/* Percentage Input */}
           {state.invoiceDiscountMode === 'percentage' && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                 Discount Percentage
               </label>
               <div className="flex items-center gap-2">
@@ -246,7 +312,14 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                   <input
                     type="number"
                     value={state.invoiceDiscountPercent || ''}
-                    onChange={(e) => onStateChange({ invoiceDiscountPercent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                    onChange={(e) =>
+                      onStateChange({
+                        invoiceDiscountPercent: Math.min(
+                          100,
+                          Math.max(0, parseFloat(e.target.value) || 0),
+                        ),
+                      })
+                    }
                     min={0}
                     max={100}
                     step={0.01}
@@ -254,13 +327,14 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                       'h-10 w-full rounded-lg border bg-white pl-8 pr-3 text-right text-sm font-medium outline-none transition-all',
                       'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                       'dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100',
-                      exceedsLimit && 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20',
+                      exceedsLimit &&
+                        'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20',
                     )}
                     aria-label="Invoice discount percentage"
                   />
                   <Percent className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 </div>
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 min-w-[80px] text-right">
+                <span className="min-w-[80px] text-right text-sm font-semibold text-slate-700 dark:text-slate-300">
                   -{formatINR(discountAmount)}
                 </span>
               </div>
@@ -270,7 +344,7 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
           {/* Flat Amount Input */}
           {state.invoiceDiscountMode === 'flat' && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                 Flat Discount Amount
               </label>
               <div className="flex items-center gap-2">
@@ -278,20 +352,25 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                   <input
                     type="number"
                     value={state.invoiceDiscountFlat || ''}
-                    onChange={(e) => onStateChange({ invoiceDiscountFlat: Math.max(0, parseFloat(e.target.value) || 0) })}
+                    onChange={(e) =>
+                      onStateChange({
+                        invoiceDiscountFlat: Math.max(0, parseFloat(e.target.value) || 0),
+                      })
+                    }
                     min={0}
                     step={0.01}
                     className={cn(
                       'h-10 w-full rounded-lg border bg-white pl-8 pr-3 text-right text-sm font-medium outline-none transition-all',
                       'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                       'dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100',
-                      exceedsLimit && 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20',
+                      exceedsLimit &&
+                        'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20',
                     )}
                     aria-label="Flat discount amount"
                   />
                   <IndianRupee className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 </div>
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 min-w-[80px] text-right">
+                <span className="min-w-[80px] text-right text-sm font-semibold text-slate-700 dark:text-slate-300">
                   -{formatINR(discountAmount)}
                 </span>
               </div>
@@ -301,7 +380,7 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
           {/* Custom Amount Input */}
           {state.invoiceDiscountMode === 'custom' && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                 Custom Discount Amount
               </label>
               <div className="flex items-center gap-2">
@@ -309,7 +388,11 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                   <input
                     type="number"
                     value={state.invoiceCustomAmount || ''}
-                    onChange={(e) => onStateChange({ invoiceCustomAmount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                    onChange={(e) =>
+                      onStateChange({
+                        invoiceCustomAmount: Math.max(0, parseFloat(e.target.value) || 0),
+                      })
+                    }
                     min={0}
                     step={0.01}
                     className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-3 text-right text-sm font-medium outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
@@ -325,7 +408,9 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
           {state.invoiceDiscountMode === 'round_off' && (
             <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
               <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Round Off to Nearest Integer</p>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                  Round Off to Nearest Integer
+                </p>
                 <p className="text-xs text-slate-400">Auto round the grand total</p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
@@ -349,7 +434,7 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
           <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Discount Rule</h3>
         </div>
         <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
             {DISCOUNT_RULES.map((rule) => (
               <button
                 key={rule.value}
@@ -358,15 +443,19 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
                 className={cn(
                   'rounded-lg border px-2.5 py-2 text-left transition-all',
                   state.selectedRule === rule.value
-                    ? 'border-emerald-500 bg-emerald-50 shadow-sm dark:bg-emerald-900/20 dark:border-emerald-600'
+                    ? 'border-emerald-500 bg-emerald-50 shadow-sm dark:border-emerald-600 dark:bg-emerald-900/20'
                     : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:hover:border-slate-500',
                 )}
                 title={rule.description}
               >
-                <p className={cn(
-                  'text-[11px] font-semibold',
-                  state.selectedRule === rule.value ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-300',
-                )}>
+                <p
+                  className={cn(
+                    'text-[11px] font-semibold',
+                    state.selectedRule === rule.value
+                      ? 'text-emerald-700 dark:text-emerald-300'
+                      : 'text-slate-700 dark:text-slate-300',
+                  )}
+                >
                   {rule.label}
                 </p>
               </button>
@@ -378,13 +467,13 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
       {/* Validation Warnings */}
       {exceedsLimit && (
         <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/10">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
           <div>
             <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
               Discount exceeds configured limit ({MAX_DISCOUNT_PERCENT}% / 50% of gross)
             </p>
             {needsApproval && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
                 Manager approval required to proceed
               </p>
             )}
@@ -397,12 +486,16 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
         <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
             <ShieldCheck className="h-4 w-4 text-emerald-500" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Discount Reason</h3>
-            <span className="text-xs text-red-500 font-medium">*Required</span>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Discount Reason
+            </h3>
+            <span className="text-xs font-medium text-red-500">*Required</span>
           </div>
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Reason</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                Reason
+              </label>
               <select
                 value={state.reason}
                 onChange={(e) => onStateChange({ reason: e.target.value as DiscountReason })}
@@ -410,18 +503,22 @@ const InvoiceDiscountPanel = memo(function InvoiceDiscountPanel({
               >
                 <option value="">Select reason...</option>
                 {DISCOUNT_REASONS.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Remark (optional)</label>
+              <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
+                Remark (optional)
+              </label>
               <textarea
                 value={state.reasonRemark}
                 onChange={(e) => onStateChange({ reasonRemark: e.target.value })}
                 rows={2}
                 placeholder="Add remarks..."
-                className="h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 resize-none"
+                className="h-20 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
             </div>
 
@@ -448,29 +545,51 @@ interface ItemDiscountTableProps {
 }
 
 const ItemDiscountTable = memo(function ItemDiscountTable({
-  items, activeRow, onItemDiscountChange,
+  items,
+  activeRow,
+  onItemDiscountChange,
 }: ItemDiscountTableProps) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
       <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-700">
         <Tag className="h-4 w-4 text-emerald-500" />
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Item Level Discounts</h3>
-        <span className="text-xs text-slate-400 ml-auto">{items.length} items</span>
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+          Item Level Discounts
+        </h3>
+        <span className="ml-auto text-xs text-slate-400">{items.length} items</span>
       </div>
 
-      <div className="overflow-auto max-h-[400px]">
+      <div className="max-h-[400px] overflow-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50">
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">#</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400 w-[200px]">Product</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Qty</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Rate</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Disc %</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Disc ₹</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Scheme</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Free</th>
-              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">Amount</th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                #
+              </th>
+              <th className="sticky top-0 z-10 w-[200px] bg-slate-50/95 px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Product
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Qty
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Rate
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Disc %
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Disc ₹
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Scheme
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Free
+              </th>
+              <th className="sticky top-0 z-10 bg-slate-50/95 px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-sm dark:bg-slate-800/95 dark:text-slate-400">
+                Amount
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-700/30">
@@ -493,13 +612,17 @@ const ItemDiscountTable = memo(function ItemDiscountTable({
                 >
                   <td className="px-3 py-2.5 text-center text-xs text-slate-400">{index + 1}</td>
                   <td className="px-3 py-2.5">
-                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100 max-w-[180px]">
+                    <p className="max-w-[180px] truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                       {item.productName}
                     </p>
                     <p className="truncate text-[10px] text-slate-400">{item.sku}</p>
                   </td>
-                  <td className="px-3 py-2.5 text-right text-xs text-slate-600 dark:text-slate-400">{item.quantity}</td>
-                  <td className="px-3 py-2.5 text-right text-xs font-medium text-slate-900 dark:text-slate-100">{formatINR(item.rate)}</td>
+                  <td className="px-3 py-2.5 text-right text-xs text-slate-600 dark:text-slate-400">
+                    {item.quantity}
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-xs font-medium text-slate-900 dark:text-slate-100">
+                    {formatINR(item.rate)}
+                  </td>
 
                   {/* Discount % */}
                   <td className="px-1 py-2.5">
@@ -507,7 +630,13 @@ const ItemDiscountTable = memo(function ItemDiscountTable({
                       <input
                         type="number"
                         value={item.discountPercent || ''}
-                        onChange={(e) => onItemDiscountChange(index, 'discountPercent', parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          onItemDiscountChange(
+                            index,
+                            'discountPercent',
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
                         min={0}
                         max={100}
                         step={0.01}
@@ -523,7 +652,13 @@ const ItemDiscountTable = memo(function ItemDiscountTable({
                       <input
                         type="number"
                         value={item.discountValue || ''}
-                        onChange={(e) => onItemDiscountChange(index, 'discountValue', parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          onItemDiscountChange(
+                            index,
+                            'discountValue',
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
                         min={0}
                         step={0.01}
                         className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1 text-right text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
@@ -549,7 +684,9 @@ const ItemDiscountTable = memo(function ItemDiscountTable({
                     <input
                       type="number"
                       value={item.freeQty || ''}
-                      onChange={(e) => onItemDiscountChange(index, 'freeQty', parseFloat(e.target.value) || 0)}
+                      onChange={(e) =>
+                        onItemDiscountChange(index, 'freeQty', parseFloat(e.target.value) || 0)
+                      }
                       min={0}
                       step={0.01}
                       className="h-7 w-12 rounded-md border border-slate-200 bg-white px-1 text-center text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
@@ -591,8 +728,18 @@ interface LiveSummaryProps {
 }
 
 const LiveSummary = memo(function LiveSummary({
-  grossTotal, itemDiscountTotal, invoiceDiscountAmount, mode, roundOff,
-  taxableAmount, cgstTotal, sgstTotal, igstTotal, cessTotal, netAmount, grandTotal,
+  grossTotal,
+  itemDiscountTotal,
+  invoiceDiscountAmount,
+  mode,
+  roundOff,
+  taxableAmount,
+  cgstTotal,
+  sgstTotal,
+  igstTotal,
+  cessTotal,
+  netAmount,
+  grandTotal,
 }: LiveSummaryProps) {
   return (
     <div className="sticky bottom-0 rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
@@ -603,26 +750,68 @@ const LiveSummary = memo(function LiveSummary({
         </h3>
         {mode !== 'none' && (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-            {mode === 'percentage' ? `${invoiceDiscountAmount > 0 ? 'Invoice %' : 'No Disc'}` : mode === 'flat' ? 'Invoice Flat' : mode === 'round_off' ? 'Round Off' : 'Custom'}
+            {mode === 'percentage'
+              ? `${invoiceDiscountAmount > 0 ? 'Invoice %' : 'No Disc'}`
+              : mode === 'flat'
+                ? 'Invoice Flat'
+                : mode === 'round_off'
+                  ? 'Round Off'
+                  : 'Custom'}
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 px-5 py-3">
+      <div className="grid grid-cols-2 gap-4 px-5 py-3 sm:grid-cols-3 lg:grid-cols-6">
         <SummaryCell label="Gross Amount" value={formatINR(grossTotal)} />
-        <SummaryCell label="Item Discount" value={formatINR(itemDiscountTotal)} className="text-red-600 dark:text-red-400" />
-        <SummaryCell label="Invoice Discount" value={formatINR(invoiceDiscountAmount)} className="text-red-600 dark:text-red-400" />
+        <SummaryCell
+          label="Item Discount"
+          value={formatINR(itemDiscountTotal)}
+          className="text-red-600 dark:text-red-400"
+        />
+        <SummaryCell
+          label="Invoice Discount"
+          value={formatINR(invoiceDiscountAmount)}
+          className="text-red-600 dark:text-red-400"
+        />
         <SummaryCell label="Taxable" value={formatINR(taxableAmount)} />
-        <SummaryCell label="CGST" value={formatINR(cgstTotal)} className="text-blue-600 dark:text-blue-400" />
-        <SummaryCell label="SGST" value={formatINR(sgstTotal)} className="text-blue-600 dark:text-blue-400" />
-        <SummaryCell label="IGST" value={formatINR(igstTotal)} className="text-purple-600 dark:text-purple-400" />
-        <SummaryCell label="CESS" value={formatINR(cessTotal)} className="text-orange-600 dark:text-orange-400" />
-        <SummaryCell label="Round Off" value={roundOff.toFixed(2)} className={roundOff < 0 ? 'text-red-500' : 'text-emerald-500'} />
-        <SummaryCell label="Net Amount" value={formatINR(netAmount)} className="text-indigo-600 dark:text-indigo-400" />
-        <div className="col-span-full lg:col-span-1 flex items-center justify-end">
+        <SummaryCell
+          label="CGST"
+          value={formatINR(cgstTotal)}
+          className="text-blue-600 dark:text-blue-400"
+        />
+        <SummaryCell
+          label="SGST"
+          value={formatINR(sgstTotal)}
+          className="text-blue-600 dark:text-blue-400"
+        />
+        <SummaryCell
+          label="IGST"
+          value={formatINR(igstTotal)}
+          className="text-purple-600 dark:text-purple-400"
+        />
+        <SummaryCell
+          label="CESS"
+          value={formatINR(cessTotal)}
+          className="text-orange-600 dark:text-orange-400"
+        />
+        <SummaryCell
+          label="Round Off"
+          value={roundOff.toFixed(2)}
+          className={roundOff < 0 ? 'text-red-500' : 'text-emerald-500'}
+        />
+        <SummaryCell
+          label="Net Amount"
+          value={formatINR(netAmount)}
+          className="text-indigo-600 dark:text-indigo-400"
+        />
+        <div className="col-span-full flex items-center justify-end lg:col-span-1">
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Grand Total</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatINR(grandTotal)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Grand Total
+            </p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              {formatINR(grandTotal)}
+            </p>
           </div>
         </div>
       </div>
@@ -631,12 +820,22 @@ const LiveSummary = memo(function LiveSummary({
 });
 
 function SummaryCell({
-  label, value, className,
-}: { label: string; value: string; className?: string }) {
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{label}</p>
-      <p className={cn('text-sm font-bold text-slate-800 dark:text-slate-200', className)}>{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        {label}
+      </p>
+      <p className={cn('text-sm font-bold text-slate-800 dark:text-slate-200', className)}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -682,35 +881,68 @@ export function DiscountEngineScreen({
   const [showAudit, setShowAudit] = useState(false);
   const [auditLog, setAuditLog] = useState<DiscountAuditEntry[]>([]);
   const [focusMode, setFocusMode] = useState<'left' | 'right'>('left');
+  // Sales Settings → Discount Approval: limit + gate (default preserve purana behavior)
+  const [discountApprovalLimit, setDiscountApprovalLimit] = useState(
+    DEFAULT_DISCOUNT_APPROVAL_LIMIT,
+  );
+  const [discountApprovalEnabled, setDiscountApprovalEnabled] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const settings = await apiRequest<Record<string, unknown>>('/sales/settings');
+        if (!cancelled && settings) {
+          if (typeof settings.discountApprovalLimit === 'number') {
+            setDiscountApprovalLimit(settings.discountApprovalLimit);
+          }
+          setDiscountApprovalEnabled(settings.discountApproval !== false);
+        }
+      } catch {
+        /* settings load fail → defaults (purana behavior) */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const updateDiscountState = useCallback((patch: Partial<DiscountEngineState>) => {
-    setDiscountState(prev => ({ ...prev, ...patch }));
+    setDiscountState((prev) => ({ ...prev, ...patch }));
   }, []);
 
   // ── Items are synced back to parent via onItemsChange
   // in handleItemDiscountChange
 
   // ── Item discount changes ─────────────────────────
-  const handleItemDiscountChange = useCallback((index: number, field: string, value: number | string) => {
-    setItems(prev => {
-      const next = prev.map((item, i) => {
-        if (i !== index) return item;
-        return { ...item, [field]: value };
+  const handleItemDiscountChange = useCallback(
+    (index: number, field: string, value: number | string) => {
+      setItems((prev) => {
+        const next = prev.map((item, i) => {
+          if (i !== index) {
+            return item;
+          }
+          return { ...item, [field]: value };
+        });
+        onItemsChange(next);
+        return next;
       });
-      onItemsChange(next);
-      return next;
-    });
-    // Log audit entry
-    setAuditLog(prev => [...prev, {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      field,
-      oldValue: '',
-      newValue: String(value),
-      reason: discountState.reason || 'Item discount update',
-      changedBy: 'user',
-    }]);
-  }, [discountState.reason, onItemsChange]);
+      // Log audit entry
+      setAuditLog((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          field,
+          oldValue: '',
+          newValue: String(value),
+          reason: discountState.reason || 'Item discount update',
+          changedBy: 'user',
+        },
+      ]);
+    },
+    [discountState.reason, onItemsChange],
+  );
 
   // ── Computed values ────────────────────────────────
   const computed = useMemo(() => {
@@ -730,7 +962,7 @@ export function DiscountEngineScreen({
     );
 
     // After invoice discount
-    const afterInvoiceDisc = (initialGross - itemDiscountTotal) - invoiceDiscountAmount;
+    const afterInvoiceDisc = initialGross - itemDiscountTotal - invoiceDiscountAmount;
 
     // Taxable is the after-invoice-discount amount
     const taxableAmount = afterInvoiceDisc;
@@ -744,7 +976,7 @@ export function DiscountEngineScreen({
     const cessTotal = items.reduce((s, i) => s + i.cessAmount, 0) * gstScale;
 
     const netAmount = taxableAmount + cgstTotal + sgstTotal + igstTotal + cessTotal;
-    const roundOff = discountState.applyRoundOff ? (Math.round(netAmount) - netAmount) : 0;
+    const roundOff = discountState.applyRoundOff ? Math.round(netAmount) - netAmount : 0;
     const grandTotal = discountState.applyRoundOff ? Math.round(netAmount) : netAmount;
 
     return {
@@ -752,8 +984,13 @@ export function DiscountEngineScreen({
       invoiceDiscountAmount,
       afterInvoiceDisc,
       taxableAmount,
-      cgstTotal, sgstTotal, igstTotal, cessTotal,
-      netAmount, roundOff, grandTotal,
+      cgstTotal,
+      sgstTotal,
+      igstTotal,
+      cessTotal,
+      netAmount,
+      roundOff,
+      grandTotal,
     };
   }, [items, initialGross, discountState]);
 
@@ -761,8 +998,11 @@ export function DiscountEngineScreen({
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
     const isManual = discountState.selectedRule === 'manual';
-    const hasDiscount = discountState.invoiceDiscountMode !== 'none' &&
-      (discountState.invoiceDiscountPercent > 0 || discountState.invoiceDiscountFlat > 0 || discountState.invoiceCustomAmount > 0);
+    const hasDiscount =
+      discountState.invoiceDiscountMode !== 'none' &&
+      (discountState.invoiceDiscountPercent > 0 ||
+        discountState.invoiceDiscountFlat > 0 ||
+        discountState.invoiceCustomAmount > 0);
 
     if (isManual && hasDiscount && !discountState.reason) {
       errors.push('Discount reason is required for manual discount');
@@ -770,57 +1010,64 @@ export function DiscountEngineScreen({
     if (discountState.invoiceDiscountPercent > MAX_DISCOUNT_PERCENT) {
       errors.push(`Discount exceeds ${MAX_DISCOUNT_PERCENT}% limit`);
     }
-    if (discountState.invoiceDiscountPercent > MAX_DISCOUNT_APPROVAL && !discountState.approvalGranted) {
-      errors.push('Manager approval required for discount above 30%');
+    if (
+      discountApprovalEnabled &&
+      discountState.invoiceDiscountPercent > discountApprovalLimit &&
+      !discountState.approvalGranted
+    ) {
+      errors.push(`Manager approval required for discount above ${discountApprovalLimit}%`);
     }
     if (items.length === 0) {
       errors.push('No items in invoice');
     }
     return errors;
-  }, [discountState]);
+  }, [discountState, discountApprovalLimit, discountApprovalEnabled]);
 
   // ── Keyboard handler ──────────────────────────────
   const [activeItemRow, setActiveItemRow] = useState(0);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'Tab':
-        if (e.shiftKey) {
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      switch (e.key) {
+        case 'Tab':
+          if (e.shiftKey) {
+            e.preventDefault();
+            setFocusMode((prev) => (prev === 'left' ? 'right' : 'left'));
+          } else {
+            e.preventDefault();
+            setFocusMode((prev) => (prev === 'left' ? 'right' : 'left'));
+          }
+          break;
+        case 'ArrowDown':
+          if (focusMode === 'right') {
+            e.preventDefault();
+            setActiveItemRow((prev) => Math.min(prev + 1, items.length - 1));
+          }
+          break;
+        case 'ArrowUp':
+          if (focusMode === 'right') {
+            e.preventDefault();
+            setActiveItemRow((prev) => Math.max(prev - 1, 0));
+          }
+          break;
+        case 'Enter':
+          if (e.ctrlKey && focusMode === 'right') {
+            e.preventDefault();
+            setActiveItemRow(0);
+          }
+          break;
+        case 'Escape':
           e.preventDefault();
-          setFocusMode(prev => prev === 'left' ? 'right' : 'left');
-        } else {
-          e.preventDefault();
-          setFocusMode(prev => prev === 'left' ? 'right' : 'left');
-        }
-        break;
-      case 'ArrowDown':
-        if (focusMode === 'right') {
-          e.preventDefault();
-          setActiveItemRow(prev => Math.min(prev + 1, items.length - 1));
-        }
-        break;
-      case 'ArrowUp':
-        if (focusMode === 'right') {
-          e.preventDefault();
-          setActiveItemRow(prev => Math.max(prev - 1, 0));
-        }
-        break;
-      case 'Enter':
-        if (e.ctrlKey && focusMode === 'right') {
-          e.preventDefault();
-          setActiveItemRow(0);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowAudit(false);
-        break;
-    }
-  }, [focusMode, items.length]);
+          setShowAudit(false);
+          break;
+      }
+    },
+    [focusMode, items.length],
+  );
 
   return (
     <div
-      className="flex h-full flex-col animate-in fade-in duration-200 space-y-4"
+      className="animate-in fade-in flex h-full flex-col space-y-4 duration-200"
       onKeyDown={handleKeyDown}
       tabIndex={-1}
     >
@@ -834,7 +1081,9 @@ export function DiscountEngineScreen({
             onClick={onBack}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
             aria-label="Go back"
-          ><ArrowLeft className="h-4 w-4" /></button>
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <div>
             <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Discount Engine
@@ -874,7 +1123,7 @@ export function DiscountEngineScreen({
           VALIDATION BANNERS
       ═══════════════════════════════════════════════════ */}
       {validationErrors.length > 0 && (
-        <div className="px-6 space-y-1">
+        <div className="space-y-1 px-6">
           {validationErrors.map((err, i) => (
             <div
               key={i}
@@ -891,7 +1140,7 @@ export function DiscountEngineScreen({
           MAIN CONTENT: Split Layout
       ═══════════════════════════════════════════════════ */}
       <div className="min-h-0 flex-1 overflow-auto px-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* LEFT: Invoice Level Discount */}
           <div
             tabIndex={0}
@@ -905,6 +1154,8 @@ export function DiscountEngineScreen({
               state={discountState}
               grossTotal={initialGross}
               onStateChange={updateDiscountState}
+              discountApprovalLimit={discountApprovalLimit}
+              discountApprovalEnabled={discountApprovalEnabled}
             />
           </div>
 
@@ -979,27 +1230,38 @@ export function DiscountEngineScreen({
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
               <div className="flex items-center gap-2">
                 <History className="h-4 w-4 text-emerald-500" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Discount Audit Trail</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Discount Audit Trail
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowAudit(false)}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-              ><X className="h-4 w-4" /></button>
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <div className="max-h-80 overflow-auto p-4">
               {auditLog.length === 0 ? (
-                <p className="text-center text-sm text-slate-400 py-8">No audit entries yet</p>
+                <p className="py-8 text-center text-sm text-slate-400">No audit entries yet</p>
               ) : (
                 <div className="space-y-2">
                   {auditLog.map((entry) => (
-                    <div key={entry.id} className="rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-700/30">
+                    <div
+                      key={entry.id}
+                      className="rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-slate-700/30"
+                    >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-slate-700 dark:text-slate-300">{entry.field}</span>
-                        <span className="text-slate-400">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {entry.field}
+                        </span>
+                        <span className="text-slate-400">
+                          {new Date(entry.timestamp).toLocaleTimeString()}
+                        </span>
                       </div>
-                      <p className="text-slate-500 mt-0.5">→ {entry.newValue}</p>
-                      <p className="text-slate-400 text-[10px] mt-0.5">{entry.reason}</p>
+                      <p className="mt-0.5 text-slate-500">→ {entry.newValue}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">{entry.reason}</p>
                     </div>
                   ))}
                 </div>

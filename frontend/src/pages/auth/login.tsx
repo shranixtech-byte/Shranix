@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext';
+import { getPreferredLandingPath, usePreferences } from '@/providers/preferences-provider';
 
 // ═══════════════════════════════════════════════════════════
 // ICONS (inline SVG to avoid lucide dependency for login page)
@@ -9,7 +10,15 @@ import { useAuth } from '@/context/AuthContext';
 
 function MoonIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
     </svg>
   );
@@ -17,24 +26,50 @@ function MoonIcon({ className }: { className?: string }) {
 
 function EyeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
 function EyeOffIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" strokeWidth="2" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" strokeWidth="2" />
     </svg>
   );
 }
 
 function CheckIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -42,50 +77,111 @@ function CheckIcon({ className }: { className?: string }) {
 
 function FarmersIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
 
 function CropIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 22V2l20 20" /><path d="M6 12V6h6" /><path d="M10 2h4v4" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 22V2l20 20" />
+      <path d="M6 12V6h6" />
+      <path d="M10 2h4v4" />
     </svg>
   );
 }
 
 function InventoryIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 7.5v9L12 22 2 16.5v-9L12 2l10 5.5z" /><path d="M2 7.5l10 5.5 10-5.5" /><path d="M12 22V11.5" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 7.5v9L12 22 2 16.5v-9L12 2l10 5.5z" />
+      <path d="M2 7.5l10 5.5 10-5.5" />
+      <path d="M12 22V11.5" />
     </svg>
   );
 }
 
 function SalesIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20V10" />
+      <path d="M18 20V4" />
+      <path d="M6 20v-4" />
     </svg>
   );
 }
 
 function AnalyticsIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3v18h18" /><path d="M7 16l4-8 4 4 4-6" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 3v18h18" />
+      <path d="M7 16l4-8 4 4 4-6" />
     </svg>
   );
 }
 
 function WeatherIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M20 12h2" /><path d="M19.07 4.93l-1.41 1.41" />
-      <path d="M15.5 12a3.5 3.5 0 0 0-7 0" /><path d="M12 14h.01" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2v2" />
+      <path d="M4.93 4.93l1.41 1.41" />
+      <path d="M20 12h2" />
+      <path d="M19.07 4.93l-1.41 1.41" />
+      <path d="M15.5 12a3.5 3.5 0 0 0-7 0" />
+      <path d="M12 14h.01" />
       <path d="M12 18c-3.31 0-6-2.69-6-6a6 6 0 1 1 12 0c0 .34-.03.67-.08 1" />
       <path d="M16 18c0 2.21-1.79 4-4 4a4 4 0 0 1-4-4" />
     </svg>
@@ -94,7 +190,15 @@ function WeatherIcon({ className }: { className?: string }) {
 
 function HumidityIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
     </svg>
   );
@@ -102,16 +206,36 @@ function HumidityIcon({ className }: { className?: string }) {
 
 function CalendarIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
     </svg>
   );
 }
 
 function GlobeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   );
@@ -119,8 +243,24 @@ function GlobeIcon({ className }: { className?: string }) {
 
 function SunIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="M4.93 4.93l1.41 1.41" /><path d="M17.66 17.66l1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="M6.34 17.66l-1.41 1.41" /><path d="M19.07 4.93l-1.41 1.41" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="M4.93 4.93l1.41 1.41" />
+      <path d="M17.66 17.66l1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="M6.34 17.66l-1.41 1.41" />
+      <path d="M19.07 4.93l-1.41 1.41" />
     </svg>
   );
 }
@@ -150,10 +290,14 @@ const features = [
 // ═══════════════════════════════════════════════════════════
 
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
+  const { preferences } = usePreferences();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  // Default Landing Page (Settings → Dashboard) — fresh login par preferred page,
+  // par agar user kisi specific page se redirect hua hai to wahi page mile.
+  const dest = from && from !== '/' ? from : getPreferredLandingPath(preferences, user);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -176,7 +320,7 @@ export function LoginPage() {
 
     try {
       await login({ email, password });
-      navigate(from, { replace: true });
+      navigate(dest, { replace: true });
     } catch (err) {
       setError((err as Error).message || 'Login failed. Please try again.');
     } finally {
@@ -185,7 +329,11 @@ export function LoginPage() {
   };
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const dateStr = today.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <div className="relative flex min-h-screen overflow-hidden">
@@ -201,15 +349,15 @@ export function LoginPage() {
           loading="eager"
         />
         {/* Light overlay — natural colours shine through clearly */}
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/25 via-emerald-900/12 to-amber-950/6" />
+        <div className="via-emerald-900/12 to-amber-950/6 absolute inset-0 bg-gradient-to-br from-emerald-950/25" />
       </div>
 
       {/* ═══════════════════════════════════════════════════
           TOP-RIGHT CONTROLS — Language + Theme
       ═══════════════════════════════════════════════════ */}
-      <div className="absolute top-5 right-5 z-50 flex items-center gap-2">
+      <div className="absolute right-5 top-5 z-50 flex items-center gap-2">
         {/* Language Toggle */}
-        <div className="flex items-center rounded-full bg-white/10 backdrop-blur-md border border-white/15 p-0.5">
+        <div className="flex items-center rounded-full border border-white/15 bg-white/10 p-0.5 backdrop-blur-md">
           <button
             onClick={() => setLanguage('en')}
             className={`flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ${
@@ -236,7 +384,7 @@ export function LoginPage() {
         {/* Theme Toggle */}
         <button
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-white/70 hover:text-white transition-all duration-200 hover:bg-white/20"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white/70 backdrop-blur-md transition-all duration-200 hover:bg-white/20 hover:text-white"
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {theme === 'dark' ? <SunIcon className="h-4 w-4" /> : <MoonIcon className="h-4 w-4" />}
@@ -247,36 +395,41 @@ export function LoginPage() {
           LEFT SECTION — 60% Agriculture Hero Content (55% on tablet)
           Background is now on the parent container — no image/overlay here
       ═══════════════════════════════════════════════════ */}
-      <div className="hidden md:flex md:w-[55%] lg:w-[60%] relative">
+      <div className="relative hidden md:flex md:w-[55%] lg:w-[60%]">
         {/* Softer dimming on left side — reduced ~20% to show more of the background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/50 via-emerald-950/15 to-transparent z-[1]" />
+        <div className="absolute inset-0 z-[1] bg-gradient-to-r from-emerald-950/50 via-emerald-950/15 to-transparent" />
 
         {/* Content */}
-        <div className="relative z-20 flex flex-col justify-between h-full w-full px-10 lg:px-14 pt-12 pb-8">
+        <div className="relative z-20 flex h-full w-full flex-col justify-between px-10 pb-8 pt-12 lg:px-14">
           {/* Branding — larger, premium, shifted left */}
           <div className="-ml-6">
             <div className="flex items-center gap-0">
               <img
                 src="/logo.png"
                 alt="SHRANIX"
-                className="object-contain shrink-0 animate-[fadeInUp_0.7s_ease-out]"
+                className="shrink-0 animate-[fadeInUp_0.7s_ease-out] object-contain"
                 style={{ width: '280px', height: '280px' }}
               />
               <div className="animate-[fadeInUp_0.7s_ease-out_0.2s_both]">
-                <h1 className="text-5xl font-extrabold tracking-tight"
+                <h1
+                  className="text-5xl font-extrabold tracking-tight"
                   style={{ color: '#FBBF24', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}
                 >
                   SHRANIX
                 </h1>
-                <p className="text-sm font-bold tracking-[0.35em] text-[#22C55E] uppercase pl-1"
+                <p
+                  className="pl-1 text-sm font-bold uppercase tracking-[0.35em] text-[#22C55E]"
                   style={{ textShadow: '0 1px 4px rgba(0,0,0,0.25)' }}
                 >
                   KRUSHI ERP
                 </p>
-                <p className="mt-2 text-base font-medium tracking-wide text-white/80"
+                <p
+                  className="mt-2 text-base font-medium tracking-wide text-white/80"
                   style={{ textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}
                 >
-                  {language === 'mr' ? 'स्मार्ट कृषी व्यवस्थापन प्रणाली' : 'Smart Agriculture Management System'}
+                  {language === 'mr'
+                    ? 'स्मार्ट कृषी व्यवस्थापन प्रणाली'
+                    : 'Smart Agriculture Management System'}
                 </p>
               </div>
 
@@ -284,7 +437,7 @@ export function LoginPage() {
               <img
                 src="/god/ganpati.png"
                 alt="Ganpati Bappa"
-                className="h-24 w-24 sm:h-28 sm:w-28 object-contain self-center drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+                className="h-24 w-24 self-center object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)] sm:h-28 sm:w-28"
                 style={{ transform: 'translateX(-140px) translateY(-20px) rotate(-20deg)' }}
                 loading="eager"
               />
@@ -295,16 +448,20 @@ export function LoginPage() {
           <div className="space-y-10">
             {/* Tagline */}
             <div className="-mt-10">
-              <h2 className="text-4xl leading-tight text-white sm:text-5xl lg:text-6xl tracking-tight"
+              <h2
+                className="text-4xl leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl"
                 style={{
                   fontWeight: 800,
                   textShadow: '0 2px 10px rgba(0,0,0,0.25)',
                 }}
               >
                 {language === 'mr' ? 'स्मार्ट शेती' : 'Smart Farming'},<br />
-                <span className="text-emerald-300">{language === 'mr' ? 'स्मार्ट व्यवसाय' : 'Smarter Business'}</span>
+                <span className="text-emerald-300">
+                  {language === 'mr' ? 'स्मार्ट व्यवसाय' : 'Smarter Business'}
+                </span>
               </h2>
-              <p className="mt-4 text-sm leading-relaxed max-w-md"
+              <p
+                className="mt-4 max-w-md text-sm leading-relaxed"
                 style={{ color: 'rgba(255,255,255,0.88)' }}
               >
                 {language === 'mr'
@@ -318,13 +475,16 @@ export function LoginPage() {
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
-                  <div                  key={feature.labelEn} className="flex items-center gap-4 group">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm text-emerald-300/90 group-hover:bg-white/15 group-hover:text-emerald-300 transition-all duration-300">
+                  <div key={feature.labelEn} className="group flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-emerald-300/90 backdrop-blur-sm transition-all duration-300 group-hover:bg-white/15 group-hover:text-emerald-300">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <span className="text-sm text-white group-hover:text-white transition-colors"
+                    <span
+                      className="text-sm text-white transition-colors group-hover:text-white"
                       style={{ fontWeight: 600 }}
-                    >{language === 'mr' ? feature.labelMr : feature.labelEn}</span>
+                    >
+                      {language === 'mr' ? feature.labelMr : feature.labelEn}
+                    </span>
                   </div>
                 );
               })}
@@ -334,47 +494,68 @@ export function LoginPage() {
           {/* Bottom Cards + Footer */}
           <div>
             {/* Premium Weather Cards */}
-            <div className="flex items-center gap-8 mb-6">
-              <div className="flex items-center gap-3 rounded-2xl bg-white/8 backdrop-blur-md border border-white/18 px-5 py-3 shadow-lg shadow-black/10 animate-[fadeInUp_0.5s_ease-out_0.6s_both]">
+            <div className="mb-6 flex items-center gap-8">
+              <div className="bg-white/8 border-white/18 flex animate-[fadeInUp_0.5s_ease-out_0.6s_both] items-center gap-3 rounded-2xl border px-5 py-3 shadow-lg shadow-black/10 backdrop-blur-md">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/20">
                   <WeatherIcon className="h-5 w-5 text-amber-300" />
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest"
+                  <p
+                    className="text-[9px] uppercase tracking-widest"
                     style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}
-                  >{language === 'mr' ? 'हवामान' : 'Weather'}</p>
-                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>28°C · Sunny</p>
+                  >
+                    {language === 'mr' ? 'हवामान' : 'Weather'}
+                  </p>
+                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>
+                    28°C · Sunny
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/8 backdrop-blur-md border border-white/18 px-5 py-3 shadow-lg shadow-black/10 animate-[fadeInUp_0.5s_ease-out_0.7s_both]">
+              <div className="bg-white/8 border-white/18 flex animate-[fadeInUp_0.5s_ease-out_0.7s_both] items-center gap-3 rounded-2xl border px-5 py-3 shadow-lg shadow-black/10 backdrop-blur-md">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-400/20">
                   <HumidityIcon className="h-5 w-5 text-blue-300" />
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest"
+                  <p
+                    className="text-[9px] uppercase tracking-widest"
                     style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}
-                  >{language === 'mr' ? 'आर्द्रता' : 'Humidity'}</p>
-                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>62%</p>
+                  >
+                    {language === 'mr' ? 'आर्द्रता' : 'Humidity'}
+                  </p>
+                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>
+                    62%
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 rounded-2xl bg-white/8 backdrop-blur-md border border-white/18 px-5 py-3 shadow-lg shadow-black/10 animate-[fadeInUp_0.5s_ease-out_0.8s_both]">
+              <div className="bg-white/8 border-white/18 flex animate-[fadeInUp_0.5s_ease-out_0.8s_both] items-center gap-3 rounded-2xl border px-5 py-3 shadow-lg shadow-black/10 backdrop-blur-md">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-400/20">
                   <CalendarIcon className="h-5 w-5 text-emerald-300" />
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase tracking-widest"
+                  <p
+                    className="text-[9px] uppercase tracking-widest"
                     style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}
-                  >{language === 'mr' ? 'तारीख' : 'Date'}</p>
-                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>{dateStr}</p>
+                  >
+                    {language === 'mr' ? 'तारीख' : 'Date'}
+                  </p>
+                  <p className="text-sm text-white" style={{ fontWeight: 700 }}>
+                    {dateStr}
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between text-xs border-t border-white/8 pt-4"
+            <div
+              className="border-white/8 flex items-center justify-between border-t pt-4 text-xs"
               style={{ color: 'rgba(255,255,255,0.5)' }}
             >
-              <span>© {today.getFullYear()} {language === 'mr' ? 'श्रानिक्स टेक्नॉलॉजीज प्रा. लि.' : 'SHRANIX Technologies Pvt. Ltd.'}</span>
+              <span>
+                © {today.getFullYear()}{' '}
+                {language === 'mr'
+                  ? 'श्रानिक्स टेक्नॉलॉजीज प्रा. लि.'
+                  : 'SHRANIX Technologies Pvt. Ltd.'}
+              </span>
               <span>{language === 'mr' ? 'आवृत्ती १.०.०' : 'Version 1.0.0'}</span>
             </div>
           </div>
@@ -385,16 +566,16 @@ export function LoginPage() {
           RIGHT SECTION — 40% Glassmorphism Login Card (45% on tablet)
           FULLY TRANSPARENT background — the agriculture landscape shows through
       ═══════════════════════════════════════════════════ */}
-      <div className="w-full md:w-[45%] lg:w-[40%] relative flex items-center justify-center">
+      <div className="relative flex w-full items-center justify-center md:w-[45%] lg:w-[40%]">
         {/* Login Card — Premium Glassmorphism */}
-        <div
-          className="relative w-full max-w-[480px] mx-auto px-6 py-8 sm:px-10"
-        >
+        <div className="relative mx-auto w-full max-w-[480px] px-6 py-8 sm:px-10">
           {/* ═══════════════════════════════════════════
               PREMIUM GLASSMORPHISM CARD — Windows 11 / macOS style
               Semi-transparent white, strong blur, subtle border
               BACKGROUND IMAGE VISIBLE THROUGH THE CARD
-          ═══════════════════════════════════════════ */}              <div className="rounded-[12px] p-8 sm:p-10 pt-3"
+          ═══════════════════════════════════════════ */}{' '}
+          <div
+            className="rounded-[12px] p-8 pt-3 sm:p-10"
             style={{
               background: 'rgba(255,255,255,0.08)',
               backdropFilter: 'blur(2px)',
@@ -405,13 +586,15 @@ export function LoginPage() {
               animation: 'cardEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) both',
             }}
           >
-
             {/* Welcome Back Header — 5-6px gap from card top */}
-            <div className="text-center mb-1.5">
-              <h2 className="text-2xl font-bold text-white" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.2)' }}>
+            <div className="mb-1.5 text-center">
+              <h2
+                className="text-2xl font-bold text-white"
+                style={{ textShadow: '0 1px 6px rgba(0,0,0,0.2)' }}
+              >
                 {language === 'mr' ? 'पुन्हा स्वागत आहे' : 'Welcome Back'}
               </h2>
-              <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              <p className="mt-1 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
                 {language === 'mr' ? 'खात्यात प्रवेश करा' : 'Sign in to continue'}
               </p>
             </div>
@@ -419,7 +602,7 @@ export function LoginPage() {
               {/* Error Message */}
               {error && (
                 <div
-                  className="rounded-xl px-4 py-3 text-sm font-medium backdrop-blur-sm animate-[fadeInUp_0.5s_ease-out_0.05s_both]"
+                  className="animate-[fadeInUp_0.5s_ease-out_0.05s_both] rounded-xl px-4 py-3 text-sm font-medium backdrop-blur-sm"
                   style={{
                     backgroundColor: 'rgba(239,68,68,0.1)',
                     color: '#ef4444',
@@ -448,7 +631,7 @@ export function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={language === 'mr' ? 'तुमचा ईमेल टाका' : 'you@company.com'}
-                    className="w-full h-12 rounded-2xl border px-4 text-sm outline-none transition-all duration-200 placeholder:text-sm placeholder:text-white/70"
+                    className="h-12 w-full rounded-2xl border px-4 text-sm outline-none transition-all duration-200 placeholder:text-sm placeholder:text-white/70"
                     style={{
                       color: '#ffffff',
                       borderColor: 'rgba(255,255,255,0.25)',
@@ -486,7 +669,7 @@ export function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={language === 'mr' ? 'तुमचा पासवर्ड टाका' : 'Enter your password'}
-                    className="w-full h-12 rounded-2xl border px-4 text-sm outline-none transition-all duration-200 placeholder:text-sm placeholder:text-white/70 pr-12"
+                    className="h-12 w-full rounded-2xl border px-4 pr-12 text-sm outline-none transition-all duration-200 placeholder:text-sm placeholder:text-white/70"
                     style={{
                       color: '#ffffff',
                       borderColor: 'rgba(255,255,255,0.25)',
@@ -506,17 +689,21 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 transition-colors hover:text-white"
                     tabIndex={-1}
                   >
-                    {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                    {showPassword ? (
+                      <EyeOffIcon className="h-5 w-5" />
+                    ) : (
+                      <EyeIcon className="h-5 w-5" />
+                    )}
                   </button>
                 </div>
               </div>
 
               {/* Remember Me + Forgot Password */}
-              <div className="flex items-center justify-between animate-[fadeInUp_0.5s_ease-out_0.26s_both]">
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <div className="flex animate-[fadeInUp_0.5s_ease-out_0.26s_both] items-center justify-between">
+                <label className="flex cursor-pointer select-none items-center gap-2.5">
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -529,8 +716,13 @@ export function LoginPage() {
                     role="checkbox"
                     aria-checked={rememberMe}
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRememberMe(!rememberMe); }}}
-                    className="flex h-[18px] w-[18px] items-center justify-center rounded-md border transition-all duration-150 cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setRememberMe(!rememberMe);
+                      }
+                    }}
+                    className="flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-md border transition-all duration-150"
                     style={{
                       borderColor: rememberMe ? '#16A34A' : 'rgba(255,255,255,0.3)',
                       backgroundColor: rememberMe ? '#16A34A' : 'rgba(255,255,255,0.08)',
@@ -559,7 +751,7 @@ export function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full h-11 rounded-2xl text-sm text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  className="h-11 w-full rounded-2xl text-sm text-white shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                   style={{
                     fontWeight: 700,
                     background: 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)',
@@ -567,33 +759,49 @@ export function LoginPage() {
                   }}
                   onMouseEnter={(e) => {
                     if (!isSubmitting) {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #15803D 0%, #166534 100%)';
+                      e.currentTarget.style.background =
+                        'linear-gradient(135deg, #15803D 0%, #166534 100%)';
                       e.currentTarget.style.boxShadow = '0 6px 24px rgba(22,163,74,0.5)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #16A34A 0%, #15803D 100%)';
+                    e.currentTarget.style.background =
+                      'linear-gradient(135deg, #16A34A 0%, #15803D 100%)';
                     e.currentTarget.style.boxShadow = '0 4px 20px rgba(22,163,74,0.35)';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
                       </svg>
                       {language === 'mr' ? 'साइन इन करत आहे...' : 'Signing in...'}
                     </span>
+                  ) : language === 'mr' ? (
+                    'साइन इन करा'
                   ) : (
-                    language === 'mr' ? 'साइन इन करा' : 'Sign In'
+                    'Sign In'
                   )}
                 </button>
               </div>
 
               {/* Login with OTP — Glass outline button */}
-              <div className="text-center animate-[fadeInUp_0.5s_ease-out_0.42s_both]">
+              <div className="animate-[fadeInUp_0.5s_ease-out_0.42s_both] text-center">
                 <button
                   type="button"
                   className="w-full rounded-2xl border px-4 py-2.5 text-xs uppercase tracking-wider transition-all duration-200 hover:bg-white/10"
@@ -613,7 +821,7 @@ export function LoginPage() {
 
             {/* Register Link */}
             <div
-              className="mt-6 text-center text-xs animate-[fadeInUp_0.5s_ease-out_0.5s_both]"
+              className="mt-6 animate-[fadeInUp_0.5s_ease-out_0.5s_both] text-center text-xs"
               style={{ color: 'rgba(255,255,255,0.7)' }}
             >
               {language === 'mr' ? 'खाते नाही?' : "Don't have an account?"}{' '}
@@ -626,13 +834,15 @@ export function LoginPage() {
               </Link>
             </div>
           </div>
-
           {/* Mobile-only: Copyright footer */}
           <p
             className="mt-6 text-center text-[10px] lg:hidden"
             style={{ color: 'rgba(255,255,255,0.7)' }}
           >
-            &copy; {today.getFullYear()} {language === 'mr' ? 'श्रानिक्स टेक्नॉलॉजीज प्रा. लि.' : 'SHRANIX Technologies Pvt. Ltd.'}
+            &copy; {today.getFullYear()}{' '}
+            {language === 'mr'
+              ? 'श्रानिक्स टेक्नॉलॉजीज प्रा. लि.'
+              : 'SHRANIX Technologies Pvt. Ltd.'}
           </p>
         </div>
       </div>

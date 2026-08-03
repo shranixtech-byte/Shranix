@@ -1,5 +1,4 @@
-import { CanActivate, ExecutionContext } from '@nestjs/common';
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Reflector } from '@nestjs/core';
 
@@ -39,6 +38,8 @@ const permissionResourceFamilies: Record<string, readonly string[]> = {
     'inventory-settings',
   ],
   assets: ['asset', 'asset-category'],
+  // integrations.* (seeded) grants the integration.api_key / integration.webhook / integration.import controllers
+  integrations: ['integration'],
 };
 
 export function grantsPermission(grantedPermission: string, requiredPermission: string): boolean {

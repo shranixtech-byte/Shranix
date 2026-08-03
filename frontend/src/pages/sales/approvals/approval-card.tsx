@@ -1,10 +1,22 @@
-import { useState } from 'react';
 import {
-  CheckCircle2, XCircle, ArrowLeftCircle, UserPlus, Eye, Clock,
-  AlertTriangle, FileText,
+  CheckCircle2,
+  XCircle,
+  ArrowLeftCircle,
+  UserPlus,
+  Eye,
+  Clock,
+  AlertTriangle,
+  FileText,
 } from 'lucide-react';
+import { useState } from 'react';
+
 import type { ApprovalMaster } from '@/services/sales-approval.service';
-import { approveApproval, rejectApproval, sendBackApproval, assignApproval } from '@/services/sales-approval.service';
+import {
+  approveApproval,
+  rejectApproval,
+  sendBackApproval,
+  assignApproval,
+} from '@/services/sales-approval.service';
 
 function formatCurrency(v: number): string {
   return `₹${(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -42,7 +54,9 @@ interface ApprovalCardProps {
 
 export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [showCommentModal, setShowCommentModal] = useState<{ type: 'approve' | 'reject' | 'send_back' } | null>(null);
+  const [showCommentModal, setShowCommentModal] = useState<{
+    type: 'approve' | 'reject' | 'send_back';
+  } | null>(null);
   const [commentText, setCommentText] = useState('');
   const [assignModal, setAssignModal] = useState(false);
   const [assignUserId, setAssignUserId] = useState('');
@@ -69,7 +83,9 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
   };
 
   const handleAssign = async () => {
-    if (!assignUserId.trim()) return;
+    if (!assignUserId.trim()) {
+      return;
+    }
     setActionLoading('assign');
     try {
       await assignApproval(approval.id, assignUserId, assignUserName || assignUserId);
@@ -89,27 +105,33 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
 
   return (
     <>
-      <div className="rounded-lg border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/20">
+      <div className="bg-card hover:border-primary/20 rounded-lg border p-4 shadow-sm transition-all hover:shadow-md">
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="text-muted-foreground h-4 w-4" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{approval.documentNumber}</span>
-                <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${statusColors[approval.status] || ''}`}>
+                <span
+                  className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${statusColors[approval.status] || ''}`}
+                >
                   {approval.status.replace(/_/g, ' ')}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground capitalize">{documentTypeLabel}</p>
+              <p className="text-muted-foreground text-xs capitalize">{documentTypeLabel}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${priorityColors[approval.priority] || ''}`}>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${priorityColors[approval.priority] || ''}`}
+            >
               <AlertTriangle className="h-3 w-3" />
               {approval.priority}
             </span>
-            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${riskColors[approval.risk] || ''}`}>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${riskColors[approval.risk] || ''}`}
+            >
               {approval.risk}
             </span>
           </div>
@@ -119,7 +141,9 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div>
             <span className="text-muted-foreground">Customer: </span>
-            <span className="font-medium">{approval.customerName || approval.customerId?.slice(0, 12)}</span>
+            <span className="font-medium">
+              {approval.customerName || approval.customerId?.slice(0, 12)}
+            </span>
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Amount: </span>
@@ -131,17 +155,23 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
           </div>
           <div className="text-right">
             <span className="text-muted-foreground">Level: </span>
-            <span className="font-medium">{approval.currentLevel}/{approval.totalLevels}</span>
+            <span className="font-medium">
+              {approval.currentLevel}/{approval.totalLevels}
+            </span>
           </div>
           <div className="col-span-2 flex items-center gap-2">
-            <Clock className="h-3 w-3 text-muted-foreground" />
+            <Clock className="text-muted-foreground h-3 w-3" />
             <span className="text-muted-foreground">
               {new Date(approval.createdAt).toLocaleDateString('en-IN', {
-                day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               })}
             </span>
             {approval.isOverdue && (
-              <span className="text-[10px] text-red-600 font-medium">⚠ Overdue</span>
+              <span className="text-[10px] font-medium text-red-600">⚠ Overdue</span>
             )}
           </div>
         </div>
@@ -176,7 +206,7 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
             <button
               onClick={() => setShowCommentModal({ type: 'send_back' })}
               disabled={actionLoading === 'send_back'}
-              className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              className="bg-background hover:bg-accent inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
             >
               <ArrowLeftCircle className="h-3.5 w-3.5" />
               Send Back
@@ -184,14 +214,14 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
             <button
               onClick={() => setAssignModal(true)}
               disabled={actionLoading === 'assign'}
-              className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              className="bg-background hover:bg-accent inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
             >
               <UserPlus className="h-3.5 w-3.5" />
               Assign
             </button>
             <button
               onClick={() => onView(approval.id)}
-              className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+              className="bg-background hover:bg-accent inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
             >
               <Eye className="h-3.5 w-3.5" />
               View
@@ -202,23 +232,40 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
 
       {/* Comment Modal */}
       {showCommentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCommentModal(null)}>
-          <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold capitalize">{showCommentModal.type === 'approve' ? 'Approve' : showCommentModal.type === 'reject' ? 'Reject' : 'Send Back'}</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {showCommentModal.type === 'approve' ? 'Optional approval comment' : 'Comment is required for this action'}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowCommentModal(null)}
+        >
+          <div
+            className="bg-card w-full max-w-md rounded-lg border p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold capitalize">
+              {showCommentModal.type === 'approve'
+                ? 'Approve'
+                : showCommentModal.type === 'reject'
+                  ? 'Reject'
+                  : 'Send Back'}
+            </h3>
+            <p className="text-muted-foreground mt-1 text-xs">
+              {showCommentModal.type === 'approve'
+                ? 'Optional approval comment'
+                : 'Comment is required for this action'}
             </p>
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              className="mt-3 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[80px]"
+              className="bg-background focus:ring-primary/50 mt-3 min-h-[80px] w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
               placeholder="Enter your comment..."
               autoFocus
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
-                onClick={() => { setShowCommentModal(null); setCommentText(''); }}
-                className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                onClick={() => {
+                  setShowCommentModal(null);
+                  setCommentText('');
+                }}
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium"
               >
                 Cancel
               </button>
@@ -226,12 +273,19 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
                 onClick={() => handleAction(showCommentModal.type, commentText)}
                 disabled={showCommentModal.type !== 'approve' && !commentText.trim()}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 ${
-                  showCommentModal.type === 'approve' ? 'bg-green-600 hover:bg-green-700' :
-                  showCommentModal.type === 'reject' ? 'bg-red-600 hover:bg-red-700' :
-                  'bg-blue-600 hover:bg-blue-700'
+                  showCommentModal.type === 'approve'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : showCommentModal.type === 'reject'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                Confirm {showCommentModal.type === 'approve' ? 'Approve' : showCommentModal.type === 'reject' ? 'Reject' : 'Send Back'}
+                Confirm{' '}
+                {showCommentModal.type === 'approve'
+                  ? 'Approve'
+                  : showCommentModal.type === 'reject'
+                    ? 'Reject'
+                    : 'Send Back'}
               </button>
             </div>
           </div>
@@ -240,32 +294,43 @@ export function ApprovalCard({ approval, onRefresh, onView }: ApprovalCardProps)
 
       {/* Assign Modal */}
       {assignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setAssignModal(false)}>
-          <div className="w-full max-w-md rounded-lg border bg-card p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setAssignModal(false)}
+        >
+          <div
+            className="bg-card w-full max-w-md rounded-lg border p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-sm font-semibold">Assign Approval</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Assign this approval to a user</p>
+            <p className="text-muted-foreground mt-1 text-xs">Assign this approval to a user</p>
             <div className="mt-3 space-y-2">
               <input
                 type="text"
                 value={assignUserId}
                 onChange={(e) => setAssignUserId(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="bg-background focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
                 placeholder="User ID"
               />
               <input
                 type="text"
                 value={assignUserName}
                 onChange={(e) => setAssignUserName(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                className="bg-background focus:ring-primary/50 w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
                 placeholder="User Name"
               />
             </div>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setAssignModal(false)} className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent">Cancel</button>
+              <button
+                onClick={() => setAssignModal(false)}
+                className="bg-background hover:bg-accent rounded-md border px-3 py-1.5 text-xs font-medium"
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleAssign}
                 disabled={!assignUserId.trim()}
-                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-50"
               >
                 {actionLoading === 'assign' ? 'Assigning...' : 'Assign'}
               </button>

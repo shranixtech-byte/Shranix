@@ -1,5 +1,6 @@
 import { ChevronRight, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
 import { cn } from '@/lib/utils';
 
 export interface BreadcrumbItem {
@@ -15,7 +16,10 @@ export interface BreadcrumbProps {
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
     <nav
-      className={cn('flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400', className)}
+      className={cn(
+        'flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400',
+        className,
+      )}
       aria-label="Breadcrumb"
     >
       <Link
@@ -35,9 +39,7 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
               {item.label}
             </Link>
           ) : (
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {item.label}
-            </span>
+            <span className="font-medium text-slate-900 dark:text-slate-100">{item.label}</span>
           )}
         </span>
       ))}

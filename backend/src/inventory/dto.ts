@@ -1,6 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsNumber, IsInt, Min, MinLength, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsInt,
+  Min,
+  MinLength,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 
 // ── Item ────────────────────────────────────────────────
 export class CreateItemDto {
@@ -94,11 +104,25 @@ export class CreateItemVariantDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() attributes?: string;
 }
-export class UpdateItemVariantDto { @ApiPropertyOptional() @IsOptional() @IsString() name?: string; @ApiPropertyOptional() @IsOptional() @IsString() sku?: string; @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() salesRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number; @ApiPropertyOptional() @IsOptional() @IsString() attributes?: string; }
+export class UpdateItemVariantDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() sku?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() salesRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() attributes?: string;
+}
 
 // ── Item Group ──────────────────────────────────────────
-export class CreateItemGroupDto { @ApiProperty() @IsString() name!: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; }
-export class UpdateItemGroupDto { @ApiPropertyOptional() @IsOptional() @IsString() name?: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; }
+export class CreateItemGroupDto {
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+}
+export class UpdateItemGroupDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+}
 
 // ── Item Pricing ────────────────────────────────────────
 export class CreateItemPricingDto {
@@ -112,23 +136,88 @@ export class CreateItemPricingDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() minQuantity?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() partyId?: string;
 }
-export class UpdateItemPricingDto { @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string; @ApiPropertyOptional() @IsOptional() @IsString() priceList?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() salesRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() discountPercent?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() minQuantity?: number; }
+export class UpdateItemPricingDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() priceList?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() salesRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() minQuantity?: number;
+}
 
 // ── Item Barcode ────────────────────────────────────────
-export class CreateItemBarcodeDto { @ApiProperty() @IsString() itemId!: string; @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string; @ApiProperty() @IsString() barcode!: string; @ApiPropertyOptional() @IsOptional() @IsString() type?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean; }
-export class UpdateItemBarcodeDto { @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string; @ApiPropertyOptional() @IsOptional() @IsString() type?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean; }
+export class CreateItemBarcodeDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiProperty() @IsString() barcode!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() type?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+export class UpdateItemBarcodeDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() type?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
+}
 
 // ── HSN Code ────────────────────────────────────────────
-export class CreateHsnCodeDto { @ApiProperty() @IsString() code!: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; @ApiPropertyOptional() @IsOptional() @IsString() type?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() gstRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() igst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() cgst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() sgst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() cess?: number; @ApiPropertyOptional() @IsOptional() @IsString() chapter?: string; @ApiPropertyOptional() @IsOptional() @IsString() heading?: string; }
-export class UpdateHsnCodeDto { @ApiPropertyOptional() @IsOptional() @IsString() description?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() gstRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() igst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() cgst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() sgst?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() cess?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; }
+export class CreateHsnCodeDto {
+  @ApiProperty() @IsString() code!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() type?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() gstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() igst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() cgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() sgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() cess?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() chapter?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() heading?: string;
+}
+export class UpdateHsnCodeDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() gstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() igst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() cgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() sgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() cess?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 // ── Stock Opening ───────────────────────────────────────
-export class CreateStockOpeningDto { @ApiProperty() @IsString() itemId!: string; @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string; @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string; @ApiPropertyOptional() @IsOptional() @IsString() batchNo?: string; @ApiProperty() @IsNumber() @Min(0) quantity!: number; @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rate?: number; @ApiPropertyOptional() @IsOptional() @IsString() mfgDate?: string; @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string; @ApiPropertyOptional() @IsOptional() @IsString() serialNumbers?: string; }
-export class UpdateStockOpeningDto { @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() rate?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() isPosted?: boolean; }
+export class CreateStockOpeningDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() batchNo?: string;
+  @ApiProperty() @IsNumber() @Min(0) quantity!: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() mfgDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() serialNumbers?: string;
+}
+export class UpdateStockOpeningDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPosted?: boolean;
+}
 
 // ── Item Image ──────────────────────────────────────────
-export class CreateItemImageDto { @ApiProperty() @IsString() itemId!: string; @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string; @ApiProperty() @IsString() url!: string; @ApiPropertyOptional() @IsOptional() @IsString() thumbnailUrl?: string; @ApiPropertyOptional() @IsOptional() @IsString() alt?: string; @ApiPropertyOptional() @IsOptional() @IsInt() sortOrder?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean; }
-export class UpdateItemImageDto { @ApiPropertyOptional() @IsOptional() @IsString() url?: string; @ApiPropertyOptional() @IsOptional() @IsString() thumbnailUrl?: string; @ApiPropertyOptional() @IsOptional() @IsString() alt?: string; @ApiPropertyOptional() @IsOptional() @IsInt() sortOrder?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean; }
+export class CreateItemImageDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiProperty() @IsString() url!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() thumbnailUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() alt?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() sortOrder?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean;
+}
+export class UpdateItemImageDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() url?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() thumbnailUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() alt?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() sortOrder?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean;
+}
 
 // ── Inventory Settings ──────────────────────────────────
 export class CreateInventorySettingsDto {
@@ -146,8 +235,34 @@ export class CreateInventorySettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() enableBatch?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() enableSerial?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() enableExpiry?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() lotTracking?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoBarcode?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoSku?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() lowStockAlert?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) lowStockThreshold?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() stockReservation?: boolean;
 }
-export class UpdateInventorySettingsDto { @ApiPropertyOptional() @IsOptional() @IsString() method?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() negativeStock?: boolean; @ApiPropertyOptional() @IsOptional() @IsBoolean() autoReorder?: boolean; @ApiPropertyOptional() @IsOptional() @IsInt() roundOff?: number; }
+export class UpdateInventorySettingsDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() method?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() negativeStock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoReorder?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() roundOff?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() batchTracking?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() serialTracking?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() expiryTracking?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultWarehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() stockValuation?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() enableWarehouse?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() enableBatch?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() enableSerial?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() enableExpiry?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() lotTracking?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoBarcode?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoSku?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() lowStockAlert?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) lowStockThreshold?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() stockReservation?: boolean;
+}
 
 // ── PRM-015A: Sub Category ──────────────────────────────
 export class CreateSubCategoryDto {
@@ -156,7 +271,12 @@ export class CreateSubCategoryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
 }
-export class UpdateSubCategoryDto { @ApiPropertyOptional() @IsOptional() @IsString() name?: string; @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; }
+export class UpdateSubCategoryDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 // ── Step 18: Enterprise Batch Master ─────────────────────
 export class CreateBatchMasterDto {
@@ -241,14 +361,32 @@ export class CreateBatchDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() reservedQuantity?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string;  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() supplierId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() purchaseReference?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
 }
 
-export class UpdateBatchDto { @ApiPropertyOptional() @IsOptional() @IsString() lotNo?: string; @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() sellingPrice?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() distributorPrice?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() retailPrice?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() reservedQuantity?: number; @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string; @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() supplierId?: string; @ApiPropertyOptional() @IsOptional() @IsString() purchaseReference?: string; @ApiPropertyOptional() @IsOptional() @IsString() status?: string; @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string; }
+export class UpdateBatchDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() lotNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() purchaseRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() mrp?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() sellingPrice?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() distributorPrice?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() retailPrice?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() reservedQuantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() supplierId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() purchaseReference?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
+}
 
 // ── PRM-015: Stock Movement ─────────────────────────────
 export class CreateStockMovementDto {
@@ -267,7 +405,13 @@ export class CreateStockMovementDto {
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
-export class UpdateStockMovementDto { @ApiPropertyOptional() @IsOptional() @IsString() movementType?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() rate?: number; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; @ApiPropertyOptional() @IsOptional() @IsString() notes?: string; }
+export class UpdateStockMovementDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() movementType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
 
 // ── PRM-015: Warehouse Location ─────────────────────────
 export class CreateWarehouseLocationDto {
@@ -279,7 +423,14 @@ export class CreateWarehouseLocationDto {
   @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
 }
-export class UpdateWarehouseLocationDto { @ApiPropertyOptional() @IsOptional() @IsString() godown?: string; @ApiPropertyOptional() @IsOptional() @IsString() rack?: string; @ApiPropertyOptional() @IsOptional() @IsString() shelf?: string; @ApiPropertyOptional() @IsOptional() @IsString() bin?: string; @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; }
+export class UpdateWarehouseLocationDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() godown?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() rack?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shelf?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() bin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() locationCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 // ── PRM-015: Agriculture Features ───────────────────────
 export class CreateDamageRegisterDto {
@@ -293,7 +444,11 @@ export class CreateDamageRegisterDto {
   @ApiPropertyOptional() @IsOptional() @IsString() referenceId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
 }
-export class UpdateDamageRegisterDto { @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; @ApiPropertyOptional() @IsOptional() @IsString() status?: string; }
+export class UpdateDamageRegisterDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+}
 
 export class CreateRecallRegisterDto {
   @ApiProperty() @IsString() itemId!: string;
@@ -306,7 +461,11 @@ export class CreateRecallRegisterDto {
   @ApiPropertyOptional() @IsOptional() @IsString() referenceId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
 }
-export class UpdateRecallRegisterDto { @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; @ApiPropertyOptional() @IsOptional() @IsString() status?: string; }
+export class UpdateRecallRegisterDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+}
 
 export class CreateDistributorReturnDto {
   @ApiProperty() @IsString() itemId!: string;
@@ -319,7 +478,12 @@ export class CreateDistributorReturnDto {
   @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
 }
-export class UpdateDistributorReturnDto { @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; @ApiPropertyOptional() @IsOptional() @IsString() status?: string; @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string; }
+export class UpdateDistributorReturnDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string;
+}
 
 // ── PRM-015: Replacement Queue ──────────────────────────
 export class CreateReplacementDto {
@@ -332,7 +496,12 @@ export class CreateReplacementDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string;
 }
-export class UpdateReplacementDto { @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; @ApiPropertyOptional() @IsOptional() @IsString() status?: string; @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string; }
+export class UpdateReplacementDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expectedDate?: string;
+}
 
 // ── Step 17: UOM Conversion ─────────────────────────────
 export class CreateUOMConversionDto {
@@ -480,7 +649,13 @@ export class CreateTransferDto {
   @ApiPropertyOptional() @IsOptional() @IsString() approvedDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() rejectedReason?: string;
 }
-export class UpdateTransferDto { @ApiPropertyOptional() @IsOptional() @IsString() status?: string; @ApiPropertyOptional() @IsOptional() @IsString() approvedBy?: string; @ApiPropertyOptional() @IsOptional() @IsString() approvedDate?: string; @ApiPropertyOptional() @IsOptional() @IsString() rejectedReason?: string; @ApiPropertyOptional() @IsOptional() @IsString() reason?: string; }
+export class UpdateTransferDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() approvedBy?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() approvedDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() rejectedReason?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+}
 
 // ── Step 20: Inventory Posting ──────────────────────────
 export class PostMovementDto {
@@ -577,7 +752,10 @@ export class CreateTransferDocumentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() destinationShelfId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() sourceBinId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() destinationBinId?: string;
-  @ApiProperty({ type: [CreateTransferItemDto] }) @IsArray() @ValidateNested({ each: true }) @Type(() => CreateTransferItemDto)
+  @ApiProperty({ type: [CreateTransferItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateTransferItemDto)
   items!: CreateTransferItemDto[];
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
@@ -591,7 +769,11 @@ export class ReceiveTransferItemDto {
 
 export class ReceiveTransferDto {
   @ApiProperty() @IsString() id!: string;
-  @ApiPropertyOptional({ type: [ReceiveTransferItemDto] }) @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ReceiveTransferItemDto)
+  @ApiPropertyOptional({ type: [ReceiveTransferItemDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReceiveTransferItemDto)
   items?: ReceiveTransferItemDto[];
 }
 
@@ -656,7 +838,10 @@ export class CreatePhysicalCountDto {
   @ApiPropertyOptional() @IsOptional() @IsString() priority?: string; // low, normal, high, urgent
   @ApiPropertyOptional() @IsOptional() @IsString() assignedTo?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() supervisor?: string;
-  @ApiProperty({ type: [CreateCountItemDto] }) @IsArray() @ValidateNested({ each: true }) @Type(() => CreateCountItemDto)
+  @ApiProperty({ type: [CreateCountItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCountItemDto)
   items!: CreateCountItemDto[];
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
 }
@@ -728,7 +913,10 @@ export class CreateAdjustmentDocumentDto {
   @ApiPropertyOptional() @IsOptional() @IsString() shelfId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() binId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() referenceNumber?: string;
-  @ApiProperty({ type: [CreateAdjustmentItemDto] }) @IsArray() @ValidateNested({ each: true }) @Type(() => CreateAdjustmentItemDto)
+  @ApiProperty({ type: [CreateAdjustmentItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateAdjustmentItemDto)
   items!: CreateAdjustmentItemDto[];
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
 }

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
+import { apiRequest } from '@/services/api-client';
 
 interface FYForm {
   name: string;
@@ -12,7 +13,13 @@ interface FYForm {
   isClosed: boolean;
 }
 
-const initialForm: FYForm = { name: '', startDate: '', endDate: '', isActive: true, isClosed: false };
+const initialForm: FYForm = {
+  name: '',
+  startDate: '',
+  endDate: '',
+  isActive: true,
+  isClosed: false,
+};
 
 export function CreateFinancialYearPage() {
   return <FYFormPage />;
@@ -34,7 +41,11 @@ function FYFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<FYForm>(`/financial-years/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as FYForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as FYForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -67,9 +78,27 @@ function FYFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Define the financial period',
       fields: (
         <>
-          <FormInput label="FY Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="2025-2026" />
-          <FormInput label="Start Date" required type="date" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} />
-          <FormInput label="End Date" required type="date" value={form.endDate} onChange={(e) => update('endDate', e.target.value)} />
+          <FormInput
+            label="FY Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="2025-2026"
+          />
+          <FormInput
+            label="Start Date"
+            required
+            type="date"
+            value={form.startDate}
+            onChange={(e) => update('startDate', e.target.value)}
+          />
+          <FormInput
+            label="End Date"
+            required
+            type="date"
+            value={form.endDate}
+            onChange={(e) => update('endDate', e.target.value)}
+          />
         </>
       ),
     },
@@ -79,16 +108,24 @@ function FYFormPage({ isEditing = false }: { isEditing?: boolean }) {
       fields: (
         <>
           <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-600 dark:bg-slate-800">
-            <input type="checkbox" checked={form.isActive} onChange={(e) => update('isActive', e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => update('isActive', e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Active</p>
               <p className="text-xs text-slate-500">Set as the active financial year</p>
             </div>
           </label>
           <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-600 dark:bg-slate-800">
-            <input type="checkbox" checked={form.isClosed} onChange={(e) => update('isClosed', e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+            <input
+              type="checkbox"
+              checked={form.isClosed}
+              onChange={(e) => update('isClosed', e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
             <div>
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Closed</p>
               <p className="text-xs text-slate-500">Mark as closed (no further entries allowed)</p>

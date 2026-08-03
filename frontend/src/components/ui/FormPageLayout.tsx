@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
-import { Button } from './Button';
+
 import { Breadcrumb } from './Breadcrumb';
+import { Button } from './Button';
 
 export interface FormAction {
   label: string;
@@ -31,11 +33,9 @@ export function FormPageLayout({
   size = 'default',
 }: FormPageLayoutProps) {
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="animate-in fade-in space-y-6 duration-300">
       {/* Breadcrumb */}
-      {breadcrumbs && breadcrumbs.length > 0 && (
-        <Breadcrumb items={breadcrumbs} />
-      )}
+      {breadcrumbs && breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
 
       {/* Header with Actions */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -44,9 +44,7 @@ export function FormPageLayout({
             {title}
           </h1>
           {description && (
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              {description}
-            </p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
           )}
         </div>
         {actions && actions.length > 0 && (
@@ -67,15 +65,8 @@ export function FormPageLayout({
       </div>
 
       {/* Content - 2-column grid on desktop */}
-      <div
-        className={cn(
-          size === 'full' ? '' : 'max-w-5xl',
-          className,
-        )}
-      >
-        <div className="grid gap-6 md:grid-cols-2">
-          {children}
-        </div>
+      <div className={cn(size === 'full' ? '' : 'max-w-5xl', className)}>
+        <div className="grid gap-6 md:grid-cols-2">{children}</div>
       </div>
     </div>
   );

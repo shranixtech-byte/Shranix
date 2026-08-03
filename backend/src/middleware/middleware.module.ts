@@ -1,5 +1,4 @@
-import { NestModule, MiddlewareConsumer } from '@nestjs/common';
-import { Module } from '@nestjs/common';
+import { NestModule, MiddlewareConsumer, Module } from '@nestjs/common';
 
 import { RequestIdMiddleware } from './request-id.middleware';
 

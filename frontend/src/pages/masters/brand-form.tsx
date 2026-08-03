@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { apiRequest } from '@/services/api-client';
+
 import { CreateEditPage, type FormSection } from '@/components/ui/CreateEditPage';
 import { FormInput } from '@/components/ui/FormInput';
 import { FormTextarea } from '@/components/ui/FormTextarea';
+import { apiRequest } from '@/services/api-client';
 
 interface BrandForm {
   name: string;
@@ -32,7 +33,11 @@ function BrandFormPage({ isEditing = false }: { isEditing?: boolean }) {
     if (isEditing && id) {
       setLoading(true);
       apiRequest<BrandForm>(`/brands/${id}`)
-        .then((data) => { if (data && typeof data === 'object') setForm({ ...initialForm, ...data } as BrandForm); })
+        .then((data) => {
+          if (data && typeof data === 'object') {
+            setForm({ ...initialForm, ...data } as BrandForm);
+          }
+        })
         .catch((err) => setError((err as Error).message))
         .finally(() => setLoading(false));
     }
@@ -65,8 +70,19 @@ function BrandFormPage({ isEditing = false }: { isEditing?: boolean }) {
       description: 'Product brand information',
       fields: (
         <>
-          <FormInput label="Brand Name" required value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Enter brand name" />
-          <FormTextarea label="Description" value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Brand description..." />
+          <FormInput
+            label="Brand Name"
+            required
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Enter brand name"
+          />
+          <FormTextarea
+            label="Description"
+            value={form.description}
+            onChange={(e) => update('description', e.target.value)}
+            placeholder="Brand description..."
+          />
         </>
       ),
     },

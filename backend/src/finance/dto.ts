@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsNumber, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsInt,
+  Min,
+  MinLength,
+  MaxLength,
+} from 'class-validator';
 
 // ═════════════════════════════════════════════════════════
 // 1. ACCOUNT GROUPS
@@ -15,7 +24,12 @@ export class CreateAccountGroupDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isSystem?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
 }
-export class UpdateAccountGroupDto { @ApiPropertyOptional() @IsOptional() @IsString() name?: string; @ApiPropertyOptional() @IsOptional() @IsString() alias?: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; }
+export class UpdateAccountGroupDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() alias?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 // ═════════════════════════════════════════════════════════
 // 2. CHART OF ACCOUNTS
@@ -36,7 +50,13 @@ export class CreateChartOfAccountDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() allowManualPosting?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
 }
-export class UpdateChartOfAccountDto { @ApiPropertyOptional() @IsOptional() @IsString() accountName?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() openingBalance?: number; @ApiPropertyOptional() @IsOptional() @IsString() openingBalanceType?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; }
+export class UpdateChartOfAccountDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() accountName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() openingBalance?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() openingBalanceType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+}
 
 // ═════════════════════════════════════════════════════════
 // 3. LEDGER MASTER
@@ -51,7 +71,14 @@ export class CreateLedgerMasterDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
-export class UpdateLedgerMasterDto { @ApiPropertyOptional() @IsOptional() @IsNumber() openingBalance?: number; @ApiPropertyOptional() @IsOptional() @IsString() openingBalanceType?: string; @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number; @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() notes?: string; }
+export class UpdateLedgerMasterDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() openingBalance?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() openingBalanceType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
 
 // ═════════════════════════════════════════════════════════
 // 4. JOURNAL ENTRIES
@@ -66,7 +93,11 @@ export class CreateJournalEntryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() referenceNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() costCenterId?: string;
 }
-export class UpdateJournalEntryDto { @ApiPropertyOptional() @IsOptional() @IsString() status?: string; @ApiPropertyOptional() @IsOptional() @IsString() narration?: string; @ApiPropertyOptional() @IsOptional() @IsString() referenceNumber?: string; }
+export class UpdateJournalEntryDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() referenceNumber?: string;
+}
 
 // ═════════════════════════════════════════════════════════
 // 5. CASH BOOK
@@ -83,7 +114,11 @@ export class CreateCashBookDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) credit?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
 }
-export class UpdateCashBookDto { @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) debit?: number; @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) credit?: number; @ApiPropertyOptional() @IsOptional() @IsString() narration?: string; }
+export class UpdateCashBookDto {
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) debit?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) credit?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
+}
 
 // ═════════════════════════════════════════════════════════
 // 6. BANK BOOK
@@ -101,7 +136,11 @@ export class CreateBankBookDto {
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) credit?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
 }
-export class UpdateBankBookDto { @ApiPropertyOptional() @IsOptional() @IsString() reconciliationStatus?: string; @ApiPropertyOptional() @IsOptional() @IsString() reconciliationDate?: string; @ApiPropertyOptional() @IsOptional() @IsString() narration?: string; }
+export class UpdateBankBookDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() reconciliationStatus?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() reconciliationDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
+}
 
 // ═════════════════════════════════════════════════════════
 // 7. COST CENTERS
@@ -114,7 +153,11 @@ export class CreateCostCenterDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) level?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
 }
-export class UpdateCostCenterDto { @ApiPropertyOptional() @IsOptional() @IsString() name?: string; @ApiPropertyOptional() @IsOptional() @IsString() description?: string; @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean; }
+export class UpdateCostCenterDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
 
 // ═════════════════════════════════════════════════════════
 // 8. ACCOUNTING SETTINGS
@@ -131,5 +174,58 @@ export class CreateAccountingSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsString() defaultBankAccountId?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) roundOffDecimals?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
+  // Financial Settings — locks & defaults
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() fiscalYearLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() periodLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() periodLockDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() voucherLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() closingDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() openingBalanceLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultLedgerAccountId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultTaxGroupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() roundingRule?: string;
 }
-export class UpdateAccountingSettingsDto { @ApiPropertyOptional() @IsOptional() @IsBoolean() autoVoucherNumber?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() voucherPrefix?: string; @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) voucherNextNumber?: number; @ApiPropertyOptional() @IsOptional() @IsBoolean() allowNegativeBalance?: boolean; @ApiPropertyOptional() @IsOptional() @IsBoolean() enforceDebitCreditEquality?: boolean; @ApiPropertyOptional() @IsOptional() @IsBoolean() requireApproval?: boolean; @ApiPropertyOptional() @IsOptional() @IsString() defaultCashAccountId?: string; @ApiPropertyOptional() @IsOptional() @IsString() defaultBankAccountId?: string; }
+export class UpdateAccountingSettingsDto {
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() autoVoucherNumber?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() voucherPrefix?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) voucherNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() allowNegativeBalance?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() enforceDebitCreditEquality?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() requireApproval?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) approvalLevels?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultCashAccountId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultBankAccountId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) roundOffDecimals?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() fiscalYearLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() periodLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() periodLockDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() voucherLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() closingDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() openingBalanceLock?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultLedgerAccountId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() defaultTaxGroupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() roundingRule?: string;
+}
+
+// ═════════════════════════════════════════════════════════
+// 9. SETTINGS SECURITY (password gate for the Settings page)
+// ═════════════════════════════════════════════════════════
+export class SetSettingsPasswordDto {
+  @ApiProperty({ minLength: 4, maxLength: 64 })
+  @IsString()
+  @MinLength(4, { message: 'Password must be at least 4 characters' })
+  @MaxLength(64)
+  password!: string;
+}
+export class VerifySettingsPasswordDto {
+  @ApiProperty() @IsString() @MaxLength(64) password!: string;
+}
+export class ChangeSettingsPasswordDto {
+  @ApiProperty() @IsString() currentPassword!: string;
+  @ApiProperty({ minLength: 4, maxLength: 64 })
+  @IsString()
+  @MinLength(4, { message: 'New password must be at least 4 characters' })
+  @MaxLength(64)
+  newPassword!: string;
+}

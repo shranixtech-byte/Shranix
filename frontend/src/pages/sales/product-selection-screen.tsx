@@ -1,12 +1,4 @@
 import {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
   ArrowLeft,
   ArrowUpDown,
   Barcode,
@@ -31,10 +23,13 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
-import { apiRequest } from '@/services/api-client';
 import { cn } from '@/lib/utils';
+import { apiRequest } from '@/services/api-client';
+
+import { BarcodeScanModal } from './barcode-scan-modal';
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -69,6 +64,7 @@ export interface ProductRecord {
   description?: string;
   imageUrl?: string;
   company?: string;
+  manufacturer?: string;
   category?: string;
   subCategory?: string;
   isActive?: boolean;
@@ -83,6 +79,7 @@ export interface InvoiceLineItem {
   id: string;
   productId: string;
   productName: string;
+  company: string;
   sku: string;
   hsn: string;
   barcode: string;
@@ -139,22 +136,152 @@ interface ColumnMeta {
 type CellAction = (action: string, itemId: string, value?: unknown) => void;
 
 const DEFAULT_COLUMNS: ColumnMeta[] = [
-  { key: '#', label: '#', width: 40, minWidth: 32, align: 'center', frozen: true, resizable: false, reorderable: false },
-  { key: 'productName', label: 'Product', width: 180, minWidth: 120, align: 'left', resizable: true, reorderable: true },
-  { key: 'sku', label: 'SKU', width: 100, minWidth: 80, align: 'left', resizable: true, reorderable: true },
-  { key: 'barcode', label: 'Barcode', width: 110, minWidth: 80, align: 'left', resizable: true, reorderable: true },
-  { key: 'batchNo', label: 'Batch', width: 100, minWidth: 70, align: 'left', resizable: true, reorderable: true },
-  { key: 'expiryDate', label: 'Expiry', width: 90, minWidth: 70, align: 'left', resizable: true, reorderable: true },
-  { key: 'warehouse', label: 'WH', width: 70, minWidth: 50, align: 'left', resizable: true, reorderable: true },
-  { key: 'uom', label: 'UOM', width: 55, minWidth: 40, align: 'left', resizable: true, reorderable: true },
-  { key: 'availableStock', label: 'Stock', width: 70, minWidth: 50, align: 'right', resizable: true, reorderable: true },
-  { key: 'quantity', label: 'Qty', width: 120, minWidth: 90, align: 'center', resizable: true, reorderable: true },
-  { key: 'freeQty', label: 'Free', width: 60, minWidth: 40, align: 'center', resizable: true, reorderable: true },
-  { key: 'rate', label: 'Rate ₹', width: 100, minWidth: 70, align: 'right', resizable: true, reorderable: true },
-  { key: 'discountPercent', label: 'Disc %', width: 80, minWidth: 50, align: 'center', resizable: true, reorderable: true },
-  { key: 'gstPercent', label: 'GST %', width: 70, minWidth: 50, align: 'center', resizable: true, reorderable: true },
-  { key: 'amount', label: 'Amount', width: 110, minWidth: 80, align: 'right', resizable: true, reorderable: true },
-  { key: 'actions', label: '', width: 44, minWidth: 36, align: 'center', frozen: true, resizable: false, reorderable: false },
+  {
+    key: '#',
+    label: '#',
+    width: 40,
+    minWidth: 32,
+    align: 'center',
+    frozen: true,
+    resizable: false,
+    reorderable: false,
+  },
+  {
+    key: 'productName',
+    label: 'Product',
+    width: 180,
+    minWidth: 120,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'sku',
+    label: 'SKU',
+    width: 100,
+    minWidth: 80,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'barcode',
+    label: 'Barcode',
+    width: 110,
+    minWidth: 80,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'batchNo',
+    label: 'Batch',
+    width: 100,
+    minWidth: 70,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'expiryDate',
+    label: 'Expiry',
+    width: 90,
+    minWidth: 70,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'warehouse',
+    label: 'WH',
+    width: 70,
+    minWidth: 50,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'uom',
+    label: 'UOM',
+    width: 55,
+    minWidth: 40,
+    align: 'left',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'availableStock',
+    label: 'Stock',
+    width: 70,
+    minWidth: 50,
+    align: 'right',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'quantity',
+    label: 'Qty',
+    width: 120,
+    minWidth: 90,
+    align: 'center',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'freeQty',
+    label: 'Free',
+    width: 60,
+    minWidth: 40,
+    align: 'center',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'rate',
+    label: 'Rate ₹',
+    width: 100,
+    minWidth: 70,
+    align: 'right',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'discountPercent',
+    label: 'Disc %',
+    width: 80,
+    minWidth: 50,
+    align: 'center',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'gstPercent',
+    label: 'GST %',
+    width: 70,
+    minWidth: 50,
+    align: 'center',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'amount',
+    label: 'Amount',
+    width: 110,
+    minWidth: 80,
+    align: 'right',
+    resizable: true,
+    reorderable: true,
+  },
+  {
+    key: 'actions',
+    label: '',
+    width: 44,
+    minWidth: 36,
+    align: 'center',
+    frozen: true,
+    resizable: false,
+    reorderable: false,
+  },
 ];
 
 const PRICE_LIST_OPTIONS: { label: string; value: PriceListType; icon: LucideIcon }[] = [
@@ -180,8 +307,10 @@ const SEARCH_MODES = [
 ] as const;
 
 const EXPIRY_COLORS: Record<string, string> = {
-  expired: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20 ring-1 ring-red-200 dark:ring-red-800',
-  warning: 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20 ring-1 ring-amber-200 dark:ring-amber-800',
+  expired:
+    'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20 ring-1 ring-red-200 dark:ring-red-800',
+  warning:
+    'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20 ring-1 ring-amber-200 dark:ring-amber-800',
   healthy: 'text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-900/20',
 };
 
@@ -195,19 +324,39 @@ const STOCK_COLORS: Record<string, string> = {
 // HELPERS
 // ═════════════════════════════════════════════════════════
 
-function calcTaxable(qty: number, rate: number, discType: DiscountType, discValue: number, discPct: number): number {
+function calcTaxable(
+  qty: number,
+  rate: number,
+  discType: DiscountType,
+  discValue: number,
+  discPct: number,
+): number {
   const gross = qty * rate;
   let disc = 0;
-  if (discType === 'percentage') disc = gross * (discPct / 100);
-  else if (discType === 'flat') disc = discValue;
-  else if (discType === 'scheme') disc = gross * (discPct / 100);
+  if (discType === 'percentage') {
+    disc = gross * (discPct / 100);
+  } else if (discType === 'flat') {
+    disc = discValue;
+  } else if (discType === 'scheme') {
+    disc = gross * (discPct / 100);
+  }
   return Math.max(0, Math.round((gross - disc) * 100) / 100);
 }
 
-function calcGstSplit(taxable: number, gstPct: number, isInterState: boolean, cessPct = 0): {
-  cgst: number; sgst: number; igst: number; cess: number;
+function calcGstSplit(
+  taxable: number,
+  gstPct: number,
+  isInterState: boolean,
+  cessPct = 0,
+): {
+  cgst: number;
+  sgst: number;
+  igst: number;
+  cess: number;
 } {
-  let cgst = 0, sgst = 0, igst = 0;
+  let cgst = 0,
+    sgst = 0,
+    igst = 0;
   if (isInterState) {
     igst = Math.round(taxable * (gstPct / 100) * 100) / 100;
   } else {
@@ -223,7 +372,10 @@ function calcAmount(taxable: number, totalGst: number): number {
   return Math.round((taxable + totalGst) * 100) / 100;
 }
 
-function recomputeLine(line: Partial<InvoiceLineItem>, isInterState = false): InvoiceLineItem {
+export function recomputeLine(
+  line: Partial<InvoiceLineItem>,
+  isInterState = false,
+): InvoiceLineItem {
   const qty = line.quantity ?? 0;
   const rate = line.rate ?? 0;
   const discType = line.discountType ?? 'percentage';
@@ -232,13 +384,19 @@ function recomputeLine(line: Partial<InvoiceLineItem>, isInterState = false): In
   const gstPct = line.gstPercent ?? 0;
 
   const taxable = calcTaxable(qty, rate, discType, discValue, discPct);
-  const { cgst, sgst, igst, cess } = calcGstSplit(taxable, gstPct, isInterState, line.cessPercent ?? 0);
+  const { cgst, sgst, igst, cess } = calcGstSplit(
+    taxable,
+    gstPct,
+    isInterState,
+    line.cessPercent ?? 0,
+  );
   const totalGst = cgst + sgst + igst + cess;
 
   return {
     id: line.id ?? crypto.randomUUID(),
     productId: line.productId ?? '',
     productName: line.productName ?? '',
+    company: line.company ?? '',
     sku: line.sku ?? '',
     hsn: line.hsn ?? '',
     barcode: line.barcode ?? '',
@@ -256,8 +414,8 @@ function recomputeLine(line: Partial<InvoiceLineItem>, isInterState = false): In
     discountPercent: discPct,
     schemeName: line.schemeName ?? '',
     gstPercent: gstPct,
-    cgstPercent: line.cgstPercent ?? (gstPct / 2),
-    sgstPercent: line.sgstPercent ?? (gstPct / 2),
+    cgstPercent: line.cgstPercent ?? gstPct / 2,
+    sgstPercent: line.sgstPercent ?? gstPct / 2,
     igstPercent: line.igstPercent ?? 0,
     cessPercent: line.cessPercent ?? 0,
     taxableAmount: taxable,
@@ -275,18 +433,28 @@ function recomputeLine(line: Partial<InvoiceLineItem>, isInterState = false): In
 }
 
 function getExpiryStatus(expiryDate: string): 'expired' | 'warning' | 'healthy' {
-  if (!expiryDate) return 'healthy';
+  if (!expiryDate) {
+    return 'healthy';
+  }
   const now = new Date();
   const expiry = new Date(expiryDate);
-  if (expiry < now) return 'expired';
+  if (expiry < now) {
+    return 'expired';
+  }
   const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (days <= 90) return 'warning';
+  if (days <= 90) {
+    return 'warning';
+  }
   return 'healthy';
 }
 
 function getStockStatus(stock: number): 'out' | 'low' | 'ok' {
-  if (stock <= 0) return 'out';
-  if (stock < 10) return 'low';
+  if (stock <= 0) {
+    return 'out';
+  }
+  if (stock < 10) {
+    return 'low';
+  }
   return 'ok';
 }
 
@@ -295,10 +463,18 @@ function formatINR(amount: number): string {
 }
 
 function formatDate(dateStr: string): string {
-  if (!dateStr) return '—';
+  if (!dateStr) {
+    return '—';
+  }
   try {
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
-  } catch { return '—'; }
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
 }
 
 // ═════════════════════════════════════════════════════════
@@ -316,14 +492,25 @@ interface QuantityInputProps {
 }
 
 const QuantityInput = memo(function QuantityInput({
-  value, max, allowDecimal = true, onChange, stockWarning, disabled, id,
+  value,
+  max,
+  allowDecimal = true,
+  onChange,
+  stockWarning,
+  disabled,
+  id,
 }: QuantityInputProps) {
   const step = allowDecimal ? 0.01 : 1;
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = parseFloat(e.target.value);
-    if (!isNaN(v) && v >= 0) onChange(v);
-  }, [onChange]);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v) && v >= 0) {
+        onChange(v);
+      }
+    },
+    [onChange],
+  );
 
   return (
     <div className="flex items-center gap-1">
@@ -339,11 +526,11 @@ const QuantityInput = memo(function QuantityInput({
         className={cn(
           'h-8 w-[56px] rounded-lg border bg-white px-1.5 text-center text-xs font-medium outline-none transition-all',
           'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
-          'dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600',
+          'dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100',
           stockWarning
             ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500'
             : 'border-slate-200 dark:border-slate-600',
-          disabled && 'opacity-50 cursor-not-allowed',
+          disabled && 'cursor-not-allowed opacity-50',
         )}
         aria-label="Quantity"
       />
@@ -354,14 +541,18 @@ const QuantityInput = memo(function QuantityInput({
           disabled={disabled || value >= max}
           className="flex h-3.5 w-5 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600"
           aria-label="+1"
-        >+1</button>
+        >
+          +1
+        </button>
         <button
           type="button"
           onClick={() => onChange(Math.min(value + 5, max))}
           disabled={disabled || value >= max}
           className="flex h-3.5 w-5 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600"
           aria-label="+5"
-        >+5</button>
+        >
+          +5
+        </button>
       </div>
       <div className="flex flex-col gap-[2px]">
         <button
@@ -370,14 +561,18 @@ const QuantityInput = memo(function QuantityInput({
           disabled={disabled || value >= max}
           className="flex h-3.5 w-5 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-slate-500 hover:bg-slate-200 disabled:opacity-30 dark:bg-slate-700 dark:text-slate-400 dark:hover:bg-slate-600"
           aria-label="+10"
-        >+10</button>
+        >
+          +10
+        </button>
         <button
           type="button"
           onClick={() => onChange(max)}
           disabled={disabled || value >= max}
           className="flex h-3.5 w-5 items-center justify-center rounded bg-slate-100 text-[9px] font-bold text-emerald-600 hover:bg-emerald-100 disabled:opacity-30 dark:bg-slate-700 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
           aria-label="Max"
-        >Max</button>
+        >
+          Max
+        </button>
       </div>
     </div>
   );
@@ -396,35 +591,56 @@ interface PriceListSelectorProps {
 }
 
 const PriceListSelector = memo(function PriceListSelector({
-  value, onChange, product, currentRate, disabled,
+  value,
+  onChange,
+  product,
+  currentRate,
+  disabled,
 }: PriceListSelectorProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const handleSelect = useCallback((type: PriceListType) => {
-    if (!product) return;
-    let rate = currentRate;
-    switch (type) {
-      case 'retail': rate = product.salesRate ?? rate; break;
-      case 'wholesale': rate = product.wholesaleRate ?? product.salesRate ?? rate; break;
-      case 'dealer': rate = product.dealerRate ?? product.salesRate ?? rate; break;
-      case 'mrp': rate = product.mrp ?? product.salesRate ?? rate; break;
-      case 'custom': rate = currentRate; break;
-    }
-    onChange(type, rate);
-    setOpen(false);
-  }, [product, currentRate, onChange]);
+  const handleSelect = useCallback(
+    (type: PriceListType) => {
+      if (!product) {
+        return;
+      }
+      let rate = currentRate;
+      switch (type) {
+        case 'retail':
+          rate = product.salesRate ?? rate;
+          break;
+        case 'wholesale':
+          rate = product.wholesaleRate ?? product.salesRate ?? rate;
+          break;
+        case 'dealer':
+          rate = product.dealerRate ?? product.salesRate ?? rate;
+          break;
+        case 'mrp':
+          rate = product.mrp ?? product.salesRate ?? rate;
+          break;
+        case 'custom':
+          rate = currentRate;
+          break;
+      }
+      onChange(type, rate);
+      setOpen(false);
+    },
+    [product, currentRate, onChange],
+  );
 
-  const selectedLabel = PRICE_LIST_OPTIONS.find(o => o.value === value)?.label ?? 'Custom';
-  const SelectedIcon = PRICE_LIST_OPTIONS.find(o => o.value === value)?.icon ?? IndianRupee;
+  const selectedLabel = PRICE_LIST_OPTIONS.find((o) => o.value === value)?.label ?? 'Custom';
+  const SelectedIcon = PRICE_LIST_OPTIONS.find((o) => o.value === value)?.icon ?? IndianRupee;
 
   return (
     <div ref={ref} className="relative">
@@ -436,7 +652,7 @@ const PriceListSelector = memo(function PriceListSelector({
           'flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium transition-all',
           'hover:border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:hover:border-slate-500',
           open && 'border-emerald-500 ring-1 ring-emerald-500/30',
-          disabled && 'opacity-50 cursor-not-allowed',
+          disabled && 'cursor-not-allowed opacity-50',
         )}
       >
         <SelectedIcon className="h-3 w-3 text-slate-400" />
@@ -489,8 +705,17 @@ interface DiscountEditorProps {
 }
 
 const DiscountEditor = memo(function DiscountEditor({
-  type, percent, flatValue, schemeName, freeQty,
-  onTypeChange, onPercentChange, onFlatChange, onSchemeChange, onFreeQtyChange, disabled,
+  type,
+  percent,
+  flatValue,
+  schemeName,
+  freeQty,
+  onTypeChange,
+  onPercentChange,
+  onFlatChange,
+  onSchemeChange,
+  onFreeQtyChange,
+  disabled,
 }: DiscountEditorProps) {
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -502,7 +727,9 @@ const DiscountEditor = memo(function DiscountEditor({
         aria-label="Discount type"
       >
         {DISCOUNT_TYPES.map((dt) => (
-          <option key={dt.value} value={dt.value}>{dt.label}</option>
+          <option key={dt.value} value={dt.value}>
+            {dt.label}
+          </option>
         ))}
       </select>
 
@@ -511,7 +738,9 @@ const DiscountEditor = memo(function DiscountEditor({
           <input
             type="number"
             value={percent || ''}
-            onChange={(e) => onPercentChange(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+            onChange={(e) =>
+              onPercentChange(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))
+            }
             min={0}
             max={100}
             step={0.01}
@@ -583,7 +812,11 @@ interface GSTEditorProps {
 }
 
 const GSTEditor = memo(function GSTEditor({
-  gstPercent, cessPercent, isInterState, editable, onChange,
+  gstPercent,
+  cessPercent,
+  isInterState,
+  editable,
+  onChange,
 }: GSTEditorProps) {
   const cgst = gstPercent / 2;
   const sgst = gstPercent / 2;
@@ -604,11 +837,11 @@ const GSTEditor = memo(function GSTEditor({
             aria-label="GST percent"
           />
         ) : (
-          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{gstPercent}%</span>
+          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+            {gstPercent}%
+          </span>
         )}
-        {cessPercent > 0 && (
-          <span className="text-[9px] text-slate-400">+CESS {cessPercent}%</span>
-        )}
+        {cessPercent > 0 && <span className="text-[9px] text-slate-400">+CESS {cessPercent}%</span>}
       </div>
       <div className="flex gap-2 text-[9px] text-slate-400">
         {isInterState ? (
@@ -658,8 +891,19 @@ const ProductSearchDropdown = memo(function ProductSearchDropdown({
       {loading && (
         <div className="flex items-center justify-center gap-2 px-3 py-6 text-sm text-slate-400">
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
           Searching...
         </div>
@@ -670,7 +914,9 @@ const ProductSearchDropdown = memo(function ProductSearchDropdown({
         <>
           <div className="flex items-center gap-1.5 px-3 py-2">
             <History className="h-3 w-3 text-slate-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Recent</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Recent
+            </span>
           </div>
           {recentProducts.slice(0, 5).map((product) => (
             <ProductSearchItem
@@ -690,7 +936,9 @@ const ProductSearchDropdown = memo(function ProductSearchDropdown({
         <>
           <div className="flex items-center gap-1.5 px-3 py-2">
             <Star className="h-3 w-3 text-amber-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Frequently Sold</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Frequently Sold
+            </span>
           </div>
           {frequentProducts.slice(0, 5).map((product) => (
             <ProductSearchItem
@@ -710,10 +958,9 @@ const ProductSearchDropdown = memo(function ProductSearchDropdown({
         <div className="flex flex-col items-center gap-2 px-3 py-8 text-center text-sm text-slate-400">
           <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" />
           <span>No products found</span>
-          <button
-            type="button"
-            className="text-emerald-600 hover:underline dark:text-emerald-400"
-          >+ Add new product</button>
+          <button type="button" className="text-emerald-600 hover:underline dark:text-emerald-400">
+            + Add new product
+          </button>
         </div>
       )}
 
@@ -738,52 +985,38 @@ interface ProductSearchItemProps {
 }
 
 const ProductSearchItem = memo(function ProductSearchItem({
-  product, isHighlighted, onSelect, onHighlight,
+  product,
+  isHighlighted,
+  onSelect,
+  onHighlight,
 }: ProductSearchItemProps) {
   const qtyColor = getStockStatus(product.currentStock);
   return (
     <button
       type="button"
       className={cn(
-        'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
+        'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
         isHighlighted
           ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
           : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700',
       )}
-      onMouseDown={(e) => { e.preventDefault(); onSelect(product); }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onSelect(product);
+      }}
       onMouseEnter={onHighlight}
     >
-      {/* Avatar with stock indicator */}
-      <div className="relative shrink-0">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 text-xs font-bold text-slate-500 dark:from-slate-700 dark:to-slate-600 dark:text-slate-300">
-          {product.name.charAt(0).toUpperCase()}
-        </div>
-        <span className={cn(
-          'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-slate-800',
-          qtyColor === 'out' ? 'bg-red-500' : qtyColor === 'low' ? 'bg-amber-400' : 'bg-emerald-500',
-        )} />
-      </div>
-
-      {/* Product info */}
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{product.name}</p>
-        <p className="truncate text-xs text-slate-400">
-          {product.sku}
-          {product.barcode && ` · ${product.barcode}`}
-          {product.hsn && ` · HSN: ${product.hsn}`}
-        </p>
-      </div>
-
-      {/* Price + Stock */}
-      <div className="shrink-0 text-right">
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          {formatINR(product.salesRate)}
-        </p>
-        <p className={cn('text-xs font-medium', STOCK_COLORS[qtyColor])}>
-          Stock: {product.currentStock}
-          {product.unitName && ` ${product.unitName}`}
-        </p>
-      </div>
+      {/* Compact row — sirf naam + chhota stock pill (list chhoti dikhe, jaldi scan ho) */}
+      <span className="min-w-0 flex-1 truncate font-medium">{product.name}</span>
+      <span
+        className={cn(
+          'shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+          STOCK_COLORS[qtyColor],
+        )}
+        title={`Stock: ${product.currentStock}`}
+      >
+        {product.currentStock}
+      </span>
     </button>
   );
 });
@@ -801,7 +1034,7 @@ interface BatchSelectorProps {
 
 function BatchSelector({ productName, batches, onSelect, onClose }: BatchSelectorProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="mx-4 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-800">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-700">
           <div>
@@ -813,18 +1046,32 @@ function BatchSelector({ productName, batches, onSelect, onClose }: BatchSelecto
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
             aria-label="Close"
-          ><X className="h-4 w-4" /></button>
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <div className="overflow-auto p-4">
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100 dark:border-slate-700">
-                <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Batch No</th>
-                <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Expiry</th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">Available</th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">Purchase Rate</th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">Selling Rate</th>
-                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">MRP</th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Batch No
+                </th>
+                <th className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Expiry
+                </th>
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Available
+                </th>
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Purchase Rate
+                </th>
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Selling Rate
+                </th>
+                <th className="px-3 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  MRP
+                </th>
                 <th className="px-3 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500" />
               </tr>
             </thead>
@@ -832,27 +1079,48 @@ function BatchSelector({ productName, batches, onSelect, onClose }: BatchSelecto
               {batches.map((batch) => {
                 const expiryStatus = getExpiryStatus(batch.expiryDate);
                 return (
-                  <tr key={batch.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30">
-                    <td className="px-3 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">{batch.batchNo}</td>
+                  <tr
+                    key={batch.id}
+                    className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/30"
+                  >
+                    <td className="px-3 py-3 text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {batch.batchNo}
+                    </td>
                     <td className="px-3 py-3">
-                      <span className={cn('inline-block rounded-full px-2 py-0.5 text-xs font-medium', EXPIRY_COLORS[expiryStatus])}>
+                      <span
+                        className={cn(
+                          'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
+                          EXPIRY_COLORS[expiryStatus],
+                        )}
+                      >
                         {formatDate(batch.expiryDate)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
-                      <span className={cn(getStockStatus(batch.availableQty) !== 'ok' && STOCK_COLORS[getStockStatus(batch.availableQty)])}>
+                      <span
+                        className={cn(
+                          getStockStatus(batch.availableQty) !== 'ok' &&
+                            STOCK_COLORS[getStockStatus(batch.availableQty)],
+                        )}
+                      >
                         {batch.availableQty}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right text-sm text-slate-600 dark:text-slate-400">{formatINR(batch.purchaseRate)}</td>
-                    <td className="px-3 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">{formatINR(batch.sellingRate)}</td>
-                    <td className="px-3 py-3 text-right text-sm text-slate-600 dark:text-slate-400">{batch.mrp ? formatINR(batch.mrp) : '—'}</td>
+                    <td className="px-3 py-3 text-right text-sm text-slate-600 dark:text-slate-400">
+                      {formatINR(batch.purchaseRate)}
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {formatINR(batch.sellingRate)}
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm text-slate-600 dark:text-slate-400">
+                      {batch.mrp ? formatINR(batch.mrp) : '—'}
+                    </td>
                     <td className="px-3 py-3 text-center">
                       <button
                         type="button"
                         onClick={() => onSelect(batch)}
                         disabled={expiryStatus === 'expired'}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {expiryStatus === 'expired' ? 'Expired' : 'Select'}
                       </button>
@@ -878,48 +1146,69 @@ interface ExpandedProductDetailsProps {
 }
 
 function ExpandedProductDetails({ item, product }: ExpandedProductDetailsProps) {
-  const details = useMemo(() => [
-    { label: 'HSN/SAC', value: item.hsn || product?.hsn || '—' },
-    { label: 'Description', value: product?.description || '—' },
-    { label: 'Company', value: product?.company || '—' },
-    { label: 'Category', value: product?.category || '—' },
-    { label: 'Sub Category', value: product?.subCategory || '—' },
-    { label: 'Last Purchase Rate', value: product?.lastPurchaseRate ? formatINR(product.lastPurchaseRate) : '—' },
-    { label: 'Last Selling Rate', value: product?.lastSellingRate ? formatINR(product.lastSellingRate) : '—' },
-    { label: 'Profit Margin', value: product?.profitMargin ? `${product.profitMargin.toFixed(1)}%` : '—' },
-  ], [item, product]);
+  const details = useMemo(
+    () => [
+      { label: 'HSN/SAC', value: item.hsn || product?.hsn || '—' },
+      { label: 'Description', value: product?.description || '—' },
+      { label: 'Company', value: product?.company || '—' },
+      { label: 'Category', value: product?.category || '—' },
+      { label: 'Sub Category', value: product?.subCategory || '—' },
+      {
+        label: 'Last Purchase Rate',
+        value: product?.lastPurchaseRate ? formatINR(product.lastPurchaseRate) : '—',
+      },
+      {
+        label: 'Last Selling Rate',
+        value: product?.lastSellingRate ? formatINR(product.lastSellingRate) : '—',
+      },
+      {
+        label: 'Profit Margin',
+        value: product?.profitMargin ? `${product.profitMargin.toFixed(1)}%` : '—',
+      },
+    ],
+    [item, product],
+  );
 
   return (
     <tr className="border-b border-slate-100 bg-slate-50/50 dark:border-slate-700/50 dark:bg-slate-800/20">
       <td colSpan={16} className="px-4 py-3">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
           {/* Product Image + Basic Info */}
-          <div className="col-span-full flex items-start gap-4 pb-2 border-b border-slate-200 dark:border-slate-700 mb-2">
+          <div className="col-span-full mb-2 flex items-start gap-4 border-b border-slate-200 pb-2 dark:border-slate-700">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 dark:from-slate-700 dark:to-slate-600">
               <Image className="h-6 w-6" />
             </div>
             <div>
               <p className="font-medium text-slate-900 dark:text-slate-100">{item.productName}</p>
-              <p className="text-xs text-slate-400">SKU: {item.sku} · Barcode: {item.barcode || '—'}</p>
+              <p className="text-xs text-slate-400">
+                SKU: {item.sku} · Barcode: {item.barcode || '—'}
+              </p>
             </div>
           </div>
 
           {details.map((d) => (
             <div key={d.label}>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{d.label}</p>
-              <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mt-0.5">{d.value}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                {d.label}
+              </p>
+              <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+                {d.value}
+              </p>
             </div>
           ))}
 
           {/* Warehouse Stock */}
           {product?.warehouseStocks && product.warehouseStocks.length > 0 && (
-            <div className="col-span-full border-t border-slate-200 dark:border-slate-700 pt-2 mt-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
+            <div className="col-span-full mt-1 border-t border-slate-200 pt-2 dark:border-slate-700">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Warehouse Stock
               </p>
               <div className="flex flex-wrap gap-2">
                 {product.warehouseStocks.map((ws) => (
-                  <span key={ws.warehouse} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                  <span
+                    key={ws.warehouse}
+                    className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                  >
                     <Layers className="h-3 w-3" />
                     {ws.warehouse}: {ws.qty}
                   </span>
@@ -929,13 +1218,17 @@ function ExpandedProductDetails({ item, product }: ExpandedProductDetailsProps) 
           )}
 
           {/* Recent Activity */}
-          <div className="col-span-full border-t border-slate-200 dark:border-slate-700 pt-2 mt-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">
+          <div className="col-span-full mt-1 border-t border-slate-200 pt-2 dark:border-slate-700">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Activity
             </p>
             <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
-              {product?.lastPurchaseRate && <span>Last Purchase Rate: {formatINR(product.lastPurchaseRate)}</span>}
-              {product?.lastSellingRate && <span>Last Selling Rate: {formatINR(product.lastSellingRate)}</span>}
+              {product?.lastPurchaseRate && (
+                <span>Last Purchase Rate: {formatINR(product.lastPurchaseRate)}</span>
+              )}
+              {product?.lastSellingRate && (
+                <span>Last Selling Rate: {formatINR(product.lastSellingRate)}</span>
+              )}
               <span>Batch History: {item.batchNo || '—'}</span>
             </div>
           </div>
@@ -948,7 +1241,6 @@ function ExpandedProductDetails({ item, product }: ExpandedProductDetailsProps) 
 // ═════════════════════════════════════════════════════════
 // INVOICE GRID ROW
 // ═════════════════════════════════════════════════════════
-
 
 interface InvoiceGridRowProps {
   item: InvoiceLineItem;
@@ -967,8 +1259,18 @@ interface InvoiceGridRowProps {
 }
 
 const InvoiceGridRow = memo(function InvoiceGridRow({
-  item, index, columns, isActive, activeCell, editingCell, productCache, isInterState,
-  onUpdate, onDelete, onActivate, onEdit,
+  item,
+  index,
+  columns,
+  isActive,
+  activeCell,
+  editingCell,
+  productCache,
+  isInterState,
+  onUpdate,
+  onDelete,
+  onActivate,
+  onEdit,
 }: InvoiceGridRowProps) {
   const expiryStatus = getExpiryStatus(item.expiryDate);
   const stockStatus = getStockStatus(item.availableStock);
@@ -983,169 +1285,222 @@ const InvoiceGridRow = memo(function InvoiceGridRow({
   }, [isActive]);
 
   // Cell editors map
-  const renderCell = useCallback((col: ColumnMeta): React.ReactNode => {
-    const cellKey = col.key as string;
-    const isEditing = editingCell === cellKey && isActive;
+  const renderCell = useCallback(
+    (col: ColumnMeta): React.ReactNode => {
+      const cellKey = col.key as string;
+      const isEditing = editingCell === cellKey && isActive;
 
-    switch (col.key) {
-      case '#': return (
-        <div className="flex items-center justify-center gap-1">
-          <GripVertical className="h-3 w-3 text-slate-300 cursor-grab" />
-          <span className="text-xs text-slate-400">{index + 1}</span>
-        </div>
-      );
+      switch (col.key) {
+        case '#':
+          return (
+            <div className="flex items-center justify-center gap-1">
+              <GripVertical className="h-3 w-3 cursor-grab text-slate-300" />
+              <span className="text-xs text-slate-400">{index + 1}</span>
+            </div>
+          );
 
-      case 'productName': return (
-        <button
-          type="button"
-          onClick={() => onEdit(index, 'productName')}
-          className="min-w-0 text-left"
-        >
-          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{item.productName}</p>
-          <p className="truncate text-[10px] text-slate-400">{item.sku}</p>
-        </button>
-      );
-
-      case 'sku': return <span className="text-xs text-slate-500 dark:text-slate-400">{item.sku || '—'}</span>;
-      case 'barcode': return <span className="text-xs text-slate-500 dark:text-slate-400">{item.barcode || '—'}</span>;
-
-      case 'batchNo': return (
-        <span className={cn(
-          'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-          expiryStatus !== 'healthy' && EXPIRY_COLORS[expiryStatus],
-          !expiryStatus && 'text-slate-400',
-        )}>
-          {item.batchNo || '—'}
-        </span>
-      );
-
-      case 'expiryDate': return (
-        <span className={cn(
-          'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium',
-          item.expiryDate ? EXPIRY_COLORS[expiryStatus] : 'text-slate-400',
-        )}>
-          {item.expiryDate ? formatDate(item.expiryDate) : '—'}
-        </span>
-      );
-
-      case 'warehouse': return <span className="text-xs text-slate-600 dark:text-slate-400">{item.warehouse}</span>;
-      case 'uom': return <span className="text-xs text-slate-600 dark:text-slate-400">{item.uom}</span>;
-
-      case 'availableStock': return (
-        <span className={cn('text-xs font-medium', STOCK_COLORS[stockStatus])}>
-          {item.availableStock}
-        </span>
-      );
-
-      case 'quantity': return (
-        <div className="flex items-center justify-center">
-          {isEditing ? (
-            <QuantityInput
-              value={item.quantity}
-              max={item.availableStock}
-              onChange={(v) => onUpdate(item.id, 'quantity', v)}
-              stockWarning={stockWarning}
-            />
-          ) : (
+        case 'productName':
+          return (
             <button
               type="button"
-              onClick={() => onEdit(index, 'quantity')}
+              onClick={() => onEdit(index, 'productName')}
+              className="min-w-0 text-left"
+            >
+              <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                {item.productName}
+              </p>
+              <p className="truncate text-[10px] text-slate-400">{item.sku}</p>
+            </button>
+          );
+
+        case 'sku':
+          return (
+            <span className="text-xs text-slate-500 dark:text-slate-400">{item.sku || '—'}</span>
+          );
+        case 'barcode':
+          return (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {item.barcode || '—'}
+            </span>
+          );
+
+        case 'batchNo':
+          return (
+            <span
               className={cn(
-                'min-w-[40px] rounded px-1.5 py-1 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700',
-                stockWarning ? 'text-red-600' : 'text-slate-900 dark:text-slate-100',
+                'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
+                expiryStatus !== 'healthy' && EXPIRY_COLORS[expiryStatus],
+                !expiryStatus && 'text-slate-400',
               )}
             >
-              {item.quantity}
-            </button>
-          )}
-        </div>
-      );
+              {item.batchNo || '—'}
+            </span>
+          );
 
-      case 'freeQty': return (
-        <input
-          type="number"
-          value={item.freeQty || ''}
-          onChange={(e) => onUpdate(item.id, 'freeQty', Math.max(0, parseFloat(e.target.value) || 0))}
-          min={0}
-          step={0.01}
-          className="h-7 w-14 rounded-md border border-slate-200 bg-white px-1 text-center text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          aria-label={`Free quantity row ${index + 1}`}
-        />
-      );
+        case 'expiryDate':
+          return (
+            <span
+              className={cn(
+                'inline-block rounded-full px-2 py-0.5 text-[10px] font-medium',
+                item.expiryDate ? EXPIRY_COLORS[expiryStatus] : 'text-slate-400',
+              )}
+            >
+              {item.expiryDate ? formatDate(item.expiryDate) : '—'}
+            </span>
+          );
 
-      case 'rate': return (
-        <div className="flex items-center justify-end gap-1">
-          <PriceListSelector
-            value={item.priceList}
-            onChange={(type, rate) => {
-              onUpdate(item.id, 'priceList', type);
-              onUpdate(item.id, 'rate', rate);
-            }}
-            product={productCache.get(item.productId) ?? null}
-            currentRate={item.rate}
-          />
-          {isEditing ? (
+        case 'warehouse':
+          return (
+            <span className="text-xs text-slate-600 dark:text-slate-400">{item.warehouse}</span>
+          );
+        case 'uom':
+          return <span className="text-xs text-slate-600 dark:text-slate-400">{item.uom}</span>;
+
+        case 'availableStock':
+          return (
+            <span className={cn('text-xs font-medium', STOCK_COLORS[stockStatus])}>
+              {item.availableStock}
+            </span>
+          );
+
+        case 'quantity':
+          return (
+            <div className="flex items-center justify-center">
+              {isEditing ? (
+                <QuantityInput
+                  value={item.quantity}
+                  max={item.availableStock}
+                  onChange={(v) => onUpdate(item.id, 'quantity', v)}
+                  stockWarning={stockWarning}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onEdit(index, 'quantity')}
+                  className={cn(
+                    'min-w-[40px] rounded px-1.5 py-1 text-xs font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700',
+                    stockWarning ? 'text-red-600' : 'text-slate-900 dark:text-slate-100',
+                  )}
+                >
+                  {item.quantity}
+                </button>
+              )}
+            </div>
+          );
+
+        case 'freeQty':
+          return (
             <input
               type="number"
-              value={item.rate || ''}
-              onChange={(e) => onUpdate(item.id, 'rate', Math.max(0, parseFloat(e.target.value) || 0))}
+              value={item.freeQty || ''}
+              onChange={(e) =>
+                onUpdate(item.id, 'freeQty', Math.max(0, parseFloat(e.target.value) || 0))
+              }
               min={0}
               step={0.01}
-              className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1 text-right text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              aria-label="Rate"
+              className="h-7 w-14 rounded-md border border-slate-200 bg-white px-1 text-center text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              aria-label={`Free quantity row ${index + 1}`}
             />
-          ) : (
-            <span className="text-xs font-medium text-slate-900 dark:text-slate-100">{formatINR(item.rate)}</span>
-          )}
-        </div>
-      );
+          );
 
-      case 'discountPercent': return (
-        <DiscountEditor
-          type={item.discountType}
-          percent={item.discountPercent}
-          flatValue={item.discountValue}
-          schemeName={item.schemeName}
-          freeQty={item.freeQty}
-          onTypeChange={(t) => onUpdate(item.id, 'discountType', t)}
-          onPercentChange={(v) => onUpdate(item.id, 'discountPercent', v)}
-          onFlatChange={(v) => onUpdate(item.id, 'discountValue', v)}
-          onSchemeChange={(v) => onUpdate(item.id, 'schemeName', v)}
-          onFreeQtyChange={(v) => onUpdate(item.id, 'freeQty', v)}
-        />
-      );
+        case 'rate':
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <PriceListSelector
+                value={item.priceList}
+                onChange={(type, rate) => {
+                  onUpdate(item.id, 'priceList', type);
+                  onUpdate(item.id, 'rate', rate);
+                }}
+                product={productCache.get(item.productId) ?? null}
+                currentRate={item.rate}
+              />
+              {isEditing ? (
+                <input
+                  type="number"
+                  value={item.rate || ''}
+                  onChange={(e) =>
+                    onUpdate(item.id, 'rate', Math.max(0, parseFloat(e.target.value) || 0))
+                  }
+                  min={0}
+                  step={0.01}
+                  className="h-7 w-16 rounded-md border border-slate-200 bg-white px-1 text-right text-xs outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  aria-label="Rate"
+                />
+              ) : (
+                <span className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                  {formatINR(item.rate)}
+                </span>
+              )}
+            </div>
+          );
 
-      case 'gstPercent': return (
-        <GSTEditor
-          gstPercent={item.gstPercent}
-          cessPercent={item.cessPercent}
-          isInterState={isInterState}
-          editable={false}
-          onChange={(gst, cess) => {
-            onUpdate(item.id, 'gstPercent', gst);
-            onUpdate(item.id, 'cessPercent', cess);
-          }}
-        />
-      );
+        case 'discountPercent':
+          return (
+            <DiscountEditor
+              type={item.discountType}
+              percent={item.discountPercent}
+              flatValue={item.discountValue}
+              schemeName={item.schemeName}
+              freeQty={item.freeQty}
+              onTypeChange={(t) => onUpdate(item.id, 'discountType', t)}
+              onPercentChange={(v) => onUpdate(item.id, 'discountPercent', v)}
+              onFlatChange={(v) => onUpdate(item.id, 'discountValue', v)}
+              onSchemeChange={(v) => onUpdate(item.id, 'schemeName', v)}
+              onFreeQtyChange={(v) => onUpdate(item.id, 'freeQty', v)}
+            />
+          );
 
-      case 'amount': return (
-        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-          {formatINR(item.amount)}
-        </span>
-      );
+        case 'gstPercent':
+          return (
+            <GSTEditor
+              gstPercent={item.gstPercent}
+              cessPercent={item.cessPercent}
+              isInterState={isInterState}
+              editable={false}
+              onChange={(gst, cess) => {
+                onUpdate(item.id, 'gstPercent', gst);
+                onUpdate(item.id, 'cessPercent', cess);
+              }}
+            />
+          );
 
-      case 'actions': return (
-        <button
-          type="button"
-          onClick={() => onDelete(item.id)}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-          aria-label={`Delete row ${index + 1}`}
-        ><Trash2 className="h-3.5 w-3.5" /></button>
-      );
+        case 'amount':
+          return (
+            <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+              {formatINR(item.amount)}
+            </span>
+          );
 
-      default: return <span className="text-xs text-slate-500">—</span>;
-    }
-  }, [item, index, isActive, activeCell, editingCell, productCache, isInterState, onUpdate, onDelete, onEdit]);
+        case 'actions':
+          return (
+            <button
+              type="button"
+              onClick={() => onDelete(item.id)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+              aria-label={`Delete row ${index + 1}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          );
+
+        default:
+          return <span className="text-xs text-slate-500">—</span>;
+      }
+    },
+    [
+      item,
+      index,
+      isActive,
+      activeCell,
+      editingCell,
+      productCache,
+      isInterState,
+      onUpdate,
+      onDelete,
+      onEdit,
+    ],
+  );
 
   return (
     <>
@@ -1153,24 +1508,30 @@ const InvoiceGridRow = memo(function InvoiceGridRow({
         ref={rowRef}
         className={cn(
           'transition-colors',
-          isActive ? 'bg-emerald-50/50 dark:bg-emerald-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30',
+          isActive
+            ? 'bg-emerald-50/50 dark:bg-emerald-900/10'
+            : 'hover:bg-slate-50 dark:hover:bg-slate-800/30',
           stockWarning && 'bg-red-50/30 dark:bg-red-900/5',
           item.isBlocked && 'opacity-60',
         )}
         onClick={() => onActivate(index, '#')}
-        onDoubleClick={() => item.isExpanded ? onUpdate(item.id, 'isExpanded', false) : onUpdate(item.id, 'isExpanded', true)}
+        onDoubleClick={() =>
+          item.isExpanded
+            ? onUpdate(item.id, 'isExpanded', false)
+            : onUpdate(item.id, 'isExpanded', true)
+        }
         data-row-index={index}
       >
         {columns.map((col) => (
           <td
             key={col.key as string}
             className={cn(
-              'px-2 py-2.5 text-xs border-b border-slate-50 dark:border-slate-700/30',
+              'border-b border-slate-50 px-2 py-2.5 text-xs dark:border-slate-700/30',
               col.align === 'right' && 'text-right',
               col.align === 'center' && 'text-center',
               col.key === '#' && 'sticky left-0 z-[5] bg-inherit',
               col.key === 'actions' && 'sticky right-0 z-[5] bg-inherit',
-              isActive && activeCell === col.key && 'ring-2 ring-emerald-500/30 ring-inset',
+              isActive && activeCell === col.key && 'ring-2 ring-inset ring-emerald-500/30',
             )}
             style={{ minWidth: col.minWidth, width: col.width, maxWidth: col.width }}
           >
@@ -1200,8 +1561,12 @@ const BottomSummary = memo(function BottomSummary({ items }: BottomSummaryProps)
     const totalQty = items.reduce((s, i) => s + i.quantity, 0);
     const taxableAmount = items.reduce((s, i) => s + i.taxableAmount, 0);
     const discountAmount = items.reduce((s, i) => {
-      if (i.discountType === 'flat') return s + i.discountValue;
-      if (i.discountType === 'free_qty') return s + i.freeQty * i.rate;
+      if (i.discountType === 'flat') {
+        return s + i.discountValue;
+      }
+      if (i.discountType === 'free_qty') {
+        return s + i.freeQty * i.rate;
+      }
       return s + (i.quantity * i.rate * i.discountPercent) / 100;
     }, 0);
     const cgstTotal = items.reduce((s, i) => s + i.cgstAmount, 0);
@@ -1213,9 +1578,17 @@ const BottomSummary = memo(function BottomSummary({ items }: BottomSummaryProps)
     const roundOff = Math.round(subTotal) - subTotal;
     const grandTotal = Math.round(subTotal);
     return {
-      totalQty, taxableAmount, discountAmount,
-      cgstTotal, sgstTotal, igstTotal, cessTotal, gstAmount,
-      roundOff, grandTotal, subTotal,
+      totalQty,
+      taxableAmount,
+      discountAmount,
+      cgstTotal,
+      sgstTotal,
+      igstTotal,
+      cessTotal,
+      gstAmount,
+      roundOff,
+      grandTotal,
+      subTotal,
     };
   }, [items]);
 
@@ -1224,10 +1597,26 @@ const BottomSummary = memo(function BottomSummary({ items }: BottomSummaryProps)
       {/* GST Breakdown */}
       <div className="border-b border-slate-100 px-5 py-2 dark:border-slate-700">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-          <GstChip label="CGST" value={summary.cgstTotal} color="text-blue-600 dark:text-blue-400" />
-          <GstChip label="SGST" value={summary.sgstTotal} color="text-blue-600 dark:text-blue-400" />
-          <GstChip label="IGST" value={summary.igstTotal} color="text-purple-600 dark:text-purple-400" />
-          <GstChip label="CESS" value={summary.cessTotal} color="text-orange-600 dark:text-orange-400" />
+          <GstChip
+            label="CGST"
+            value={summary.cgstTotal}
+            color="text-blue-600 dark:text-blue-400"
+          />
+          <GstChip
+            label="SGST"
+            value={summary.sgstTotal}
+            color="text-blue-600 dark:text-blue-400"
+          />
+          <GstChip
+            label="IGST"
+            value={summary.igstTotal}
+            color="text-purple-600 dark:text-purple-400"
+          />
+          <GstChip
+            label="CESS"
+            value={summary.cessTotal}
+            color="text-orange-600 dark:text-orange-400"
+          />
         </div>
       </div>
 
@@ -1237,13 +1626,27 @@ const BottomSummary = memo(function BottomSummary({ items }: BottomSummaryProps)
           <SummaryItem label="Items" value={items.length} />
           <SummaryItem label="Total Qty" value={summary.totalQty} />
           <SummaryItem label="Taxable" value={formatINR(summary.taxableAmount)} />
-          <SummaryItem label="Discount" value={formatINR(summary.discountAmount)} className="text-red-600 dark:text-red-400" />
-          <SummaryItem label="GST" value={formatINR(summary.gstAmount)} className="text-blue-600 dark:text-blue-400" />
-          <SummaryItem label="Round Off" value={summary.roundOff.toFixed(2)} className={cn(summary.roundOff < 0 ? 'text-red-500' : 'text-emerald-500')} />
+          <SummaryItem
+            label="Discount"
+            value={formatINR(summary.discountAmount)}
+            className="text-red-600 dark:text-red-400"
+          />
+          <SummaryItem
+            label="GST"
+            value={formatINR(summary.gstAmount)}
+            className="text-blue-600 dark:text-blue-400"
+          />
+          <SummaryItem
+            label="Round Off"
+            value={summary.roundOff.toFixed(2)}
+            className={cn(summary.roundOff < 0 ? 'text-red-500' : 'text-emerald-500')}
+          />
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Grand Total</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Grand Total
+            </p>
             <p className="text-xs text-slate-400">(rounded)</p>
           </div>
           <div className="flex items-baseline gap-1">
@@ -1251,7 +1654,10 @@ const BottomSummary = memo(function BottomSummary({ items }: BottomSummaryProps)
               {formatINR(summary.grandTotal)}
             </span>
             {summary.roundOff !== 0 && (
-              <span className="text-[10px] text-slate-400">({summary.roundOff > 0 ? '+' : ''}{summary.roundOff.toFixed(2)})</span>
+              <span className="text-[10px] text-slate-400">
+                ({summary.roundOff > 0 ? '+' : ''}
+                {summary.roundOff.toFixed(2)})
+              </span>
             )}
           </div>
         </div>
@@ -1271,11 +1677,23 @@ function GstChip({ label, value, color }: { label: string; value: number; color:
   );
 }
 
-function SummaryItem({ label, value, className }: { label: string; value: string | number; className?: string }) {
+function SummaryItem({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string | number;
+  className?: string;
+}) {
   return (
     <div className="text-center sm:text-left">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{label}</p>
-      <p className={cn('text-sm font-bold text-slate-800 dark:text-slate-200', className)}>{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        {label}
+      </p>
+      <p className={cn('text-sm font-bold text-slate-800 dark:text-slate-200', className)}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -1298,8 +1716,11 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('product-search-history') || '[]'); }
-    catch { return []; }
+    try {
+      return JSON.parse(localStorage.getItem('product-search-history') || '[]');
+    } catch {
+      return [];
+    }
   });
   const [recentProducts, setRecentProducts] = useState<ProductRecord[]>([]);
   const [frequentProducts, setFrequentProducts] = useState<ProductRecord[]>([]);
@@ -1324,6 +1745,9 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   // ── Batch Selector ─────────────────────────────────
   const [batchSelectorProduct, setBatchSelectorProduct] = useState<ProductRecord | null>(null);
 
+  // ── Barcode / QR scan (scanner gun) ────────────────
+  const [scanOpen, setScanOpen] = useState(false);
+
   // ── Keyboard Reference ─────────────────────────────
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -1337,12 +1761,22 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
     const loadPresets = async () => {
       try {
         const [recentRes, frequentRes] = await Promise.all([
-          apiRequest<{ data: ProductRecord[] }>('/inventory/products/recent?limit=5').catch(() => null),
-          apiRequest<{ data: ProductRecord[] }>('/inventory/products/frequent?limit=5').catch(() => null),
+          apiRequest<{ data: ProductRecord[] }>('/inventory/products/recent?limit=5').catch(
+            () => null,
+          ),
+          apiRequest<{ data: ProductRecord[] }>('/inventory/products/frequent?limit=5').catch(
+            () => null,
+          ),
         ]);
-        if (recentRes) setRecentProducts(Array.isArray(recentRes) ? recentRes : recentRes.data ?? []);
-        if (frequentRes) setFrequentProducts(Array.isArray(frequentRes) ? frequentRes : frequentRes.data ?? []);
-      } catch { /* silent */ }
+        if (recentRes) {
+          setRecentProducts(Array.isArray(recentRes) ? recentRes : (recentRes.data ?? []));
+        }
+        if (frequentRes) {
+          setFrequentProducts(Array.isArray(frequentRes) ? frequentRes : (frequentRes.data ?? []));
+        }
+      } catch {
+        /* silent */
+      }
     };
     loadPresets();
   }, []);
@@ -1350,63 +1784,88 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   // Cleanup timer
   useEffect(() => {
     return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
     };
   }, []);
 
   // Save search history
   const saveToHistory = useCallback((query: string) => {
-    if (!query.trim()) return;
-    setSearchHistory(prev => {
-      const next = [query, ...prev.filter(h => h !== query)].slice(0, 10);
-      try { localStorage.setItem('product-search-history', JSON.stringify(next)); } catch { /* */ }
+    if (!query.trim()) {
+      return;
+    }
+    setSearchHistory((prev) => {
+      const next = [query, ...prev.filter((h) => h !== query)].slice(0, 10);
+      try {
+        localStorage.setItem('product-search-history', JSON.stringify(next));
+      } catch {
+        /* */
+      }
       return next;
     });
   }, []);
 
   // ── Search ─────────────────────────────────────────
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!value) {
-      setProducts([]);
-      setShowSearchResults(false);
-      return;
-    }
-    searchTimerRef.current = setTimeout(async () => {
-      setSearchLoading(true);
-      setShowSearchResults(true);
-      saveToHistory(value);
-      try {
-        const params = new URLSearchParams({ search: value, pageSize: '20' });
-        if (searchMode !== 'name') params.set('searchField', searchMode);
-        const res = await apiRequest<{ data: ProductRecord[] }>(`/inventory/products?${params}`);
-        const list = Array.isArray(res) ? res : res?.data ?? [];
-        setProducts(list);
-        // Cache products for expandable rows
-        list.forEach(p => productCache.set(p.id, p));
-        setHighlightedIndex(-1);
-      } catch {
-        setProducts([]);
-      } finally {
-        setSearchLoading(false);
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchQuery(value);
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
       }
-    }, 300);
-  }, [searchMode, saveToHistory, productCache]);
+      if (!value) {
+        setProducts([]);
+        setShowSearchResults(false);
+        return;
+      }
+      searchTimerRef.current = setTimeout(async () => {
+        setSearchLoading(true);
+        setShowSearchResults(true);
+        saveToHistory(value);
+        try {
+          const params = new URLSearchParams({ search: value, pageSize: '20' });
+          if (searchMode !== 'name') {
+            params.set('searchField', searchMode);
+          }
+          const res = await apiRequest<{ data: ProductRecord[] }>(`/inventory/products?${params}`);
+          const list = Array.isArray(res) ? res : (res?.data ?? []);
+          // Alphabetical sort — naam A→Z (case-insensitive), select karte waqt aasani se dhundhe
+          list.sort((a, b) =>
+            (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()),
+          );
+          setProducts(list);
+          // Cache products for expandable rows
+          list.forEach((p) => productCache.set(p.id, p));
+          setHighlightedIndex(-1);
+        } catch {
+          setProducts([]);
+        } finally {
+          setSearchLoading(false);
+        }
+      }, 300);
+    },
+    [searchMode, saveToHistory, productCache],
+  );
 
   // ── Add Product to Grid ────────────────────────────
   const addProductToGrid = useCallback(
     (product: ProductRecord, batch?: BatchInfo) => {
       // Validation: expired batch
-      if (batch && getExpiryStatus(batch.expiryDate) === 'expired') return;
+      if (batch && getExpiryStatus(batch.expiryDate) === 'expired') {
+        return;
+      }
       // Validation: inactive product
-      if (product.isActive === false) return;
+      if (product.isActive === false) {
+        return;
+      }
       // Validation: blocked product
-      if (product.isBlocked) return;
+      if (product.isBlocked) {
+        return;
+      }
 
       setItems((prev) => {
         const existing = prev.find(
-          (i) => i.productId === product.id && i.batchNo === (batch?.batchNo ?? '')
+          (i) => i.productId === product.id && i.batchNo === (batch?.batchNo ?? ''),
         );
         if (existing) {
           return prev.map((i) =>
@@ -1415,23 +1874,26 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
               : i,
           );
         }
-        const newLine = recomputeLine({
-          productId: product.id,
-          productName: product.name,
-          sku: product.sku,
-          hsn: product.hsn ?? '',
-          barcode: product.barcode ?? '',
-          batchNo: batch?.batchNo ?? '',
-          expiryDate: batch?.expiryDate ?? '',
-          warehouse: 'Main',
-          uom: product.unitName ?? 'Pcs',
-          availableStock: product.currentStock,
-          quantity: 1,
-          rate: batch?.sellingRate ?? product.salesRate,
-          gstPercent: product.gstRate ?? 0,
-          isExpired: batch ? getExpiryStatus(batch.expiryDate) === 'expired' : false,
-          isBlocked: product.isBlocked ?? false,
-        }, isInterState);
+        const newLine = recomputeLine(
+          {
+            productId: product.id,
+            productName: product.name,
+            sku: product.sku,
+            hsn: product.hsn ?? '',
+            barcode: product.barcode ?? '',
+            batchNo: batch?.batchNo ?? '',
+            expiryDate: batch?.expiryDate ?? '',
+            warehouse: 'Main',
+            uom: product.unitName ?? 'Pcs',
+            availableStock: product.currentStock,
+            quantity: 1,
+            rate: batch?.sellingRate ?? product.salesRate,
+            gstPercent: product.gstRate ?? 0,
+            isExpired: batch ? getExpiryStatus(batch.expiryDate) === 'expired' : false,
+            isBlocked: product.isBlocked ?? false,
+          },
+          isInterState,
+        );
         return [...prev, newLine];
       });
       // Cache product for expandable details
@@ -1485,10 +1947,14 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   }, []);
 
   const handleDuplicateRow = useCallback(() => {
-    if (items.length === 0 || activeRow >= items.length) return;
+    if (items.length === 0 || activeRow >= items.length) {
+      return;
+    }
     setItems((prev) => {
       const source = prev[activeRow];
-      if (!source) return prev;
+      if (!source) {
+        return prev;
+      }
       const dup = recomputeLine({ ...source, id: crypto.randomUUID() }, isInterState);
       const next = [...prev];
       next.splice(activeRow + 1, 0, dup);
@@ -1499,7 +1965,9 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   // ── Cell Actions ───────────────────────────────────
   const handleCellAction: CellAction = useCallback((action, itemId) => {
     if (action === 'toggleExpand') {
-      setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, isExpanded: !i.isExpanded } : i));
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, isExpanded: !i.isExpanded } : i)),
+      );
     }
   }, []);
 
@@ -1530,7 +1998,9 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
           searchInputRef.current?.blur();
           break;
         case 'Tab':
-          if (e.shiftKey) break;
+          if (e.shiftKey) {
+            break;
+          }
           e.preventDefault();
           setShowSearchResults(false);
           setFocusMode('grid');
@@ -1549,9 +2019,11 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
 
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (items.length === 0) return;
+      if (items.length === 0) {
+        return;
+      }
 
-      const cellKeys: string[] = columns.map(c => c.key as string);
+      const cellKeys: string[] = columns.map((c) => c.key as string);
       const colIndex = activeCell ? cellKeys.indexOf(activeCell) : -1;
 
       switch (e.key) {
@@ -1623,13 +2095,17 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
           break;
         case 'F2':
           e.preventDefault();
-          if (activeCell) setEditingCell(activeCell);
+          if (activeCell) {
+            setEditingCell(activeCell);
+          }
           break;
         case 'Delete':
           if (e.ctrlKey) {
             e.preventDefault();
             const target = items[activeRow];
-            if (target) handleDeleteItem(target.id);
+            if (target) {
+              handleDeleteItem(target.id);
+            }
           }
           break;
         case 'd':
@@ -1668,29 +2144,41 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
   // ── Validation banners ──────────────────────────────
   const validationBanners = useMemo(() => {
     const banners: { type: 'error' | 'warning'; message: string }[] = [];
-    const expiredItems = items.filter(i => i.isExpired);
-    const blockedItems = items.filter(i => i.isBlocked);
-    const overStockItems = items.filter(i => i.quantity > i.availableStock);
-    const creditHoldItems = items.filter(i => i.creditHold);
+    const expiredItems = items.filter((i) => i.isExpired);
+    const blockedItems = items.filter((i) => i.isBlocked);
+    const overStockItems = items.filter((i) => i.quantity > i.availableStock);
+    const creditHoldItems = items.filter((i) => i.creditHold);
 
-    if (expiredItems.length > 0) banners.push({
-      type: 'error', message: `${expiredItems.length} item(s) have expired batches. Replace them before saving.`
-    });
-    if (blockedItems.length > 0) banners.push({
-      type: 'error', message: `${blockedItems.length} blocked product(s) in invoice. Remove them to continue.`
-    });
-    if (creditHoldItems.length > 0) banners.push({
-      type: 'warning', message: `${creditHoldItems.length} item(s) are on credit hold. Check customer balance before proceeding.`
-    });
-    if (overStockItems.length > 0) banners.push({
-      type: 'warning', message: `${overStockItems.length} item(s) exceed available stock.`
-    });
+    if (expiredItems.length > 0) {
+      banners.push({
+        type: 'error',
+        message: `${expiredItems.length} item(s) have expired batches. Replace them before saving.`,
+      });
+    }
+    if (blockedItems.length > 0) {
+      banners.push({
+        type: 'error',
+        message: `${blockedItems.length} blocked product(s) in invoice. Remove them to continue.`,
+      });
+    }
+    if (creditHoldItems.length > 0) {
+      banners.push({
+        type: 'warning',
+        message: `${creditHoldItems.length} item(s) are on credit hold. Check customer balance before proceeding.`,
+      });
+    }
+    if (overStockItems.length > 0) {
+      banners.push({
+        type: 'warning',
+        message: `${overStockItems.length} item(s) exceed available stock.`,
+      });
+    }
 
     return banners;
   }, [items]);
 
   return (
-    <div className="flex h-full flex-col animate-in fade-in duration-200">
+    <div className="animate-in fade-in flex h-full flex-col duration-200">
       {/* ═══════════════════════════════════════════════════
           HEADER
       ═══════════════════════════════════════════════════ */}
@@ -1701,9 +2189,13 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
             onClick={onBack}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
             aria-label="Go back"
-          ><ArrowLeft className="h-4 w-4" /></button>
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Products & Items</h2>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              Products & Items
+            </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {items.length > 0
                 ? `${items.length} item${items.length !== 1 ? 's' : ''} added`
@@ -1712,9 +2204,20 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" icon={<Barcode className="h-4 w-4" />}>Barcode Scan</Button>
-          <Button variant="ghost" size="sm" icon={<Upload className="h-4 w-4" />}>Import</Button>
-          <Button variant="secondary" size="sm" icon={<Plus className="h-4 w-4" />}>Add Product</Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Barcode className="h-4 w-4" />}
+            onClick={() => setScanOpen(true)}
+          >
+            Barcode Scan
+          </Button>
+          <Button variant="ghost" size="sm" icon={<Upload className="h-4 w-4" />}>
+            Import
+          </Button>
+          <Button variant="secondary" size="sm" icon={<Plus className="h-4 w-4" />}>
+            Add Product
+          </Button>
         </div>
       </div>
 
@@ -1724,7 +2227,7 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
       <div className="border-b border-slate-100 px-6 py-3 dark:border-slate-700/50">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search Input */}
-          <div ref={searchRef} className="relative flex-1 min-w-[280px]">
+          <div ref={searchRef} className="relative min-w-[280px] flex-1">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               ref={searchInputRef}
@@ -1734,14 +2237,18 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
               onKeyDown={handleSearchKeyDown}
               onFocus={() => {
                 setFocusMode('search');
-                if (products.length > 0) setShowSearchResults(true);
+                if (products.length > 0) {
+                  setShowSearchResults(true);
+                }
               }}
               placeholder={searchPlaceholder}
               className={cn(
                 'h-[42px] w-full rounded-xl border bg-white pl-10 pr-4 text-sm outline-none transition-all',
-                'focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 placeholder:text-slate-400',
+                'placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20',
                 'dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500',
-                focusMode === 'search' ? 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-400' : 'border-slate-200',
+                focusMode === 'search'
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-400'
+                  : 'border-slate-200',
               )}
               autoComplete="off"
               aria-label="Search products"
@@ -1860,7 +2367,7 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
             <p className="text-xs text-slate-400 dark:text-slate-500">
               Search for products above and press Enter or Tab to add them to the grid
             </p>
-            <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400 dark:text-slate-500">
+            <div className="mt-2 flex items-center gap-4 text-[10px] text-slate-400 dark:text-slate-500">
               <span>Tab → Grid</span>
               <span>F2 → Edit cell</span>
               <span>Ctrl+D → Duplicate row</span>
@@ -1880,8 +2387,10 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
                         'select-none',
                         col.align === 'right' && 'text-right',
                         col.align === 'center' && 'text-center',
-                        col.key === '#' && 'sticky left-0 z-[11] bg-slate-50/95 dark:bg-slate-800/95',
-                        col.key === 'actions' && 'sticky right-0 z-[11] bg-slate-50/95 dark:bg-slate-800/95',
+                        col.key === '#' &&
+                          'sticky left-0 z-[11] bg-slate-50/95 dark:bg-slate-800/95',
+                        col.key === 'actions' &&
+                          'sticky right-0 z-[11] bg-slate-50/95 dark:bg-slate-800/95',
                         col.resizable && 'cursor-col-resize',
                       )}
                       style={{
@@ -1896,12 +2405,12 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
                             type="button"
                             className="text-slate-300 hover:text-slate-500"
                             aria-label="Reorder columns"
-                          ><GripVertical className="h-3 w-3" /></button>
+                          >
+                            <GripVertical className="h-3 w-3" />
+                          </button>
                         )}
                         <span>{col.label}</span>
-                        {col.reorderable && (
-                          <ArrowUpDown className="h-2.5 w-2.5 text-slate-300" />
-                        )}
+                        {col.reorderable && <ArrowUpDown className="h-2.5 w-2.5 text-slate-300" />}
                       </div>
                     </th>
                   ))}
@@ -1921,8 +2430,15 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
                     isInterState={isInterState}
                     onUpdate={handleItemUpdate}
                     onDelete={handleDeleteItem}
-                    onActivate={(row, col) => { setActiveRow(row); setActiveCell(col); }}
-                    onEdit={(row, col) => { setActiveRow(row); setActiveCell(col); setEditingCell(col); }}
+                    onActivate={(row, col) => {
+                      setActiveRow(row);
+                      setActiveCell(col);
+                    }}
+                    onEdit={(row, col) => {
+                      setActiveRow(row);
+                      setActiveCell(col);
+                      setEditingCell(col);
+                    }}
                     onCellAction={handleCellAction}
                   />
                 ))}
@@ -1963,7 +2479,9 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
             disabled={items.length === 0}
             icon={<Check className="h-4 w-4" />}
           >
-            {items.length === 0 ? 'Add items to continue' : `Review Invoice (${items.length} items)`}
+            {items.length === 0
+              ? 'Add items to continue'
+              : `Review Invoice (${items.length} items)`}
           </Button>
         </div>
       </div>
@@ -1979,6 +2497,13 @@ export function ProductSelectionScreen({ onComplete, onBack }: ProductSelectionS
           onClose={() => setBatchSelectorProduct(null)}
         />
       )}
+
+      {/* Barcode / QR scan modal (scanner gun) */}
+      <BarcodeScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onFound={handleSelectProduct}
+      />
     </div>
   );
 }
