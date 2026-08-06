@@ -27,10 +27,13 @@ import { WorkflowDocument } from '../common/decorators/workflow-document.decorat
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { DatabaseService } from '../database/database.service';
 
+import { DocumentConversionService } from './conversion.service';
 import { SalesCreditEngineService } from './credit-engine.service';
 import {
   CreateSalesQuotationDto,
   UpdateSalesQuotationDto,
+  SendQuotationDto,
+  ConvertQuotationDto,
   CreateSalesOrderDto,
   UpdateSalesOrderDto,
   CreateDeliveryChallanDto,
@@ -65,7 +68,10 @@ import {
 @UseGuards(JwtAuthGuard)
 @Controller('sales/quotations')
 export class SalesQuotationsController {
-  constructor(public readonly service: SalesQuotationsService) {}
+  constructor(
+    public readonly service: SalesQuotationsService,
+    private readonly converter: DocumentConversionService,
+  ) {}
   @Post()
   @Roles('admin', 'manager')
   @Permissions('sales.create')
@@ -113,6 +119,62 @@ export class SalesQuotationsController {
   async delete(@Param('id') id: string, @CurrentUser() u: { id: string }) {
     return this.service.delete(id, u?.id);
   }
+  /** Create a new revision (Rev-N) of this quotation — full copy, linked to root. */
+  @Post(':id/revision')
+  @Roles('admin', 'manager')
+  @Permissions('sales.create', 'sales.update')
+  @HttpCode(HttpStatus.CREATED)
+  async createRevision(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.createRevision(id, u?.id);
+  }
+  /** Mark this quotation as Final — locks it against further changes. */
+  @Put(':id/finalize')
+  @Roles('admin', 'manager')
+  @Permissions('sales.update')
+  @HttpCode(HttpStatus.OK)
+  async finalize(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.finalize(id, u?.id);
+  }
+  @Post(':id/submit-approval')
+  @Roles('admin', 'manager', 'operator')
+  @Permissions('sales.update')
+  @HttpCode(HttpStatus.OK)
+  async submitForApproval(
+    @Param('id') id: string,
+    @CurrentUser() u: { id: string; name?: string },
+  ) {
+    return this.service.submitForApproval(id, u?.id, u?.name);
+  }
+  @Post(':id/send')
+  @Roles('admin', 'manager')
+  @Permissions('sales.update')
+  @HttpCode(HttpStatus.OK)
+  async sendToCustomer(
+    @Param('id') id: string,
+    @Body() dto: SendQuotationDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.sendToCustomer(id, u?.id, dto?.via || 'manual');
+  }
+  /**
+   * One-click conversion: Quotation → Sales Order → Delivery Challan → Invoice.
+   * Pass `steps` to run a subset (e.g. ["order"] for order only).
+   */
+  @Post(':id/convert')
+  @Roles('admin', 'manager')
+  @Permissions('sales.create', 'sales.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'One-click convert: Quotation → Sales Order → Delivery Challan → Invoice',
+  })
+  @ApiBody({ type: ConvertQuotationDto, required: false })
+  async convert(
+    @Param('id') id: string,
+    @Body() dto: ConvertQuotationDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.converter.convert(id, u?.id, dto?.steps);
+  }
 }
 
 @ApiTags('Sales - Orders')
@@ -120,7 +182,10 @@ export class SalesQuotationsController {
 @UseGuards(JwtAuthGuard)
 @Controller('sales/orders')
 export class SalesOrdersController {
-  constructor(public readonly service: SalesOrdersService) {}
+  constructor(
+    public readonly service: SalesOrdersService,
+    private readonly converter: DocumentConversionService,
+  ) {}
   @Post()
   @Roles('admin', 'manager')
   @Permissions('sales.create')
@@ -142,6 +207,16 @@ export class SalesOrdersController {
   @HttpCode(HttpStatus.OK)
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
+  }
+  // Auto order number preview (SO-0001) — must come BEFORE the :id route
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('sales.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto sales-order number (SO-0001)' })
+  @ApiResponse({ status: 200, description: 'Next order number' })
+  async getNextNumber(@Query('date') date?: string) {
+    return this.service.getNextNumber(date);
   }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
@@ -168,6 +243,15 @@ export class SalesOrdersController {
   async delete(@Param('id') id: string, @CurrentUser() u: { id: string }) {
     return this.service.delete(id, u?.id);
   }
+  /** Convert this order to a Delivery Challan (full dispatch). */
+  @Post(':id/convert')
+  @Roles('admin', 'manager')
+  @Permissions('sales.create', 'sales.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Convert Sales Order → Delivery Challan' })
+  async convertToChallan(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.converter.convertOrderToChallan(id, u?.id);
+  }
 }
 
 @ApiTags('Sales - Delivery Challan')
@@ -175,7 +259,10 @@ export class SalesOrdersController {
 @UseGuards(JwtAuthGuard)
 @Controller('sales/delivery-challans')
 export class DeliveryChallansController {
-  constructor(public readonly service: DeliveryChallansService) {}
+  constructor(
+    public readonly service: DeliveryChallansService,
+    private readonly converter: DocumentConversionService,
+  ) {}
   @Post()
   @Roles('admin', 'manager')
   @Permissions('sales.create')
@@ -197,6 +284,16 @@ export class DeliveryChallansController {
   @HttpCode(HttpStatus.OK)
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
+  }
+  // Auto challan number preview (DC-0001) — must come BEFORE the :id route
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('sales.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto delivery-challan number (DC-0001)' })
+  @ApiResponse({ status: 200, description: 'Next challan number' })
+  async getNextNumber(@Query('date') date?: string) {
+    return this.service.getNextNumber(date);
   }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
@@ -222,6 +319,15 @@ export class DeliveryChallansController {
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: string, @CurrentUser() u: { id: string }) {
     return this.service.delete(id, u?.id);
+  }
+  /** Convert this challan to a Sales Invoice (links order + challan for the audit trail). */
+  @Post(':id/convert')
+  @Roles('admin', 'manager')
+  @Permissions('sales.create', 'sales.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Convert Delivery Challan → Invoice' })
+  async convertToInvoice(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.converter.convertChallanToInvoice(id, u?.id);
   }
 }
 

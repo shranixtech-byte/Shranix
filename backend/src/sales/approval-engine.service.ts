@@ -83,6 +83,9 @@ export class SalesApprovalEngineService {
       const existing = await this.database.approvalMatrices.findAll({ page: 1, pageSize: 1 });
       if (existing?.data?.length) {
         this.seeded = true;
+        // Quotation approval chain: Sales Executive → Sales Manager → Owner.
+        // Upgrade the existing matrix if it is still single-level (legacy).
+        await this.ensureQuotationMatrix();
         return;
       }
     } catch {
@@ -108,9 +111,13 @@ export class SalesApprovalEngineService {
       {
         name: 'Sales Quotation Approval',
         documentType: 'sales_quotation',
-        levels: 'single',
-        levelCount: 1,
-        approvers: JSON.stringify([{ level: 1, role: 'manager', canOverride: false }]),
+        levels: 'three_level',
+        levelCount: 3,
+        approvers: JSON.stringify([
+          { level: 1, role: 'operator', canOverride: false, name: 'Sales Executive' },
+          { level: 2, role: 'manager', canOverride: false, name: 'Sales Manager' },
+          { level: 3, role: 'admin', canOverride: true, name: 'Owner' },
+        ]),
         isActive: true,
         createdAt: now,
         updatedAt: now,
@@ -179,6 +186,9 @@ export class SalesApprovalEngineService {
       await this.database.approvalMatrices.create(m);
     }
 
+    // Ensure the quotation matrix matches the 3-level chain (executive→manager→owner)
+    await this.ensureQuotationMatrix();
+
     // Seed rules
     const seedRules = [
       {
@@ -234,6 +244,53 @@ export class SalesApprovalEngineService {
     ];
     for (const r of seedRules) {
       await this.database.approvalRules.create(r);
+    }
+  }
+
+  /**
+   * Upgrade/create the sales quotation matrix to the 3-level chain:
+   * Sales Executive (operator) → Sales Manager (manager) → Owner (admin).
+   * Idempotent — no-op when the matrix already matches.
+   */
+  private async ensureQuotationMatrix(): Promise<void> {
+    try {
+      const all = await this.database.approvalMatrices.findAll({ page: 1, pageSize: 50 });
+      const matrix = (all?.data || []).find((m: any) => m.documentType === 'sales_quotation');
+      const desiredApprovers = JSON.stringify([
+        { level: 1, role: 'operator', canOverride: false, name: 'Sales Executive' },
+        { level: 2, role: 'manager', canOverride: false, name: 'Sales Manager' },
+        { level: 3, role: 'admin', canOverride: true, name: 'Owner' },
+      ]);
+      if (
+        matrix &&
+        Number(matrix.levelCount) === 3 &&
+        String(matrix.approvers || '') === desiredApprovers
+      ) {
+        return; // already correct
+      }
+      if (matrix) {
+        await this.database.approvalMatrices.update(matrix.id, {
+          levels: 'three_level',
+          levelCount: 3,
+          approvers: desiredApprovers,
+          isActive: true,
+          updatedAt: new Date().toISOString(),
+        });
+        this.logger.log('Upgraded sales_quotation approval matrix to 3-level chain');
+      } else {
+        await this.database.approvalMatrices.create({
+          name: 'Sales Quotation Approval',
+          documentType: 'sales_quotation',
+          levels: 'three_level',
+          levelCount: 3,
+          approvers: desiredApprovers,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      this.logger.warn(`Could not ensure quotation approval matrix: ${String(e)}`);
     }
   }
 
@@ -406,6 +463,7 @@ export class SalesApprovalEngineService {
       gstAmount: params.gstAmount,
       createdBy: params.createdBy,
       createdByName: params.createdByName,
+      requestedBy: params.createdBy,
       currentLevel: 1,
       totalLevels,
       status: 'pending',
@@ -544,7 +602,43 @@ export class SalesApprovalEngineService {
         details: { approvalId, documentNumber: master.documentNumber, level: currentLevel },
       });
     }
+
+    // Keep the source document's status in sync: a fully-approved quotation
+    // becomes 'approved' so the workflow chain (Executive → Manager → Owner →
+    // Approved) is reflected on the quote itself.
+    await this.syncQuotationStatus(master, newStatus);
     return { ...master, status: newStatus, currentLevel: newLevel };
+  }
+
+  /**
+   * Mirror the approval state onto the source quotation record so the quotation
+   * list/form show the workflow position (approved after the final level).
+   */
+  private async syncQuotationStatus(master: any, newStatus?: string): Promise<void> {
+    if (!master || master.documentType !== 'sales_quotation') {
+      return;
+    }
+    try {
+      const quote = await this.database.salesQuotations.findById(master.documentId);
+      if (!quote) {
+        return;
+      }
+      const statusMap: Record<string, string> = {
+        pending: 'pending',
+        under_review: 'under_review',
+        approved: 'approved',
+        rejected: 'rejected',
+      };
+      const nextStatus = statusMap[newStatus || master.status] || quote.status;
+      if (nextStatus !== quote.status) {
+        await this.database.salesQuotations.update(master.documentId, {
+          status: nextStatus,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      this.logger.warn(`Could not sync quotation status: ${String(e)}`);
+    }
   }
 
   async reject(
@@ -593,6 +687,7 @@ export class SalesApprovalEngineService {
         details: { approvalId, documentNumber: master.documentNumber, reason: dto.comment },
       });
     }
+    await this.syncQuotationStatus({ ...master, documentType: master.documentType }, 'rejected');
     return { ...master, status: 'rejected' };
   }
 

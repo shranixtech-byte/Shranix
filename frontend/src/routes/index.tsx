@@ -199,8 +199,11 @@ import {
   CreditHoldDashboardPage,
   ReminderEnginePage,
 } from '@/pages/sales/credit';
+import { DeliveryChallanFormPage } from '@/pages/sales/delivery-challan-form-page';
 import { CreateSalesSettingsPage } from '@/pages/sales/dynamic-forms';
+import { SalesQuotationFormPage } from '@/pages/sales/quotation-form-page';
 import {
+  QuotationDashboardPage,
   SalesReportsDashboardPage,
   SalesRegisterReport,
   InvoiceRegisterReport,
@@ -218,6 +221,7 @@ import {
   DebitNotesPage,
   ReturnReportsPage,
 } from '@/pages/sales/returns';
+import { SalesOrderFormPage } from '@/pages/sales/sales-order-form-page';
 import {
   ApprovalDashboardPage,
   PendingTasksDashboardPage,
@@ -366,8 +370,15 @@ export const routes: RouteObject[] = [
       // ── Sales Modules ──────────────────────────────
       { path: 'sales/dashboard', element: <Navigate to="/" replace /> },
       { path: 'sales/quotations', element: <SalesQuotationsPage /> },
+      { path: 'sales/quotations/dashboard', element: <QuotationDashboardPage /> },
+      { path: 'sales/quotations/create', element: <SalesQuotationFormPage /> },
+      { path: 'sales/quotations/:id/edit', element: <SalesQuotationFormPage /> },
       { path: 'sales/orders', element: <SalesOrdersPage /> },
+      { path: 'sales/orders/create', element: <SalesOrderFormPage /> },
+      { path: 'sales/orders/:id/edit', element: <SalesOrderFormPage /> },
       { path: 'sales/delivery-challans', element: <DeliveryChallansPage /> },
+      { path: 'sales/delivery-challans/create', element: <DeliveryChallanFormPage /> },
+      { path: 'sales/delivery-challans/:id/edit', element: <DeliveryChallanFormPage /> },
       { path: 'sales/invoices', element: <SalesInvoicesPage /> },
       { path: 'sales/invoices/create', element: <SimpleInvoicePage /> },
       { path: 'sales/returns', element: <SalesReturnsPage /> },

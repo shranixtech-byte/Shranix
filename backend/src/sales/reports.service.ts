@@ -159,6 +159,130 @@ export class SalesReportsService {
   }
 
   // ═════════════════════════════════════════════════════════
+  // 0. QUOTATION DASHBOARD — funnel KPIs
+  // ═════════════════════════════════════════════════════════
+
+  async getQuotationSummary() {
+    const quotes: any[] =
+      (
+        await this.database.salesQuotations
+          .findAll({ page: 1, pageSize: 5000 })
+          .catch(() => ({ data: [] }))
+      )?.data || [];
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    const countBy = (pred: (q: any) => boolean) => quotes.filter(pred).length;
+    const statusCounts: Record<string, number> = {};
+    for (const q of quotes) {
+      const s = String(q.status || 'draft');
+      statusCounts[s] = (statusCounts[s] || 0) + 1;
+    }
+
+    const total = quotes.length;
+    const draft = statusCounts.draft || 0;
+    const pending =
+      (statusCounts.pending || 0) +
+      (statusCounts.submitted || 0) +
+      (statusCounts.under_review || 0);
+    const approved = statusCounts.approved || 0;
+    const rejected = statusCounts.rejected || 0;
+    const sent = statusCounts.sent || 0;
+    const final = statusCounts.final || 0;
+    // Converted = marked converted OR linked to a real order (conversion engine sets both).
+    const converted = countBy((q) => q.status === 'converted' || Boolean(q.convertedToOrder));
+    // Lost = explicitly marked lost + expired (never converted quotes).
+    const lost = countBy((q) => q.status === 'lost' || q.status === 'expired');
+
+    const todayCount = countBy((q) => {
+      const d = String(q.quoteDate || q.createdAt || '').slice(0, 10);
+      return d === today;
+    });
+
+    // Conversion % = converted / total (all quotations). Win rate = converted /
+    // decided (converted + lost + rejected) — quotes that reached a final outcome.
+    const conversionRate = total > 0 ? (converted / total) * 100 : 0;
+    const decided = converted + lost + rejected;
+    const winRate = decided > 0 ? (converted / decided) * 100 : 0;
+
+    const sum = (pred: (q: any) => boolean) =>
+      quotes.filter(pred).reduce((s: number, q: any) => s + (Number(q.grandTotal) || 0), 0);
+    const totalValue = sum(() => true);
+    const convertedValue = sum((q) => q.status === 'converted' || Boolean(q.convertedToOrder));
+    const avgValue = total > 0 ? totalValue / total : 0;
+
+    // Daily trend — last 14 days (by quoteDate)
+    const dailyTrend: { date: string; count: number; value: number }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayQuotes = quotes.filter((q) => String(q.quoteDate || '').slice(0, 10) === dateStr);
+      dailyTrend.push({
+        date: dateStr,
+        count: dayQuotes.length,
+        value: dayQuotes.reduce((s: number, q: any) => s + (Number(q.grandTotal) || 0), 0),
+      });
+    }
+
+    // Monthly trend — last 6 months
+    const monthlyTrend: { month: string; count: number; value: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const mQuotes = quotes.filter((q) => String(q.quoteDate || '').slice(0, 7) === monthStr);
+      monthlyTrend.push({
+        month: monthStr,
+        count: mQuotes.length,
+        value: mQuotes.reduce((s: number, q: any) => s + (Number(q.grandTotal) || 0), 0),
+      });
+    }
+
+    // Status funnel (for the stacked distribution bar). This is a distribution
+    // of STATUS only — it must always sum to `total`. The converted segment uses
+    // statusCounts.converted (a quote is placed in exactly one bucket by its
+    // status); the broader `converted` KPI (status OR convertedToOrder flag) is
+    // intentionally separate so legacy flag-only records don't double-count here.
+    const statusBreakdown = [
+      { status: 'draft', count: draft, color: '#94a3b8' },
+      { status: 'pending', count: pending, color: '#a78bfa' },
+      { status: 'approved', count: approved, color: '#22c55e' },
+      { status: 'sent', count: sent, color: '#3b82f6' },
+      { status: 'converted', count: statusCounts.converted || 0, color: '#14b8a6' },
+      { status: 'rejected', count: rejected, color: '#ef4444' },
+      { status: 'lost', count: lost, color: '#f59e0b' },
+      { status: 'final', count: final, color: '#8b5cf6' },
+    ].filter((s) => s.count > 0);
+
+    return {
+      kpis: {
+        total: { value: total, label: 'Total Quotations' },
+        today: { value: todayCount, label: "Today's Quotations" },
+        pending: { value: pending, label: 'Pending' },
+        approved: { value: approved, label: 'Approved' },
+        rejected: { value: rejected, label: 'Rejected' },
+        converted: { value: converted, label: 'Converted' },
+        lost: { value: lost, label: 'Lost' },
+        conversionRate: { value: conversionRate, label: 'Conversion %' },
+        winRate: { value: winRate, label: 'Win Rate %' },
+        draft: { value: draft, label: 'Draft' },
+        sent: { value: sent, label: 'Sent' },
+        final: { value: final, label: 'Final' },
+        totalValue: { value: totalValue, label: 'Quotation Value' },
+        convertedValue: { value: convertedValue, label: 'Converted Value' },
+        avgValue: { value: avgValue, label: 'Average Quotation' },
+      },
+      statusBreakdown,
+      dailyTrend,
+      monthlyTrend,
+      converted,
+      lost,
+      total,
+    };
+  }
+
+  // ═════════════════════════════════════════════════════════
   // 1. SALES DASHBOARD — KPI CARDS + CHARTS
   // ═════════════════════════════════════════════════════════
 

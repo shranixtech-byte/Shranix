@@ -1,70 +1,257 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsNumber, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsBoolean,
+  IsNumber,
+  IsInt,
+  IsArray,
+  IsIn,
+  Min,
+} from 'class-validator';
 
 // ═════════════════════════════════════════════════════════
 // 1. SALES QUOTATIONS
 // ═════════════════════════════════════════════════════════
+export class CreateQuotationItemDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() unitId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() discountType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxableValue?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) gstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cess?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() batchNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() hsnCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() barcode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) freeQty?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warehouse?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expiryDate?: string;
+}
+
 export class CreateSalesQuotationDto {
-  @ApiProperty() @IsString() quoteNumber!: string;
+  // Optional when Auto numbering is ON — required when Manual numbering is ON.
+  @ApiPropertyOptional() @IsOptional() @IsString() quoteNumber?: string;
   @ApiProperty() @IsString() customerId!: string;
   @ApiProperty() @IsString() quoteDate!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() validTill?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() financialYearId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() deliveryTime?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) freight?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) installationCharges?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() warranty?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerNotes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) basicTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() discountMode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cessTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() roundOff?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() applyRoundOff?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() terms?: string;
+  @ApiPropertyOptional() @IsOptional() items?: CreateQuotationItemDto[];
 }
 export class UpdateSalesQuotationDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() terms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() deliveryTime?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) freight?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) installationCharges?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() warranty?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerNotes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) basicTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() discountMode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cessTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() roundOff?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() applyRoundOff?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
+  @ApiPropertyOptional() @IsOptional() items?: CreateQuotationItemDto[];
+}
+
+export class SendQuotationDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() via?: string;
+}
+
+export class ConvertQuotationDto {
+  /** Which steps to run — defaults to all three (order, challan, invoice). */
+  @ApiPropertyOptional({ type: [String], enum: ['order', 'challan', 'invoice'] })
+  @IsOptional()
+  @IsArray()
+  @IsIn(['order', 'challan', 'invoice'], { each: true })
+  steps?: ('order' | 'challan' | 'invoice')[];
 }
 
 // ═════════════════════════════════════════════════════════
 // 2. SALES ORDERS
 // ═════════════════════════════════════════════════════════
+export class CreateOrderItemDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) deliveredQuantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) reservedQuantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() unitId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxableValue?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) gstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cess?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalAmount?: number;
+}
+
 export class CreateSalesOrderDto {
-  @ApiProperty() @IsString() orderNumber!: string;
+  // Optional when Auto numbering is ON — required when Manual numbering is ON.
+  @ApiPropertyOptional() @IsOptional() @IsString() orderNumber?: string;
   @ApiProperty() @IsString() customerId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() quotationId?: string;
   @ApiProperty() @IsString() orderDate!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() deliveryDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPartial?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igstTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cessTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() roundOff?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() terms?: string;
+  @ApiPropertyOptional() @IsOptional() items?: CreateOrderItemDto[];
 }
 export class UpdateSalesOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() orderNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() deliveryDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPartial?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() terms?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() rejectionReason?: string;
+  @ApiPropertyOptional() @IsOptional() items?: CreateOrderItemDto[];
 }
 
 // ═════════════════════════════════════════════════════════
 // 3. DELIVERY CHALLAN
 // ═════════════════════════════════════════════════════════
+export class CreateChallanItemDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() orderItemId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() unitId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) quantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) deliveredQuantity?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) rate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() batchNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() serialNumbers?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mfgDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
 export class CreateDeliveryChallanDto {
-  @ApiProperty() @IsString() challanNumber!: string;
+  // Optional when Auto numbering is ON — required when Manual numbering is ON.
+  @ApiPropertyOptional() @IsOptional() @IsString() challanNumber?: string;
   @ApiProperty() @IsString() orderId!: string;
   @ApiProperty() @IsString() customerId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
   @ApiProperty() @IsString() dispatchDate!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() dispatchType?: string;
+  // ── Vehicle + Driver (Transport) ──
   @ApiPropertyOptional() @IsOptional() @IsString() vehicleNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() vehicleType?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() driverName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() driverMobile?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() transporterName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() lrNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() lrDate?: string;
+  // ── E-way Bill (Phase 2) ──
+  @ApiPropertyOptional() @IsOptional() @IsString() ewayBillNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() ewayBillDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() transportDetails?: string;
+  // ── Dispatch status + totals ──
+  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalQty?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() financialYearId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() items?: CreateChallanItemDto[];
 }
 export class UpdateDeliveryChallanDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() dispatchType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() vehicleNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() vehicleType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() driverName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() driverMobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() transporterName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() lrNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() lrDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() ewayBillNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() ewayBillDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() transportDetails?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalQty?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() billingAddress?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() shippingAddress?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional() @IsOptional() items?: CreateChallanItemDto[];
 }
 
 // ═════════════════════════════════════════════════════════
@@ -195,6 +382,8 @@ export class CreateSalesSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autoQuoteNumber?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() quotePrefix?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) quoteNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() quoteFyPrefix?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() quoteBranchPrefix?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autoOrderNumber?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() orderPrefix?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) orderNextNumber?: number;
@@ -244,6 +433,8 @@ export class UpdateSalesSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autoQuoteNumber?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() quotePrefix?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() quoteNextNumber?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() quoteFyPrefix?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() quoteBranchPrefix?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() autoOrderNumber?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() orderPrefix?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() orderNextNumber?: number;

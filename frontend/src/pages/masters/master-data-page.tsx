@@ -14,6 +14,14 @@ export interface ColumnDef {
   render?: (value: unknown, record: Record<string, unknown>) => React.ReactNode;
 }
 
+export interface RowAction {
+  label: string;
+  title?: string;
+  onClick: (record: Record<string, unknown>) => void;
+  disabled?: boolean | ((record: Record<string, unknown>) => boolean);
+  variant?: 'primary' | 'danger' | 'ghost';
+}
+
 export interface MasterDataPageProps {
   title: string;
   description?: string;
@@ -21,6 +29,10 @@ export interface MasterDataPageProps {
   apiPath: string;
   formFields: FormField[];
   basePath?: string;
+  /** Optional extra per-row action buttons (rendered after Edit). */
+  rowActions?: RowAction[];
+  /** Bump this to force a data refetch (e.g. after a child modal changes a record). */
+  refreshKey?: number;
 }
 
 export interface FormField {
@@ -65,6 +77,8 @@ export function MasterDataPage({
   apiPath,
   formFields: _formFields,
   basePath,
+  rowActions,
+  refreshKey = 0,
 }: MasterDataPageProps) {
   const navigate = useNavigate();
   const [state, setState] = useState<PageState>(initialState);
@@ -92,7 +106,7 @@ export function MasterDataPage({
     } catch (err) {
       setState((s) => ({ ...s, error: (err as Error).message, loading: false }));
     }
-  }, [state.page, state.pageSize, state.search, apiPath]);
+  }, [state.page, state.pageSize, state.search, apiPath, refreshKey]);
 
   useEffect(() => {
     fetchData();
@@ -279,6 +293,41 @@ export function MasterDataPage({
                           >
                             Edit
                           </button>
+                          {(record as any).isDeleted
+                            ? null
+                            : rowActions?.map((action) => {
+                                const disabled =
+                                  typeof action.disabled === 'function'
+                                    ? action.disabled(record)
+                                    : action.disabled;
+                                const variantCls =
+                                  action.variant === 'danger'
+                                    ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950'
+                                    : action.variant === 'primary'
+                                      ? 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950'
+                                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700';
+                                return (
+                                  <button
+                                    key={action.label}
+                                    title={action.title}
+                                    disabled={disabled}
+                                    onClick={async () => {
+                                      try {
+                                        await action.onClick(record);
+                                      } catch (err) {
+                                        setState((s) => ({
+                                          ...s,
+                                          error: (err as Error).message,
+                                        }));
+                                      }
+                                      await fetchData();
+                                    }}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${variantCls}`}
+                                  >
+                                    {action.label}
+                                  </button>
+                                );
+                              })}
                           {(record as any).isDeleted ? (
                             <button
                               onClick={() => handleRestore(record.id as string)}

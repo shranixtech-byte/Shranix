@@ -28,8 +28,11 @@ desktop/release/
 *.rpm
 
 # --- Environment & Secrets ---
+# Only .env.example is committed — all real env files stay local
 .env
 .env.local
+.env.development
+.env.test
 .env.production
 .env.*.local
 *.pem
@@ -67,15 +70,20 @@ test-results/
 playwright-report/
 
 # --- Database ---
-database/*.sqlite
-database/*.db
-database/*.db-journal
+# Local development databases & journals (NEVER commit)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 database/pgdata/
-# Backup snapshots (VACUUM INTO copies) — kabhi commit nahi hone chiye
+# Backup snapshots (VACUUM INTO copies) — never commit
 **/backups/*.db
 data/backups/
 backend/data/backups/
 database/data/backups/
+**/*.db.bak-restore-*
 
 # --- Temp & Cache ---
 .tmp/
@@ -103,14 +111,16 @@ docker-compose.override.yml
 # --- Test artifacts (invoice PDF/PNG renders, DB restore snapshots) ---
 scripts/invoice-*.pdf
 scripts/invoice-*.png
-**/*.db.bak-restore-*
+scripts/*.log
+scripts/*.log.err
+qa-browser-report.json
+scripts/qa-browser-report.json
 
 # --- Misc ---
 *.bak
 *.orig
 *.tgz
 *.zip
-*.gz (except for distribution)
 # Windows device names
 backend/nul
 database/nul

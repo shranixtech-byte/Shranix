@@ -1,3 +1,4 @@
+import { resolveApiBase } from '@/lib/api-base';
 import { authService } from '@/services/auth.service';
 
 interface ApiEnvelope<T> {
@@ -6,7 +7,7 @@ interface ApiEnvelope<T> {
   message?: string;
 }
 
-const apiBaseUrl = (import.meta.env.VITE_API_URL || (window.location.protocol === 'file:' ? 'http://localhost:4001/api/v1' : '/api/v1')).replace(/\/$/, '');
+const apiBaseUrl = resolveApiBase();
 
 function getCsrfToken(): string | undefined {
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
@@ -14,12 +15,15 @@ function getCsrfToken(): string | undefined {
 }
 
 function resolveUrl(path: string): string {
-  if (/^https?:\/\//i.test(path)) {return path;}
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
   return `${apiBaseUrl}/${path.replace(/^\//, '')}`;
 }
 
 async function parseError(response: Response): Promise<Error> {
-  const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | { message?: string } | null;
+  const body = (await response.json().catch(() => null)) as
+    ApiEnvelope<unknown> | { message?: string } | null;
   return new Error(body?.message || `Request failed (${response.status})`);
 }
 
@@ -38,7 +42,7 @@ async function refreshCsrfToken(): Promise<void> {
   csrfRefreshPromise = (async () => {
     try {
       // Use authService's base URL for auth endpoints
-      const authBase = `${(import.meta.env.VITE_API_URL || (window.location.protocol === 'file:' ? 'http://localhost:4001/api/v1' : '/api/v1')).replace(/\/$/, '')}/auth`;
+      const authBase = `${resolveApiBase()}/auth`;
       const res = await fetch(`${authBase}/csrf`, {
         method: 'POST',
         credentials: 'include',
@@ -59,20 +63,31 @@ async function refreshCsrfToken(): Promise<void> {
 }
 
 /** Shared authenticated API client with CSRF protection and retry logic. */
-export async function apiRequest<T>(path: string, options: RequestInit = {}, retried = false, csrfRetried = false): Promise<T> {
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  retried = false,
+  csrfRetried = false,
+): Promise<T> {
   const headers = new Headers(options.headers);
   const token = authService.getAccessToken();
-  if (token) {headers.set('Authorization', `Bearer ${token}`);}
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
 
   if (options.body && !headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
   // Attach CSRF token for state-changing methods
-  const isStateChanging = !['GET', 'HEAD', 'OPTIONS'].includes((options.method || 'GET').toUpperCase());
+  const isStateChanging = !['GET', 'HEAD', 'OPTIONS'].includes(
+    (options.method || 'GET').toUpperCase(),
+  );
   if (isStateChanging) {
     const csrfToken = getCsrfToken();
-    if (csrfToken) {headers.set('x-csrf-token', csrfToken);}
+    if (csrfToken) {
+      headers.set('x-csrf-token', csrfToken);
+    }
   }
 
   const response = await fetch(resolveUrl(path), { ...options, headers, credentials: 'include' });
@@ -93,13 +108,17 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}, ret
     return apiRequest<T>(path, options, retried, true);
   }
 
-  if (!response.ok) {throw await parseError(response);}
-  if (response.status === 204) {return undefined as T;}
+  if (!response.ok) {
+    throw await parseError(response);
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
 
-  const body = await response.json() as ApiEnvelope<T> | T;
-  return (typeof body === 'object' && body !== null && 'success' in body && body.success === true)
-    ? (body as ApiEnvelope<T>).data as T
-    : body as T;
+  const body = (await response.json()) as ApiEnvelope<T> | T;
+  return typeof body === 'object' && body !== null && 'success' in body && body.success === true
+    ? ((body as ApiEnvelope<T>).data as T)
+    : (body as T);
 }
 
 export const apiUrl = resolveUrl;

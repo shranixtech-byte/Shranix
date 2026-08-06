@@ -90,9 +90,15 @@ export class UsersRepository {
   ): Promise<PaginatedResult<UserRecord>> {
     const { page, pageSize } = params;
     const offset = (page - 1) * pageSize;
+    // Soft-deleted users should not appear in listings — but admins may still
+    // need to restore them, so hard-delete is never performed.
+    const notDeleted = and(
+      isNull((this.table as any).deletedAt),
+      eq((this.table as any).isDeleted, false),
+    );
     const [rows, countResult] = await Promise.all([
-      (this.db as any).select().from(this.table).limit(pageSize).offset(offset),
-      (this.db as any).select({ value: count() }).from(this.table),
+      (this.db as any).select().from(this.table).where(notDeleted).limit(pageSize).offset(offset),
+      (this.db as any).select({ value: count() }).from(this.table).where(notDeleted),
     ]);
     const total = Number(countResult[0]?.value ?? 0);
     return paginateResult(rows as unknown as UserRecord[], total, params);

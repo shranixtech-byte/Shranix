@@ -10,11 +10,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shranix123}
       POSTGRES_DB: ${POSTGRES_DB:-shranix_erp}
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shranix"]
+      test: ['CMD-SHELL', 'pg_isready -U shranix']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,11 +26,11 @@ services:
     image: redis:7-alpine
     container_name: shranix-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -46,12 +46,12 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-shranix123}
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - '9000:9000'
+      - '9001:9001'
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -78,14 +78,22 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-shranix}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-shranix123}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-minimum-32-chars-long!!}
-      JWT_EXPIRES_IN: "86400"
+      JWT_EXPIRES_IN: '86400'
       DMS_STORAGE_PATH: /app/storage/dms
     ports:
-      - "3000:3000"
+      - '4001:4001'
     volumes:
       - backend_storage:/app/storage
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health/live"]
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:4001/v1/health/live',
+        ]
       interval: 30s
       timeout: 10s
       start_period: 40s
@@ -102,7 +110,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - '80:80'
     networks:
       - shranix-network
 

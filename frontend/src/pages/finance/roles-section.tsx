@@ -122,6 +122,9 @@ export function RolesSection() {
 
   // Role form (create/edit)
   const [editing, setEditing] = useState(false);
+  // True = naya role ban raha hai ("Create Role"); false = selected role edit ho raha hai.
+  // selectedId par bharosa nahi kar sakte — loadRoles() usse wapas rows[0] par set kar deta hai.
+  const [editingNew, setEditingNew] = useState(false);
   const [form, setForm] = useState({ name: '', description: '' });
 
   // Users assignment
@@ -353,6 +356,7 @@ export function RolesSection() {
       });
       setForm({ name: '', description: '' });
       setEditing(false);
+      setEditingNew(false);
       await loadRoles();
       if (created?.id) {
         setSelectedId(created.id);
@@ -382,6 +386,7 @@ export function RolesSection() {
         body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() }),
       });
       setEditing(false);
+      setEditingNew(false);
       await loadRoles();
       setMsg({ ok: true, text: 'Role updated ✅' });
     } catch (err) {
@@ -465,9 +470,13 @@ export function RolesSection() {
           <div className="space-y-2">
             <button
               onClick={() => {
+                // Real bug fix: "New Role" click karne par form hamesha create-mode
+                // mein khula ("Create Role") — selected role ko rename nahi karta
                 setEditing(true);
+                setEditingNew(true);
                 setForm({ name: '', description: '' });
                 setMsg(null);
+                setSaved(false);
               }}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/50 px-4 py-2.5 text-sm font-semibold text-indigo-600 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-950/30 dark:text-indigo-400"
             >
@@ -499,9 +508,13 @@ export function RolesSection() {
                 </button>
                 <button
                   onClick={() => {
+                    // Edit mode — selected role ko hi update karega
+                    setSelectedId(r.id);
                     setEditing(true);
+                    setEditingNew(false);
                     setForm({ name: r.name, description: r.description ?? '' });
                     setMsg(null);
+                    setSaved(false);
                   }}
                   title="Edit role"
                   className="rounded-lg p-1.5 text-slate-400 opacity-0 transition-all hover:bg-slate-100 hover:text-indigo-600 group-hover:opacity-100 dark:hover:bg-slate-700"
@@ -525,7 +538,7 @@ export function RolesSection() {
           {editing ? (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 dark:border-indigo-800 dark:bg-indigo-950/20">
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                {selected ? 'Edit Role' : 'New Role'}
+                {editingNew ? 'New Role' : 'Edit Role'}
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="block">
@@ -553,7 +566,7 @@ export function RolesSection() {
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
-                  onClick={selected ? handleUpdateRole : handleCreateRole}
+                  onClick={editingNew ? handleCreateRole : handleUpdateRole}
                   disabled={busy}
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
                 >
@@ -562,10 +575,13 @@ export function RolesSection() {
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {selected ? 'Save Role' : 'Create Role'}
+                  {editingNew ? 'Create Role' : 'Save Role'}
                 </button>
                 <button
-                  onClick={() => setEditing(false)}
+                  onClick={() => {
+                    setEditing(false);
+                    setEditingNew(false);
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
                 >
                   <X className="h-4 w-4" /> Cancel

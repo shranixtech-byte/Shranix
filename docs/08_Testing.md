@@ -2,19 +2,19 @@
 
 ## Document Control
 
-| Field | Value |
-|---|---|
-| **Document ID** | SHRANIX-DOC-008 |
-| **Version** | 1.0 |
-| **Status** | Draft |
-| **Author** | SHRANIX Technologies |
-| **Last Updated** | YYYY-MM-DD |
+| Field            | Value                |
+| ---------------- | -------------------- |
+| **Document ID**  | SHRANIX-DOC-008      |
+| **Version**      | 1.0                  |
+| **Status**       | Draft                |
+| **Author**       | SHRANIX Technologies |
+| **Last Updated** | YYYY-MM-DD           |
 
 ---
 
 ## Testing Philosophy
 
-> *"Test behavior, not implementation. If a refactor breaks tests unnecessarily, the tests are wrong."*
+> _"Test behavior, not implementation. If a refactor breaks tests unnecessarily, the tests are wrong."_
 
 ---
 
@@ -35,6 +35,7 @@
 ## Test Types
 
 ### 1. Unit Tests
+
 - **Framework:** Vitest (frontend), Vitest/Jest (backend)
 - **Scope:** Individual functions, components, hooks, utilities
 - **Coverage Target:** ≥ 80% lines
@@ -45,6 +46,7 @@
   - Utility functions and formatters
 
 ### 2. Integration Tests
+
 - **Framework:** Vitest + Testing Library
 - **Scope:** Feature workflows, API endpoints, database queries
 - **What to test:**
@@ -55,6 +57,7 @@
   - Error handling and edge cases
 
 ### 3. End-to-End Tests
+
 - **Framework:** Playwright
 - **Scope:** Full application workflows through the UI
 - **What to test:**
@@ -135,12 +138,12 @@ npm run test:e2e
 
 ## Related Reports
 
-| Report | Link | Relevance |
-|---|---|---|
-| Project Health Report | [View](../reports/Project_Health_Report.md) | Testing status contributes to health score |
-| Technical Debt Register | [View](../reports/Technical_Debt.md) | Tracks test coverage gaps |
-| Execution Report | [View](../reports/Execution_Report.md) | Logs test execution and results |
+| Report                  | Link                                                | Relevance                                  |
+| ----------------------- | --------------------------------------------------- | ------------------------------------------ |
+| Project Health Report   | [View](../archive/reports/Project_Health_Report.md) | Testing status contributes to health score |
+| Technical Debt Register | [View](../archive/reports/Technical_Debt.md)        | Tracks test coverage gaps                  |
+| Execution Report        | [View](../archive/reports/Execution_Report.md)      | Logs test execution and results            |
 
 ---
 
-*This document is proprietary and confidential. © 2026 SHRANIX Technologies.*
+_This document is proprietary and confidential. © 2026 SHRANIX Technologies._

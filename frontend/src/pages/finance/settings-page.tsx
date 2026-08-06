@@ -834,6 +834,16 @@ function FinancialYearSection() {
   const [activating, setActivating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // Purane timer ko clear karke naya toast dikhao — warna pichle action ka
+  // setTimeout naye toast ko jaldi hi hata deta hai (real UX bug fix)
+  const msgTimerRef = useRef<number | null>(null);
+  const flash = (text: string, ms = 4000) => {
+    setMsg(text);
+    if (msgTimerRef.current) {
+      window.clearTimeout(msgTimerRef.current);
+    }
+    msgTimerRef.current = window.setTimeout(() => setMsg(null), ms);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -869,8 +879,7 @@ function FinancialYearSection() {
       });
       setForm({ name: '', startDate: '', endDate: '' });
       await load();
-      setMsg('Financial year created ✅');
-      setTimeout(() => setMsg(null), 3000);
+      flash('Financial year created ✅', 3000);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1503,6 +1512,7 @@ function DashboardSettingsSection() {
   const landingOptions = USER_MODULES.map((m) => ({
     label: `${m.emoji} ${m.label} — ${m.landingPath}`,
     value: m.landingPath,
+    key: m.key,
   }));
 
   const selectCls =
@@ -1591,7 +1601,7 @@ function DashboardSettingsSection() {
             className={selectCls}
           >
             {landingOptions.map((o) => (
-              <option key={o.value} value={o.value}>
+              <option key={o.key} value={o.value}>
                 {o.label}
               </option>
             ))}
@@ -1761,10 +1771,20 @@ function UsersSection() {
     confirm: '',
   });
   const [allowedModules, setAllowedModules] = useState<string[]>([]);
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // Purana timer clear karke naya toast dikhao (real UX bug fix)
+  const msgTimerRef = useRef<number | null>(null);
+  const flash = (text: string, ms = 4000) => {
+    setMsg(text);
+    if (msgTimerRef.current) {
+      window.clearTimeout(msgTimerRef.current);
+    }
+    msgTimerRef.current = window.setTimeout(() => setMsg(null), ms);
+  };
 
   const toggleModule = (key: string) => {
     setAllowedModules((prev) =>
@@ -1827,8 +1847,7 @@ function UsersSection() {
       setForm({ firstName: '', lastName: '', email: '', phone: '', password: '', confirm: '' });
       setAllowedModules([]);
       await load();
-      setMsg('User created ✅ — they can now log in');
-      setTimeout(() => setMsg(null), 4000);
+      flash('User created ✅ — they can now log in');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1836,11 +1855,105 @@ function UsersSection() {
     }
   };
 
+  const startEdit = (u: UserRecord) => {
+    setEditingUser(u);
+    setForm({
+      firstName: u.firstName ?? '',
+      lastName: u.lastName ?? '',
+      email: u.email,
+      phone: u.phone ?? '',
+      password: '',
+      confirm: '',
+    });
+    setAllowedModules(parseAllowedModules(u) ?? []);
+    setError(null);
+    setMsg(null);
+  };
+
+  const resetForm = () => {
+    setForm({ firstName: '', lastName: '', email: '', phone: '', password: '', confirm: '' });
+    setAllowedModules([]);
+    setEditingUser(null);
+    setError(null);
+    setMsg(null);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingUser) {
+      return;
+    }
+    setError(null);
+    setMsg(null);
+    if (!form.firstName.trim() || !form.email.trim()) {
+      setError('First name and email are required');
+      return;
+    }
+    if (form.password && form.password.length < 4) {
+      setError('Password must be at least 4 characters');
+      return;
+    }
+    if (form.password !== form.confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    setBusy(true);
+    try {
+      const payload: Record<string, unknown> = {
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        phone: form.phone.trim() || undefined,
+        // No ticks = full access; ticks = only those modules
+        allowedModules: allowedModules.length > 0 ? allowedModules : [],
+      };
+      // Password optional on edit — sirf tabhi update hoga jab naya likha ho
+      if (form.password) {
+        payload.password = form.password;
+      }
+      await apiRequest(`/users/${editingUser.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      resetForm();
+      await load();
+      flash('User updated ✅');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async (u: UserRecord) => {
+    if (
+      !window.confirm(
+        `Delete user "${u.firstName || u.email}"? They will no longer be able to log in.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setMsg(null);
+    try {
+      await apiRequest(`/users/${u.id}`, { method: 'DELETE' });
+      if (editingUser?.id === u.id) {
+        resetForm();
+      }
+      await load();
+      flash('User deleted');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <SectionCard
-        title="User Creation"
-        description="Create new users — they log in with email and password"
+        title={editingUser ? 'Edit User' : 'User Creation'}
+        description={
+          editingUser
+            ? 'Update profile, module access or reset password'
+            : 'Create new users — they log in with email and password'
+        }
         icon={<Users className="h-5 w-5" />}
         tint="violet"
       >
@@ -1863,6 +1976,7 @@ function UsersSection() {
             onChange={(v) => update('email', v)}
             type="email"
             placeholder="user@company.com"
+            disabled={!!editingUser}
           />
           <FieldText
             label="Phone"
@@ -1928,8 +2042,21 @@ function UsersSection() {
             <Check className="h-4 w-4" /> {msg}
           </p>
         )}
-        <div className="mt-5">
-          <SaveButton busy={busy} saved={false} onClick={handleCreate} label="Create User" />
+        <div className="mt-5 flex items-center gap-3">
+          <SaveButton
+            busy={busy}
+            saved={false}
+            onClick={editingUser ? handleUpdate : handleCreate}
+            label={editingUser ? 'Update User' : 'Create User'}
+          />
+          {editingUser && (
+            <button
+              onClick={resetForm}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </SectionCard>
 
@@ -1956,6 +2083,7 @@ function UsersSection() {
                   <th className="px-4 py-2.5">Email</th>
                   <th className="px-4 py-2.5">Module Access</th>
                   <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -2000,6 +2128,24 @@ function UsersSection() {
                             Inactive
                           </span>
                         )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => startEdit(u)}
+                            title="Edit user"
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u)}
+                            title="Delete user"
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2074,6 +2220,15 @@ function BankingSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // Purana timer clear karke naya toast dikhao (real UX bug fix)
+  const msgTimerRef = useRef<number | null>(null);
+  const flash = (text: string, ms = 3000) => {
+    setMsg(text);
+    if (msgTimerRef.current) {
+      window.clearTimeout(msgTimerRef.current);
+    }
+    msgTimerRef.current = window.setTimeout(() => setMsg(null), ms);
+  };
 
   const load = useCallback(
     async (cid?: string) => {
@@ -2157,8 +2312,7 @@ function BankingSection() {
       }
       resetForm();
       await load();
-      setMsg(editingId ? 'Bank account updated ✅' : 'Bank account added ✅');
-      setTimeout(() => setMsg(null), 3000);
+      flash(editingId ? 'Bank account updated ✅' : 'Bank account added ✅');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -2178,8 +2332,7 @@ function BankingSection() {
         resetForm();
       }
       await load();
-      setMsg('Bank account removed');
-      setTimeout(() => setMsg(null), 3000);
+      flash('Bank account removed');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -2193,8 +2346,7 @@ function BankingSection() {
         method: 'POST',
       });
       await load();
-      setMsg(`${acc.bankName} is now the default bank`);
-      setTimeout(() => setMsg(null), 3000);
+      flash(`${acc.bankName} is now the default bank`);
     } catch (err) {
       setError((err as Error).message);
     }

@@ -86,6 +86,7 @@ const sections: SectionGroup[] = [
         children: [
           { label: 'विक्री बीजक', icon: 'Receipt', path: '/sales/invoices/create' },
           { label: 'कोटेशन', icon: 'FileSearch', path: '/sales/quotations' },
+          { label: 'कोटेशन डॅशबोर्ड', icon: 'BarChart3', path: '/sales/quotations/dashboard' },
         ],
       },
       { label: 'विक्री ऑर्डर', icon: 'ShoppingCart', path: '/sales/orders' },

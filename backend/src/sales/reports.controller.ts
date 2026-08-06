@@ -1,7 +1,6 @@
 import { Controller, Get, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
-
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -16,6 +15,22 @@ export class SalesReportsController {
   constructor(private readonly reports: SalesReportsService) {}
 
   // ═════════════════════════════════════════════════════════
+  // 0. QUOTATION DASHBOARD
+  // ═════════════════════════════════════════════════════════
+
+  @Get('quotation-summary')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('sales.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Quotation dashboard: total/today/pending/approved/rejected/converted/lost + conversion %',
+  })
+  async getQuotationSummary() {
+    return this.reports.getQuotationSummary();
+  }
+
+  // ═════════════════════════════════════════════════════════
   // 1. SALES DASHBOARD
   // ═════════════════════════════════════════════════════════
 
@@ -24,7 +39,11 @@ export class SalesReportsController {
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get sales dashboard KPIs and chart data' })
-  @ApiQuery({ name: 'period', required: false, enum: ['today', 'yesterday', 'this_week', 'this_month', 'this_fy', 'custom'] })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: ['today', 'yesterday', 'this_week', 'this_month', 'this_fy', 'custom'],
+  })
   @ApiQuery({ name: 'startDate', required: false })
   @ApiQuery({ name: 'endDate', required: false })
   async getDashboard(
@@ -32,7 +51,11 @@ export class SalesReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const filters: ReportFilters = { period: period as ReportFilters['period'], startDate, endDate };
+    const filters: ReportFilters = {
+      period: period as ReportFilters['period'],
+      startDate,
+      endDate,
+    };
     return this.reports.getDashboard(filters);
   }
 
@@ -190,7 +213,11 @@ export class SalesReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const filters: ReportFilters = { period: period as ReportFilters['period'], startDate, endDate };
+    const filters: ReportFilters = {
+      period: period as ReportFilters['period'],
+      startDate,
+      endDate,
+    };
     return this.reports.getGstReport(filters);
   }
 
@@ -208,7 +235,11 @@ export class SalesReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const filters: ReportFilters = { period: period as ReportFilters['period'], startDate, endDate };
+    const filters: ReportFilters = {
+      period: period as ReportFilters['period'],
+      startDate,
+      endDate,
+    };
     return this.reports.getPaymentReport(filters);
   }
 
@@ -226,7 +257,11 @@ export class SalesReportsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const filters: ReportFilters = { period: period as ReportFilters['period'], startDate, endDate };
+    const filters: ReportFilters = {
+      period: period as ReportFilters['period'],
+      startDate,
+      endDate,
+    };
     return this.reports.getProfitAnalysis(filters);
   }
 }

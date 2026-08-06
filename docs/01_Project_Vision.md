@@ -2,13 +2,13 @@
 
 ## Document Control
 
-| Field | Value |
-|---|---|
-| **Document ID** | SHRANIX-DOC-001 |
-| **Version** | 1.1 |
-| **Status** | Active |
-| **Author** | SHRANIX Technologies |
-| **Last Updated** | YYYY-MM-DD |
+| Field            | Value                |
+| ---------------- | -------------------- |
+| **Document ID**  | SHRANIX-DOC-001      |
+| **Version**      | 1.1                  |
+| **Status**       | Active               |
+| **Author**       | SHRANIX Technologies |
+| **Last Updated** | YYYY-MM-DD           |
 
 ---
 
@@ -18,11 +18,12 @@ SHRANIX Krushi ERP is a commercial desktop enterprise resource planning software
 
 ## Vision Statement
 
-> *To empower every agribusiness with a powerful, intuitive, and affordable ERP system that simplifies complexity, drives efficiency, and accelerates growth — all from a single desktop application.*
+> _To empower every agribusiness with a powerful, intuitive, and affordable ERP system that simplifies complexity, drives efficiency, and accelerates growth — all from a single desktop application._
 
 ## Mission
 
 Deliver a premium-quality, desktop-based ERP solution that:
+
 - **Simplifies** agricultural business operations with an intuitive, clutter-free interface.
 - **Integrates** end-to-end workflows across procurement, production, inventory, sales, and finance.
 - **Performs** reliably even in low-connectivity environments with intelligent offline capabilities.
@@ -68,26 +69,26 @@ Deliver a premium-quality, desktop-based ERP solution that:
 
 ## Strategic Roadmap
 
-| Phase | Focus | Timeline |
-|---|---|---|
-| **Foundation** | Project setup, architecture, database design | Q1 2026 |
-| **Core Modules** | Master data, inventory, purchasing, sales | Q2 2026 |
-| **Finance & Accounting** | Ledger, billing, taxation, reporting | Q3 2026 |
-| **Advanced Features** | Analytics, CRM, production planning | Q4 2026 |
-| **Commercial Release** | Packaging, licensing, installer, launch | Q1 2027 |
+| Phase                    | Focus                                        | Timeline |
+| ------------------------ | -------------------------------------------- | -------- |
+| **Foundation**           | Project setup, architecture, database design | Q1 2026  |
+| **Core Modules**         | Master data, inventory, purchasing, sales    | Q2 2026  |
+| **Finance & Accounting** | Ledger, billing, taxation, reporting         | Q3 2026  |
+| **Advanced Features**    | Analytics, CRM, production planning          | Q4 2026  |
+| **Commercial Release**   | Packaging, licensing, installer, launch      | Q1 2027  |
 
 ---
 
 ## Related Reports
 
-| Report | Link | Relevance |
-|---|---|---|
-| Master Project Report | [View](../reports/Master_Project_Report.md) | Tracks project phase progress and overall status |
-| Project Health Report | [View](../reports/Project_Health_Report.md) | Tracks documentation quality scoring |
-| Decision Log | [View](../reports/Decision_Log.md) | Records architecture and strategic decisions |
-| Risk Register | [View](../reports/Risk_Register.md) | Tracks risks related to strategic delivery |
-| Progress Dashboard | [View](../reports/Progress_Dashboard.md) | Visual progress across all phases |
+| Report                | Link                                                | Relevance                                        |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| Master Project Report | [View](../archive/reports/Master_Project_Report.md) | Tracks project phase progress and overall status |
+| Project Health Report | [View](../archive/reports/Project_Health_Report.md) | Tracks documentation quality scoring             |
+| Decision Log          | [View](../archive/reports/Decision_Log.md)          | Records architecture and strategic decisions     |
+| Risk Register         | [View](../archive/reports/Risk_Register.md)         | Tracks risks related to strategic delivery       |
+| Progress Dashboard    | [View](../archive/reports/Progress_Dashboard.md)    | Visual progress across all phases                |
 
 ---
 
-*This document is proprietary and confidential. © 2026 SHRANIX Technologies.*
+_This document is proprietary and confidential. © 2026 SHRANIX Technologies._

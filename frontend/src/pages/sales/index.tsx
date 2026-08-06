@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { UpiQrCode } from '@/components/ui/UpiQrCode';
+import { cn } from '@/lib/utils';
 import { apiRequest } from '@/services/api-client';
+import { downloadQuotationPdf } from '@/services/quotation-pdf.service';
 
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
+
+import { QuotationConvertModal } from './quotation-convert-modal';
+import { QuotationShareModal } from './quotation-share-modal';
 
 // ═════════════════════════════════════════════════════════
 // Status Badge Helpers
@@ -20,7 +25,13 @@ const statusStyles: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
   expired: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
   converted: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+  confirmed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  invoiced: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
   pending: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  under_review: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+  sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  final: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  lost: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
 };
 
 function getStatusBadge(status: string): React.ReactNode {
@@ -157,6 +168,33 @@ const quoteColumns: ColumnDef[] = [
   { key: 'quoteDate', label: 'Date' },
   { key: 'validTill', label: 'Valid Till' },
   {
+    key: 'branchId',
+    label: 'Branch',
+    render: (v) =>
+      v ? (
+        <span title={String(v)} className="font-mono text-xs text-slate-500 dark:text-slate-400">
+          {String(v).slice(0, 8)}…
+        </span>
+      ) : (
+        '—'
+      ),
+  },
+  {
+    key: 'revision',
+    label: 'Rev',
+    render: (v) => (
+      <span
+        className={`inline-block rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${
+          Number(v) > 1
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+        }`}
+      >
+        Rev-{Number(v || 1)}
+      </span>
+    ),
+  },
+  {
     key: 'grandTotal',
     label: 'Total ₹',
     render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
@@ -165,10 +203,21 @@ const quoteColumns: ColumnDef[] = [
 ];
 
 const quoteFields: FormField[] = [
-  { name: 'quoteNumber', label: 'Quote Number', type: 'text', required: true },
+  {
+    name: 'quoteNumber',
+    label: 'Quote Number',
+    type: 'text',
+    placeholder: 'Auto-generated when auto numbering is ON',
+  },
   { name: 'customerId', label: 'Customer', type: 'text', required: true },
   { name: 'quoteDate', label: 'Quote Date', type: 'date', required: true },
   { name: 'validTill', label: 'Valid Till', type: 'date' },
+  {
+    name: 'branchId',
+    label: 'Branch',
+    type: 'select',
+    placeholder: 'Select branch (optional)',
+  },
   { name: 'subTotal', label: 'Sub Total', type: 'number' },
   { name: 'discountPercent', label: 'Discount %', type: 'number' },
   { name: 'grandTotal', label: 'Grand Total', type: 'number' },
@@ -177,14 +226,152 @@ const quoteFields: FormField[] = [
 ];
 
 export function SalesQuotationsPage() {
+  const [sendId, setSendId] = useState<string | null>(null);
+  const [convertId, setConvertId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   return (
-    <MasterDataPage
-      title="Sales Quotations"
-      description="Create and manage sales quotations with item details, tax calculations, and approval workflow"
-      columns={quoteColumns}
-      apiPath="/sales/quotations"
-      formFields={quoteFields}
-    />
+    <>
+      <MasterDataPage
+        title="Sales Quotations"
+        description="Create and manage sales quotations with auto/manual numbering, FY & branch prefixes, revision history, and final status"
+        columns={quoteColumns}
+        apiPath="/sales/quotations"
+        formFields={quoteFields}
+        refreshKey={refreshKey}
+        rowActions={[
+          {
+            label: 'Convert',
+            title: 'One-click convert: Quotation → Sales Order → Delivery Challan → Invoice',
+            variant: 'primary',
+            disabled: (record) =>
+              Boolean(record.convertedToOrder) ||
+              ['rejected', 'expired', 'lost', 'pending', 'under_review'].includes(
+                String(record.status),
+              ),
+            onClick: async (record) => {
+              setConvertId(record.id as string);
+            },
+          },
+          {
+            label: 'Send',
+            title: 'Print, Email PDF, WhatsApp PDF ya download karo (Duplicate Copy ke saath)',
+            variant: 'primary',
+            onClick: async (record) => {
+              setSendId(record.id as string);
+            },
+          },
+          {
+            label: 'PDF',
+            title:
+              'Download professional quotation PDF — logo, GST, QR payment, bank details, barcode',
+            variant: 'ghost',
+            onClick: async (record) => {
+              await downloadQuotationPdf(record.id as string);
+            },
+          },
+          {
+            label: 'Submit for Approval',
+            title: 'Send to approval chain: Sales Executive → Sales Manager → Owner',
+            variant: 'primary',
+            disabled: (record) =>
+              ['final', 'pending', 'under_review', 'approved', 'sent'].includes(
+                String(record.status),
+              ),
+            onClick: async (record) => {
+              if (!window.confirm(`Submit "${record.quoteNumber}" for approval?`)) {
+                return;
+              }
+              await apiRequest(`/sales/quotations/${record.id}/submit-approval`, {
+                method: 'POST',
+              });
+            },
+          },
+          {
+            label: 'Send Customer',
+            title: 'Mark the quotation as sent to the customer',
+            variant: 'ghost',
+            disabled: (record) =>
+              ['final', 'sent'].includes(String(record.status)) ||
+              String(record.status) !== 'approved',
+            onClick: async (record) => {
+              if (!window.confirm(`Mark "${record.quoteNumber}" as sent to the customer?`)) {
+                return;
+              }
+              await apiRequest(`/sales/quotations/${record.id}/send`, {
+                method: 'POST',
+                body: JSON.stringify({ via: 'manual' }),
+              });
+            },
+          },
+          {
+            label: 'Create Revision',
+            title: 'Duplicate this quote as a new revision (Rev-N)',
+            variant: 'primary',
+            disabled: (record) => record.status === 'final',
+            onClick: async (record) => {
+              if (!window.confirm(`Create a new revision of "${record.quoteNumber}"?`)) {
+                return;
+              }
+              await apiRequest(`/sales/quotations/${record.id}/revision`, { method: 'POST' });
+            },
+          },
+          {
+            label: 'Mark Final',
+            title: 'Lock this quotation as final',
+            variant: 'ghost',
+            disabled: (record) => record.status === 'final',
+            onClick: async (record) => {
+              if (!window.confirm(`Mark "${record.quoteNumber}" as Final?`)) {
+                return;
+              }
+              await apiRequest(`/sales/quotations/${record.id}/finalize`, { method: 'PUT' });
+            },
+          },
+          {
+            label: 'Mark Lost',
+            title:
+              'Customer did not accept — counts toward the Lost metric on the quotation dashboard',
+            variant: 'danger',
+            disabled: (record) =>
+              ['lost', 'expired', 'final', 'converted'].includes(String(record.status)) ||
+              Boolean(record.convertedToOrder),
+            onClick: async (record) => {
+              if (
+                !window.confirm(
+                  `Mark "${record.quoteNumber}" as Lost? This cannot be converted later.`,
+                )
+              ) {
+                return;
+              }
+              await apiRequest(`/sales/quotations/${record.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ status: 'lost' }),
+              });
+            },
+          },
+        ]}
+      />
+      {sendId && (
+        <QuotationShareModal
+          quoteId={sendId}
+          onClose={() => {
+            setSendId(null);
+            // Modal email/WhatsApp markSent kar sakta hai — list status refresh karo
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+      {convertId && (
+        <QuotationConvertModal
+          quoteId={convertId}
+          onClose={() => {
+            setConvertId(null);
+            // Conversion status (converted/dispatched) refresh karo
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -220,6 +407,7 @@ const orderFields: FormField[] = [
 ];
 
 export function SalesOrdersPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
   return (
     <MasterDataPage
       title="Sales Orders"
@@ -227,6 +415,21 @@ export function SalesOrdersPage() {
       columns={orderColumns}
       apiPath="/sales/orders"
       formFields={orderFields}
+      refreshKey={refreshKey}
+      rowActions={[
+        {
+          label: 'Convert to Challan',
+          title: 'Create a full-dispatch Delivery Challan from this order',
+          variant: 'primary',
+          onClick: async (record) => {
+            if (!window.confirm(`Convert order "${record.orderNumber}" to a Delivery Challan?`)) {
+              return;
+            }
+            await apiRequest(`/sales/orders/${record.id}/convert`, { method: 'POST' });
+            setRefreshKey((k) => k + 1);
+          },
+        },
+      ]}
     />
   );
 }
@@ -238,9 +441,30 @@ const challanColumns: ColumnDef[] = [
   { key: 'challanNumber', label: 'Challan#' },
   { key: 'orderId', label: 'Order Ref' },
   { key: 'dispatchDate', label: 'Dispatch Date' },
-  { key: 'dispatchType', label: 'Type' },
+  {
+    key: 'dispatchType',
+    label: 'Type',
+    render: (v) => (
+      <span
+        className={cn(
+          'inline-block rounded-full px-2 py-0.5 text-xs font-semibold',
+          v === 'partial'
+            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+            : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
+        )}
+      >
+        {v === 'partial' ? 'Partial' : 'Full'}
+      </span>
+    ),
+  },
   { key: 'vehicleNo', label: 'Vehicle' },
   { key: 'driverName', label: 'Driver' },
+  { key: 'ewayBillNo', label: 'E-way Bill' },
+  {
+    key: 'totalAmount',
+    label: 'Amount ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+  },
   { key: 'status', label: 'Status', render: (v) => getStatusBadge(v as string) },
 ];
 
@@ -265,17 +489,38 @@ const challanFields: FormField[] = [
   { name: 'driverMobile', label: 'Driver Mobile', type: 'text' },
   { name: 'transporterName', label: 'Transporter', type: 'text' },
   { name: 'lrNo', label: 'LR No', type: 'text' },
+  { name: 'lrDate', label: 'LR Date', type: 'date' },
+  { name: 'ewayBillNo', label: 'E-way Bill No', type: 'text' },
+  { name: 'ewayBillDate', label: 'E-way Bill Date', type: 'date' },
+  { name: 'totalQty', label: 'Total Qty', type: 'number' },
+  { name: 'totalAmount', label: 'Total Amount', type: 'number' },
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
 export function DeliveryChallansPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
   return (
     <MasterDataPage
       title="Delivery Challans"
-      description="Record dispatches with vehicle and driver details, batch/serial tracking, and partial delivery support"
+      description="Record dispatches with vehicle, driver, e-way bill, transport details, and partial delivery support"
       columns={challanColumns}
       apiPath="/sales/delivery-challans"
       formFields={challanFields}
+      refreshKey={refreshKey}
+      rowActions={[
+        {
+          label: 'Convert to Invoice',
+          title: 'Create a GST invoice from this challan (links order + challan)',
+          variant: 'primary',
+          onClick: async (record) => {
+            if (!window.confirm(`Convert challan "${record.challanNumber}" to an Invoice?`)) {
+              return;
+            }
+            await apiRequest(`/sales/delivery-challans/${record.id}/convert`, { method: 'POST' });
+            setRefreshKey((k) => k + 1);
+          },
+        },
+      ]}
     />
   );
 }
@@ -459,6 +704,8 @@ const settingsFields: FormField[] = [
   { name: 'autoQuoteNumber', label: 'Auto Quote Numbering', type: 'boolean' },
   { name: 'quotePrefix', label: 'Quote Prefix', type: 'text' },
   { name: 'quoteNextNumber', label: 'Next Quote Number', type: 'number' },
+  { name: 'quoteFyPrefix', label: 'Financial Year Prefix in Quote Number', type: 'boolean' },
+  { name: 'quoteBranchPrefix', label: 'Branch Prefix in Quote Number', type: 'boolean' },
   { name: 'autoOrderNumber', label: 'Auto Order Numbering', type: 'boolean' },
   { name: 'orderPrefix', label: 'Order Prefix', type: 'text' },
   { name: 'orderNextNumber', label: 'Next Order Number', type: 'number' },

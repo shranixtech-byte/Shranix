@@ -55,6 +55,20 @@ export const sqliteSalesQuotations = sqliteTableBase(
     quoteDate: sqliteText('quote_date').notNull(),
     validTill: sqliteText('valid_till'),
     status: sqliteText('status').notNull().default('draft'),
+    branchId: sqliteText('branch_id'),
+    revision: sqliteInteger('revision').notNull().default(1),
+    parentQuoteId: sqliteText('parent_quote_id'),
+    billingAddress: sqliteText('billing_address'),
+    shippingAddress: sqliteText('shipping_address'),
+    contactPerson: sqliteText('contact_person'),
+    paymentTerms: sqliteText('payment_terms'),
+    deliveryTime: sqliteText('delivery_time'),
+    freight: sqliteReal('freight').notNull().default(0),
+    installationCharges: sqliteReal('installation_charges').notNull().default(0),
+    warranty: sqliteText('warranty'),
+    customerNotes: sqliteText('customer_notes'),
+    sentAt: sqliteText('sent_at'),
+    sentVia: sqliteText('sent_via'),
     subTotal: sqliteReal('sub_total').notNull().default(0),
     discountPercent: sqliteReal('discount_percent').notNull().default(0),
     discountAmount: sqliteReal('discount_amount').notNull().default(0),
@@ -85,6 +99,20 @@ export const pgSalesQuotations = pgTableBase(
     quoteDate: pgTimestamp('quote_date', { withTimezone: true }).notNull(),
     validTill: pgTimestamp('valid_till', { withTimezone: true }),
     status: pgText('status').notNull().default('draft'),
+    branchId: pgUuid('branch_id'),
+    revision: pgInteger('revision').notNull().default(1),
+    parentQuoteId: pgUuid('parent_quote_id'),
+    billingAddress: pgText('billing_address'),
+    shippingAddress: pgText('shipping_address'),
+    contactPerson: pgText('contact_person'),
+    paymentTerms: pgText('payment_terms'),
+    deliveryTime: pgText('delivery_time'),
+    freight: pgReal('freight').notNull().default(0),
+    installationCharges: pgReal('installation_charges').notNull().default(0),
+    warranty: pgText('warranty'),
+    customerNotes: pgText('customer_notes'),
+    sentAt: pgTimestamp('sent_at', { withTimezone: true }),
+    sentVia: pgText('sent_via'),
     subTotal: pgReal('sub_total').notNull().default(0),
     discountPercent: pgReal('discount_percent').notNull().default(0),
     discountAmount: pgReal('discount_amount').notNull().default(0),
@@ -106,9 +134,7 @@ export const pgSalesQuotations = pgTableBase(
 
 // Quotation Items
 export const sqliteQuotationItems = sqliteTableBase('shranix_quotation_items', {
-  id: sqliteText('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
+  ...sqliteBase,
   quotationId: sqliteText('quotation_id').notNull(),
   itemId: sqliteText('item_id').notNull(),
   variantId: sqliteText('variant_id'),
@@ -125,10 +151,18 @@ export const sqliteQuotationItems = sqliteTableBase('shranix_quotation_items', {
   sgst: sqliteReal('sgst').notNull().default(0),
   cess: sqliteReal('cess').notNull().default(0),
   totalAmount: sqliteReal('total_amount').notNull().default(0),
+  batchNo: sqliteText('batch_no'),
+  hsnCode: sqliteText('hsn_code'),
+  barcode: sqliteText('barcode'),
+  freeQty: sqliteReal('free_qty').notNull().default(0),
+  discountType: sqliteText('discount_type'),
+  remarks: sqliteText('remarks'),
+  warehouse: sqliteText('warehouse'),
+  expiryDate: sqliteText('expiry_date'),
 });
 
 export const pgQuotationItems = pgTableBase('shranix_quotation_items', {
-  id: pgUuid('id').primaryKey().defaultRandom(),
+  ...pgBase,
   quotationId: pgUuid('quotation_id').notNull(),
   itemId: pgUuid('item_id').notNull(),
   variantId: pgUuid('variant_id'),
@@ -145,6 +179,14 @@ export const pgQuotationItems = pgTableBase('shranix_quotation_items', {
   sgst: pgReal('sgst').notNull().default(0),
   cess: pgReal('cess').notNull().default(0),
   totalAmount: pgReal('total_amount').notNull().default(0),
+  batchNo: pgText('batch_no'),
+  hsnCode: pgText('hsn_code'),
+  barcode: pgText('barcode'),
+  freeQty: pgReal('free_qty').notNull().default(0),
+  discountType: pgText('discount_type'),
+  remarks: pgText('remarks'),
+  warehouse: pgText('warehouse'),
+  expiryDate: pgText('expiry_date'),
 });
 
 // ═════════════════════════════════════════════════════════
@@ -162,10 +204,19 @@ export const sqliteSalesOrders = sqliteTableBase(
     warehouseId: sqliteText('warehouse_id'),
     branchId: sqliteText('branch_id'),
     status: sqliteText('status').notNull().default('draft'),
+    paymentTerms: sqliteText('payment_terms'),
+    billingAddress: sqliteText('billing_address'),
+    shippingAddress: sqliteText('shipping_address'),
+    contactPerson: sqliteText('contact_person'),
+    isPartial: sqliteInteger('is_partial', { mode: 'boolean' }).notNull().default(false),
     subTotal: sqliteReal('sub_total').notNull().default(0),
     discountPercent: sqliteReal('discount_percent').notNull().default(0),
     discountAmount: sqliteReal('discount_amount').notNull().default(0),
     taxAmount: sqliteReal('tax_amount').notNull().default(0),
+    cgstTotal: sqliteReal('cgst_total').notNull().default(0),
+    sgstTotal: sqliteReal('sgst_total').notNull().default(0),
+    igstTotal: sqliteReal('igst_total').notNull().default(0),
+    cessTotal: sqliteReal('cess_total').notNull().default(0),
     roundOff: sqliteReal('round_off').notNull().default(0),
     grandTotal: sqliteReal('grand_total').notNull().default(0),
     notes: sqliteText('notes'),
@@ -192,10 +243,19 @@ export const pgSalesOrders = pgTableBase(
     warehouseId: pgUuid('warehouse_id'),
     branchId: pgUuid('branch_id'),
     status: pgText('status').notNull().default('draft'),
+    paymentTerms: pgText('payment_terms'),
+    billingAddress: pgText('billing_address'),
+    shippingAddress: pgText('shipping_address'),
+    contactPerson: pgText('contact_person'),
+    isPartial: pgBoolean('is_partial').notNull().default(false),
     subTotal: pgReal('sub_total').notNull().default(0),
     discountPercent: pgReal('discount_percent').notNull().default(0),
     discountAmount: pgReal('discount_amount').notNull().default(0),
     taxAmount: pgReal('tax_amount').notNull().default(0),
+    cgstTotal: pgReal('cgst_total').notNull().default(0),
+    sgstTotal: pgReal('sgst_total').notNull().default(0),
+    igstTotal: pgReal('igst_total').notNull().default(0),
+    cessTotal: pgReal('cess_total').notNull().default(0),
     roundOff: pgReal('round_off').notNull().default(0),
     grandTotal: pgReal('grand_total').notNull().default(0),
     notes: pgText('notes'),
@@ -277,6 +337,14 @@ export const sqliteDeliveryChallans = sqliteTableBase(
     transporterName: sqliteText('transporter_name'),
     lrNo: sqliteText('lr_no'),
     lrDate: sqliteText('lr_date'),
+    // Phase 2: E-way Bill + Transport details + Dispatch totals
+    ewayBillNo: sqliteText('eway_bill_no'),
+    ewayBillDate: sqliteText('eway_bill_date'),
+    transportDetails: sqliteText('transport_details'),
+    totalQty: sqliteReal('total_qty').notNull().default(0),
+    totalAmount: sqliteReal('total_amount').notNull().default(0),
+    billingAddress: sqliteText('billing_address'),
+    shippingAddress: sqliteText('shipping_address'),
     status: sqliteText('status').notNull().default('pending'),
     notes: sqliteText('notes'),
     financialYearId: sqliteText('financial_year_id'),
@@ -303,6 +371,14 @@ export const pgDeliveryChallans = pgTableBase(
     transporterName: pgText('transporter_name'),
     lrNo: pgText('lr_no'),
     lrDate: pgTimestamp('lr_date', { withTimezone: true }),
+    // Phase 2: E-way Bill + Transport details + Dispatch totals
+    ewayBillNo: pgText('eway_bill_no'),
+    ewayBillDate: pgTimestamp('eway_bill_date', { withTimezone: true }),
+    transportDetails: pgText('transport_details'),
+    totalQty: pgReal('total_qty').notNull().default(0),
+    totalAmount: pgReal('total_amount').notNull().default(0),
+    billingAddress: pgText('billing_address'),
+    shippingAddress: pgText('shipping_address'),
     status: pgText('status').notNull().default('pending'),
     notes: pgText('notes'),
     financialYearId: pgUuid('financial_year_id'),
@@ -321,6 +397,8 @@ export const sqliteChallanItems = sqliteTableBase('shranix_challan_items', {
   orderItemId: sqliteText('order_item_id'),
   itemId: sqliteText('item_id').notNull(),
   variantId: sqliteText('variant_id'),
+  description: sqliteText('description'),
+  unitId: sqliteText('unit_id'),
   quantity: sqliteReal('quantity').notNull().default(0),
   deliveredQuantity: sqliteReal('delivered_quantity').notNull().default(0),
   rate: sqliteReal('rate').notNull().default(0),
@@ -338,6 +416,8 @@ export const pgChallanItems = pgTableBase('shranix_challan_items', {
   orderItemId: pgUuid('order_item_id'),
   itemId: pgUuid('item_id').notNull(),
   variantId: pgUuid('variant_id'),
+  description: pgText('description'),
+  unitId: pgUuid('unit_id'),
   quantity: pgReal('quantity').notNull().default(0),
   deliveredQuantity: pgReal('delivered_quantity').notNull().default(0),
   rate: pgReal('rate').notNull().default(0),
@@ -565,6 +645,10 @@ export const sqliteSalesSettings = sqliteTableBase('shranix_sales_settings', {
   autoQuoteNumber: sqliteInteger('auto_quote_number', { mode: 'boolean' }).notNull().default(true),
   quotePrefix: sqliteText('quote_prefix').notNull().default('SQ-'),
   quoteNextNumber: sqliteInteger('quote_next_number').notNull().default(1),
+  quoteFyPrefix: sqliteInteger('quote_fy_prefix', { mode: 'boolean' }).notNull().default(false),
+  quoteBranchPrefix: sqliteInteger('quote_branch_prefix', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   autoOrderNumber: sqliteInteger('auto_order_number', { mode: 'boolean' }).notNull().default(true),
   orderPrefix: sqliteText('order_prefix').notNull().default('SO-'),
   orderNextNumber: sqliteInteger('order_next_number').notNull().default(1),
@@ -627,6 +711,8 @@ export const pgSalesSettings = pgTableBase('shranix_sales_settings', {
   autoQuoteNumber: pgBoolean('auto_quote_number').notNull().default(true),
   quotePrefix: pgText('quote_prefix').notNull().default('SQ-'),
   quoteNextNumber: pgInteger('quote_next_number').notNull().default(1),
+  quoteFyPrefix: pgBoolean('quote_fy_prefix').notNull().default(false),
+  quoteBranchPrefix: pgBoolean('quote_branch_prefix').notNull().default(false),
   invoiceSuffix: pgText('invoice_suffix').notNull().default(''),
   printFormat: pgText('print_format').notNull().default('a4_portrait'),
   duplicateCopy: pgBoolean('duplicate_copy').notNull().default(true),
@@ -785,10 +871,19 @@ export const pgSalesApprovals = pgTableBase('shranix_sales_approvals', {
 // ═════════════════════════════════════════════════════════
 
 // Approval History
+// NOTE: base soft-delete/timestamp columns (created_at, updated_at, deleted_at,
+// is_deleted) were added by migration 0004 — see migration SQL. They are nullable
+// here (except is_deleted) so ALTER TABLE ADD COLUMN succeeds on tables with rows.
 export const sqliteApprovalHistory = sqliteTableBase('shranix_approval_history', {
   id: sqliteText('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  createdAt: sqliteText('created_at').$defaultFn(() => new Date().toISOString()),
+  updatedAt: sqliteText('updated_at')
+    .$defaultFn(() => new Date().toISOString())
+    .$onUpdateFn(() => new Date().toISOString()),
+  deletedAt: sqliteText('deleted_at'),
+  isDeleted: sqliteInteger('is_deleted', { mode: 'boolean' }).notNull().default(false),
   approvalId: sqliteText('approval_id').notNull(),
   action: sqliteText('action').notNull(),
   actionBy: sqliteText('action_by').notNull(),
@@ -804,6 +899,10 @@ export const sqliteApprovalHistory = sqliteTableBase('shranix_approval_history',
 
 export const pgApprovalHistory = pgTableBase('shranix_approval_history', {
   id: pgUuid('id').primaryKey().defaultRandom(),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }),
+  updatedAt: pgTimestamp('updated_at', { withTimezone: true }),
+  deletedAt: pgTimestamp('deleted_at', { withTimezone: true }),
+  isDeleted: pgBoolean('is_deleted').notNull().default(false),
   approvalId: pgUuid('approval_id').notNull(),
   action: pgText('action').notNull(),
   actionBy: pgUuid('action_by').notNull(),
@@ -820,24 +919,32 @@ export const sqliteApprovalComments = sqliteTableBase('shranix_approval_comments
   id: sqliteText('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  createdAt: sqliteText('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: sqliteText('updated_at')
+    .$defaultFn(() => new Date().toISOString())
+    .$onUpdateFn(() => new Date().toISOString()),
+  deletedAt: sqliteText('deleted_at'),
+  isDeleted: sqliteInteger('is_deleted', { mode: 'boolean' }).notNull().default(false),
   approvalId: sqliteText('approval_id').notNull(),
   userId: sqliteText('user_id').notNull(),
   userName: sqliteText('user_name'),
   comment: sqliteText('comment').notNull(),
   isInternal: sqliteInteger('is_internal', { mode: 'boolean' }).notNull().default(false),
-  createdAt: sqliteText('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
 });
 
 export const pgApprovalComments = pgTableBase('shranix_approval_comments', {
   id: pgUuid('id').primaryKey().defaultRandom(),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: pgTimestamp('updated_at', { withTimezone: true }),
+  deletedAt: pgTimestamp('deleted_at', { withTimezone: true }),
+  isDeleted: pgBoolean('is_deleted').notNull().default(false),
   approvalId: pgUuid('approval_id').notNull(),
   userId: pgUuid('user_id').notNull(),
   userName: pgText('user_name'),
   comment: pgText('comment').notNull(),
   isInternal: pgBoolean('is_internal').notNull().default(false),
-  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Approval Notifications
@@ -845,26 +952,34 @@ export const sqliteApprovalNotifications = sqliteTableBase('shranix_approval_not
   id: sqliteText('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  createdAt: sqliteText('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: sqliteText('updated_at')
+    .$defaultFn(() => new Date().toISOString())
+    .$onUpdateFn(() => new Date().toISOString()),
+  deletedAt: sqliteText('deleted_at'),
+  isDeleted: sqliteInteger('is_deleted', { mode: 'boolean' }).notNull().default(false),
   approvalId: sqliteText('approval_id').notNull(),
   recipientId: sqliteText('recipient_id').notNull(),
   recipientRole: sqliteText('recipient_role'),
   type: sqliteText('type').notNull(),
   message: sqliteText('message').notNull(),
   isRead: sqliteInteger('is_read', { mode: 'boolean' }).notNull().default(false),
-  createdAt: sqliteText('created_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
 });
 
 export const pgApprovalNotifications = pgTableBase('shranix_approval_notifications', {
   id: pgUuid('id').primaryKey().defaultRandom(),
+  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: pgTimestamp('updated_at', { withTimezone: true }),
+  deletedAt: pgTimestamp('deleted_at', { withTimezone: true }),
+  isDeleted: pgBoolean('is_deleted').notNull().default(false),
   approvalId: pgUuid('approval_id').notNull(),
   recipientId: pgUuid('recipient_id').notNull(),
   recipientRole: pgText('recipient_role'),
   type: pgText('type').notNull(),
   message: pgText('message').notNull(),
   isRead: pgBoolean('is_read').notNull().default(false),
-  createdAt: pgTimestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Approval Matrices

@@ -1,441 +1,577 @@
-# SHRANIX Krushi ERP
+<div align="center">
 
-> **Enterprise-Grade Desktop ERP for the Agricultural Ecosystem**
->
-> *Version 1.0.0 — Phase: Foundation | Status: 🟢 Active*
+# 🌾 SHRANIX Krushi ERP
 
----
+**Enterprise-Grade ERP for the Agricultural Ecosystem**
 
-## Quick Navigation
+Production-ready ERP for agri-input dealers, farmers, traders, processors, and agri-retail chains — sales, purchase, inventory, finance, GST, workflow approvals, and offline-first field operations.
 
-| Section | Link |
-|---|---|
-| 📋 Project Overview | [#project-overview](#project-overview) |
-| 🏗️ Architecture | [#architecture](#architecture) |
-| 📁 Repository Structure | [#repository-structure](#repository-structure) |
-| 🛠️ Technology Stack | [#technology-stack](#technology-stack) |
-| 📐 Coding Standards | [#coding-standards](#coding-standards) |
-| 📚 Documentation | [#documentation](#documentation) |
-| 📊 Reports & Health | [#reports--health](#reports--health) |
-| 🎯 Prompts & Execution | [#prompts--execution](#prompts--execution) |
-| 📦 Versioning & Releases | [#versioning--releases](#versioning--releases) |
-| 🚀 Getting Started | [#getting-started](#getting-started) |
-| 📋 Project Status | [#project-status](#project-status) |
-| 📄 License | [#license](#license) |
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](./RELEASE_NOTES.md)
+[![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-268%20passing-brightgreen.svg)](./docs/08_Testing.md)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-blue.svg)](./LICENSE.md)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
+</div>
 
 ---
 
-## Project Overview
+## Table of Contents
 
-### Vision
+- [Project Overview](#-project-overview)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
+- [Folder Structure](#-folder-structure)
+- [Installation](#-installation)
+- [Local Development](#-local-development)
+- [Database Setup](#-database-setup)
+- [Migrations & Seed](#-migrations--seed)
+- [Build Commands](#-build-commands)
+- [Testing](#-testing)
+- [Docker Commands](#-docker-commands)
+- [Production Deployment](#-production-deployment)
+- [Environment Variables](#-environment-variables)
+- [API Documentation](#-api-documentation)
+- [Deployment Checklist](#-deployment-checklist)
+- [Troubleshooting](#-troubleshooting)
+- [Known Limitations](#-known-limitations)
+- [Future Improvements](#-future-improvements)
+- [Version Information](#-version-information)
+- [License](#-license)
 
-**SHRANIX Krushi ERP** is a commercial-grade desktop enterprise resource planning solution purpose-built for the agricultural supply chain. It empowers agribusinesses — from farm input dealers to processors and retailers — with a unified, premium-quality platform that simplifies complexity, drives efficiency, and accelerates growth.
+---
 
-### Mission
+## 📋 Project Overview
 
-Deliver a reliable, intuitive, and scalable ERP that:
-- **Simplifies** agricultural operations with a clutter-free, productivity-first interface
-- **Integrates** end-to-end workflows across procurement, inventory, sales, finance, and production
-- **Performs** reliably in low-connectivity environments with intelligent offline capabilities
-- **Scales** from single-user retail to multi-branch enterprise operations
-- **Protects** business data with enterprise-grade security and access controls
+**SHRANIX Krushi ERP** is a commercial-grade enterprise resource planning platform purpose-built for the agricultural supply chain. It empowers agribusinesses — from farm-input dealers to processors and retailers — with a unified platform covering the entire operation:
 
-### Core Values
-
-| Value | Description |
-|---|---|
-| **Simplicity** | Complexity lives in the engine, not the interface |
-| **Reliability** | Data integrity is non-negotiable |
-| **Performance** | Every interaction feels instant and fluid |
-| **User-Centric** | Design for agribusiness professionals — not developers |
-| **Innovation** | Modern technology applied to practical, real-world needs |
+- **Sales:** quotations → orders → delivery challans → invoices → returns, with multi-level approval chains and one-click document conversion.
+- **Purchase:** orders, GRN, invoices, returns, requisitions, with auto-posting.
+- **Inventory:** item master, batch/lot & serial tracking, stock ledger, transfers, multi-warehouse.
+- **Finance & GST:** chart of accounts, ledger, journal, GST returns (GSTR1/3B/9), period locks, year-end closing.
+- **Workflow:** universal approval engine, tasks, notifications, escalations.
+- **Field intelligence:** offline-first PWA with barcode scanning, GPS, push notifications, and a sync engine.
+- **AI assistant:** optional LLM-powered copilot with enterprise security (prompt-injection protection, data masking).
 
 ### Target Audience
 
 - Agricultural input dealers (seeds, fertilizers, pesticides, equipment)
-- Farmers and farming cooperatives
 - Agri-commodity traders and processors
-- Food processing and packaging units
 - Agricultural retail chains
+- Food processing and packaging units
 - Rural distribution and logistics operators
 
 ---
 
-## Architecture
+## ✨ Features
 
-### High-Level Architecture
+### Sales & Distribution
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                  DESKTOP SHELL (Electron/Tauri)           │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │   Renderer   │  │  Main Process │  │   Native APIs  │  │
-│  │  (React UI)  │  │  (Node.js)    │  │  (File System,  │  │
-│  │              │  │               │  │   Printer, etc) │  │
-│  └──────┬───────┘  └──────┬────────┘  └────────────────┘  │
-└─────────┼─────────────────┼───────────────────────────────┘
-          │                 │
-          ▼                 ▼
-┌─────────────────────────────────────────────────────────┐
-│                     LOCAL API LAYER                       │
-│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │   REST API  │  │  Auth (JWT)  │  │  Sync Engine   │  │
-│  └──────┬──────┘  └──────────────┘  └────────────────┘  │
-└─────────┼────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────┐
-│                  BUSINESS LOGIC LAYER                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐ │
-│  │Inventory │ │Purchase  │ │  Sales   │ │  Finance   │ │
-│  │Module    │ │Module    │ │  Module  │ │  Module    │ │
-│  └──────────┘ └──────────┘ └──────────┘ └────────────┘ │
-└─────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────┐
-│                   DATA ACCESS LAYER                       │
-│  ┌──────────────────────────────────────────────────┐    │
-│  │           ORM (Prisma / Drizzle)                  │    │
-│  └──────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────────────┐
-│                POSTGRESQL DATABASE                        │
-│        (Local or Networked Instance)                      │
-└─────────────────────────────────────────────────────────┘
-```
+- Quotations with revisions, validity, **3-level approval chain** (Executive → Manager → Owner)
+- Sales Orders with auto numbering and stock reservation
+- Delivery Challans with partial/full dispatch, vehicle & driver details, **e-way bill** fields
+- Sales Invoices with GST, discount, round-off, payment tracking
+- Sales Returns & Credit Notes with stock reversal
+- Customer price lists with tiered pricing
+- **One-click conversion:** Quotation → Sales Order → Delivery Challan → Invoice
 
-### Architecture Principles
+### Purchase
 
-- **Separation of Concerns:** Frontend (presentation) → Backend (business logic) → Database (storage)
-- **SOLID Principles:** Single responsibility, open/closed, Liskov substitution, interface segregation, dependency inversion
-- **Layered Architecture:** Desktop shell → API → Business Logic → Data Access → Database
-- **Offline-First:** Core operations designed to work without internet connectivity
-- **Modular Packaging:** Feature-based module system tied to license tiers
+- Purchase orders, quotations, GRN, invoices, returns
+- Supplier price lists, debit notes, requisitions, approvals
+- Auto-posting to finance
+
+### Inventory
+
+- Item master with variants, barcodes, HSN codes, pricing
+- Batch/lot & serial number tracking with genealogy and traceability
+- Stock ledger, transfers, adjustments, physical counts
+- Multi-warehouse with zones/racks/bins and UoM conversions
+
+### Finance & GST
+
+- Chart of Accounts, Ledger Master, Journal Entries
+- Cash & Bank Books, Cost Centers, Budgets
+- GST engine: registrations, ledger, returns (GSTR1/3B/9), tax postings
+- Period Locking, Year-End Closing, Opening Balance Transfer
+- Audit Trail, Number Series, Voucher Approval Workflow
+
+### General Ledger & Reports
+
+- Trial Balance, Profit & Loss, Balance Sheet, Cash Flow
+- Day Book, Account Statement, GST registers
+- Real GL-based reporting engine (10+ reports)
+
+### Platform
+
+- JWT authentication with refresh tokens, Argon2 hashing, RBAC
+- Universal workflow engine with approval matrices
+- PWA offline-first mode with sync engine
+- Docker deployment, Nginx + TLS, Prometheus + Grafana monitoring
+- Automated database backups with retention policy
 
 ---
 
-## Repository Structure
+## 🛠️ Tech Stack
 
-```
-SHRANIX-KRUSHI-ERP/
-│
-├── .env.example              # Environment variable template
-├── .gitignore                # Git exclusion rules
-├── CHANGELOG.md              # Version history (append-only)
-├── LICENSE.md                # Proprietary commercial license
-├── README.md                 # This file
-│
-├── assets/                   # Static resources
-│   └── brand/                # Logo, brand assets (TBD)
-│
-├── archive/                  # Historical/archived artifacts
-│   ├── old_reports/          # Superseded reports
-│   ├── old_prompts/          # Completed/archived prompts
-│   ├── legacy_docs/          # Outdated documentation versions
-│   └── deprecated_files/     # Deprecated code or config files
-│
-├── backend/                  # Server-side application
-│   ├── src/                  # Source code
-│   ├── tests/                # Backend-specific tests
-│   └── config/               # Configuration files
-│
-├── database/                 # Data layer
-│   ├── migrations/           # Schema migrations
-│   ├── seeds/                # Seed data
-│   └── scripts/              # Utility scripts
-│
-├── desktop/                  # Desktop shell (Electron/Tauri)
-│   ├── src/                  # Main process / native code
-│   ├── public/               # Bundled static files
-│   └── build/                # Packaging scripts
-│
-├── docs/                     # Project documentation (9 files)
-│   ├── 01_Project_Vision.md
-│   ├── 02_Development_Rules.md
-│   ├── 03_Feature_List.md
-│   ├── 04_Database_Design.md
-│   ├── 05_UI_Guidelines.md
-│   ├── 06_Brand_Guidelines.md
-│   ├── 07_API_Documentation.md
-│   ├── 08_Testing.md
-│   └── 09_Release_Notes.md
-│
-├── frontend/                 # User interface (React)
-│   ├── src/                  # Components, pages, hooks, stores
-│   ├── public/               # Static HTML, favicon, manifest
-│   └── tests/                # Frontend-specific tests
-│
-├── installer/                # Platform-specific installers
-│
-├── logs/                     # Runtime logs (gitignored)
-│
-├── planning/                 # Product strategy (7 files)
-│   ├── Ideas.md
-│   ├── Roadmap.md
-│   ├── Customer_Requests.md
-│   ├── Packages.md
-│   ├── Premium_Features.md
-│   ├── Future_Versions.md
-│   └── TODO.md
-│
-├── prompts/                  # AI/development prompt management
-│   ├── Prompt_Index.md       # Prompt catalog
-│   ├── Prompt_Template.md    # Standardized prompt template
-│   ├── Prompt_Guidelines.md  # Prompt writing best practices
-│   └── Prompt_XXX_*.md       # Individual prompt records
-│
-├── reports/                  # Enterprise reporting system
-│   ├── Master_Project_Report.md
-│   ├── Project_Health_Report.md
-│   ├── Execution_Report.md
-│   ├── Risk_Register.md
-│   ├── Technical_Debt.md
-│   ├── Decision_Log.md
-│   ├── Progress_Dashboard.md
-│   ├── Report_Index.md
-│   └── screenshots/          # Visual evidence by phase
-│       ├── Phase_00/
-│       ├── Phase_01/
-│       └── Phase_02/
-│
-├── scripts/                  # Build, CI/CD, utility scripts
-│
-├── shared/                   # Cross-layer shared code
-│   ├── types/                # TypeScript interfaces & types
-│   ├── utils/                # Shared utility functions
-│   └── constants/            # Shared constants & enums
-│
-└── tests/                    # Cross-cutting / E2E tests
-```
+| Layer               | Technology                                                                        |
+| ------------------- | --------------------------------------------------------------------------------- |
+| **Backend**         | NestJS 10, TypeScript (strict), Express                                           |
+| **Frontend**        | React 19, Vite 6, Tailwind CSS, Radix UI, Redux Toolkit + Zustand, React Router 7 |
+| **Database**        | SQLite (dev) / PostgreSQL 16 (production) — dual-mode via Drizzle ORM             |
+| **ORM**             | Drizzle (`drizzle-orm`, `drizzle-kit`)                                            |
+| **Auth**            | JWT + refresh tokens, Argon2, passport                                            |
+| **Validation**      | `class-validator` + global `ValidationPipe`                                       |
+| **Desktop shell**   | Tauri (optional packaging)                                                        |
+| **Testing**         | Vitest (unit), Playwright (E2E, configured)                                       |
+| **CI/CD**           | GitHub Actions (lint, typecheck, test, build, deploy, release)                    |
+| **Monitoring**      | Prometheus + Grafana                                                              |
+| **Containers**      | Docker, Docker Compose, Nginx                                                     |
+| **Package manager** | pnpm 9 + Turborepo                                                                |
 
 ---
 
-## Technology Stack
-
-*Final decisions pending Architecture Phase (PRM-003). Shortlisted candidates shown.*
-
-| Layer | Primary Candidate | Alternative | Decision Status |
-|---|---|---|---|
-| **Desktop Shell** | Tauri | Electron | ⏳ Pending |
-| **Frontend Framework** | React 18 + TypeScript | — | ✅ Confirmed |
-| **UI Styling** | Tailwind CSS | — | ✅ Confirmed |
-| **UI Components** | Radix UI | Headless UI | ⏳ Pending |
-| **State Management** | Zustand | Redux Toolkit | ⏳ Pending |
-| **Backend Framework** | NestJS | Express / .NET | ⏳ Pending |
-| **Database** | PostgreSQL 16+ | — | ✅ Confirmed |
-| **ORM** | Drizzle | Prisma | ⏳ Pending |
-| **Authentication** | JWT + OAuth 2.0 | — | ✅ Confirmed |
-| **Testing (Unit)** | Vitest | Jest | ⏳ Pending |
-| **Testing (E2E)** | Playwright | Cypress | ⏳ Pending |
-| **Logging** | Pino | Winston | ⏳ Pending |
-| **Desktop Packaging** | Tauri Bundler | Electron Builder | ⏳ Pending |
-| **CI/CD** | GitHub Actions | — | ✅ Confirmed |
-
----
-
-## Coding Standards
-
-### General Principles
-- **Clean Code:** Small functions, meaningful names, single responsibility (Robert C. Martin)
-- **Type Safety:** TypeScript `strict: true`. Avoid `any`. Use `unknown` with type guards
-- **Immutability:** Prefer `const`. Use readonly types and immutable data patterns
-- **No Dead Code:** Remove commented-out code, unused imports, unreachable branches
-
-### Naming Conventions
-
-| Construct | Convention | Example |
-|---|---|---|
-| Files/Directories | `kebab-case` | `user-profile.tsx` |
-| React Components | `PascalCase` | `UserProfileCard` |
-| Functions/Variables | `camelCase` | `getUserById` |
-| Constants/Envs | `UPPER_SNAKE_CASE` | `MAX_RETRY_COUNT` |
-| Types/Interfaces | `PascalCase` | `UserProfile` |
-| Database Tables | `snake_case` | `user_profiles` |
-| API Routes | `kebab-case` | `/api/v1/user-profiles` |
-
-### Commit Conventions (Conventional Commits)
+## 🏗️ Architecture
 
 ```
-feat: add billing module
-fix: resolve invoice date formatting issue
-docs: update API documentation
-refactor: extract payment validation logic
-chore: update dependencies
-db: add inventory_batches table migration
+┌──────────────────────────────────────────────────────────────┐
+│                   FRONTEND (React 19 SPA)                     │
+│   React Router · Redux/Zustand · Tailwind · Radix UI          │
+│   PWA / Offline sync engine · API client layer                │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ HTTP /api/v1 (Vite proxy or Nginx)
+┌──────────────────────────────▼───────────────────────────────┐
+│                     BACKEND (NestJS 10)                       │
+│  ┌────────────┐ ┌─────────────┐ ┌─────────────────────────┐  │
+│  │ Controllers │ │ Services    │ │ Guards/Pipes/Interceptors│ │
+│  │ (thin HTTP) │ │ (business)  │ │ Auth·RBAC·CSRF·Validation│ │
+│  └─────┬──────┘ └──────┬──────┘ └───────────┬─────────────┘  │
+│        └───────────────┼────────────────────┘                │
+│                        ▼                                     │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │       DatabaseService (repositories, transactions)     │  │
+│  └────────────────────────┬───────────────────────────────┘  │
+└───────────────────────────┼──────────────────────────────────┘
+                            ▼
+┌───────────────────────────────────────────────────────────────┐
+│                  DATABASE (SQLite / PostgreSQL)               │
+│          Drizzle ORM · migrations · seeds · backups           │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-### Branching Strategy
+- **Separation of concerns** — frontend never touches the database.
+- **Layered services** — controllers stay thin; business logic lives in services.
+- **Offline-first** — the PWA caches API responses and syncs when back online.
+- **Dual-mode DB** — the same schema runs on SQLite (dev) and PostgreSQL (prod) via Drizzle.
+
+**Deep dive:** see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for request flow, auth flow, database flow, storage, queues, and background jobs.
+
+---
+
+## 📁 Folder Structure
 
 ```
-main          ─── Production-ready
-  ├── develop     ─── Integration
-  │    ├── feat/*     ─── Features
-  │    ├── fix/*      ─── Bug fixes
-  │    └── refactor/* ─── Refactoring
-  └── release/*   ─── Release candidates
+├── backend/      # NestJS REST API (all business logic)
+├── frontend/     # React 19 SPA
+├── database/     # Drizzle schema, migrations, seeds
+├── shared/       # Shared types, enums, validation, utils
+├── desktop/      # Tauri desktop shell (optional)
+├── docs/         # Project documentation (incl. API reference, architecture)
+├── deployment/   # Deployment guides & checklists
+├── monitoring/   # Prometheus + Grafana configs
+├── scripts/      # Dev/QA utility scripts
+└── archive/      # Historical/archived development artifacts
 ```
 
-### PR Size Limit
-
-**Max 400 lines** per pull request (excluding generated files, tests, config).
-
-### Performance Budgets
-
-| Metric | Target |
-|---|---|
-| Initial load time | < 2 seconds |
-| API response (p95) | < 500 ms |
-| DB query (p95) | < 200 ms |
-| UI interaction response | < 100 ms |
-| Desktop app memory | < 500 MB baseline |
-| Installer size | < 200 MB |
+**Full tree & package scripts:** see [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md).
 
 ---
 
-## Documentation
+## 🚀 Installation
 
-The project includes a comprehensive documentation system:
+### Prerequisites
 
-| Category | Files | Description |
-|---|---|---|
-| **Project Docs** (`docs/`) | 9 | Vision, rules, features, database, UI, brand, API, testing, releases |
-| **Planning** (`planning/`) | 7 | Ideas, roadmap, customer requests, packages, premium, future, TODO |
-| **Prompts** (`prompts/`) | 4 | Prompt index, template, guidelines, active prompts |
-| **Reports** (`reports/`) | 8 | Master report, health, execution, risks, debt, decisions, dashboard, index |
+| Tool       | Version                                       |
+| ---------- | --------------------------------------------- |
+| Node.js    | **>= 20.0.0**                                 |
+| pnpm       | **>= 9.0.0**                                  |
+| PostgreSQL | 16+ (production only; SQLite used for dev)    |
+| Docker     | latest (optional, for containerized dev/prod) |
 
-See [docs/](./docs/) for the full documentation suite.
+### 1. Clone
 
----
-
-## Reports & Health
-
-The enterprise reporting system provides comprehensive project tracking:
-
-| Report | Purpose |
-|---|---|
-| [Master Project Report](./reports/Master_Project_Report.md) | Central status — single source of truth |
-| [Project Health Report](./reports/Project_Health_Report.md) | 8-dimension health scoring |
-| [Execution Report](./reports/Execution_Report.md) | Granular action log |
-| [Risk Register](./reports/Risk_Register.md) | Risk tracking & mitigation |
-| [Technical Debt Register](./reports/Technical_Debt.md) | Debt tracking & repayment |
-| [Decision Log](./reports/Decision_Log.md) | Architecture & process decisions |
-| [Progress Dashboard](./reports/Progress_Dashboard.md) | Visual progress tracking |
-
-**Current Health Score: [8.2 / 10](./reports/Project_Health_Report.md) 🟢**
-
----
-
-### 📊 Single Source of Truth
-
-> **All project status is now tracked in [`reports/MASTER_DEVELOPMENT_REPORT.md`](./reports/MASTER_DEVELOPMENT_REPORT.md).**
-> This is the only report that receives updates going forward. Previous reports remain in the `reports/` directory for archival purposes.
-
----
-
-## Prompts & Execution
-
-All AI-assisted development is managed through structured prompts:
-
-- **[Prompt Index](./prompts/Prompt_Index.md):** Catalog of all prompts
-- **[Prompt Template](./prompts/Prompt_Template.md):** Standardized format
-- **[Prompt Guidelines](./prompts/Prompt_Guidelines.md):** Best practices
-- **Active Prompts:** Stored in `prompts/Prompt_XXX_Title.md`
-
----
-
-## Versioning & Releases
-
-### SemVer Strategy
-
-```
-MAJOR.MINOR.PATCH (e.g., 1.3.12)
-```
-
-| Increment | When |
-|---|---|
-| **MAJOR** | Breaking API or database changes |
-| **MINOR** | New features (backward-compatible) |
-| **PATCH** | Bug fixes and minor improvements |
-
-**Pre-release:** `-alpha.1`, `-beta.2`, `-rc.3`
-
-### Release Cadence
-
-| Type | Frequency |
-|---|---|
-| Alpha | Bi-weekly (internal) |
-| Beta | Monthly (preview) |
-| Stable | Quarterly (production) |
-| Patch | As needed |
-
-### Current Status
-
-**Phase:** Foundation (65% complete)
-**Target Release:** Q1 2027
-
----
-
-## Getting Started
-
-*This section will be completed once the development environment is configured.*
-
-### Prerequisites (TBD)
-- Node.js 20+
-- PostgreSQL 16+
-- pnpm / npm / yarn (TBD)
-- Rust (if using Tauri)
-
-### Quick Start (TBD)
 ```bash
-# Clone the repository
-git clone https://github.com/shranix/shranix-krushi-erp.git
+git clone https://github.com/shranixtech-byte/Shranix.git
+cd Shranix
+```
 
-# Install dependencies
-cd shranix-krushi-erp
-npm install
+### 2. Install dependencies
 
-# Set up environment
+```bash
+corepack enable          # ensures the pinned pnpm version
+pnpm install
+```
+
+### 3. Configure environment
+
+```bash
 cp .env.example .env
-# Edit .env with your configuration
+```
 
-# Run database migrations
-npm run db:migrate
+Open `.env` and set at minimum:
 
-# Start development
-npm run dev
+```bash
+DATABASE_URL=file:./data/dev.db     # SQLite dev default
+JWT_SECRET=some-long-random-string  # ≥ 32 chars
+```
+
+### 4. Run migrations
+
+```bash
+pnpm db:migrate
+```
+
+### 5. Seed the database
+
+```bash
+pnpm db:seed
+```
+
+This creates the admin user **`admin@shranix.com` / `admin123`** (development only — change it immediately in any non-dev environment) plus dummy business data.
+
+---
+
+## 💻 Local Development
+
+Start both servers (backend on **:4001**, frontend on **:4000**):
+
+```bash
+pnpm dev
+```
+
+- Frontend: <http://localhost:4000>
+- Backend health: <http://localhost:4001/v1/health>
+- Swagger API docs: <http://localhost:4001/api/docs> (enabled by default)
+
+The frontend dev server proxies `/api` → `http://localhost:4001`, so no CORS fiddling is needed.
+
+### Run pieces individually
+
+```bash
+pnpm --filter @shranix/backend dev      # backend only (nest start --watch)
+pnpm --filter @shranix/frontend dev     # frontend only (vite)
+```
+
+### Default dev login
+
+| Field    | Value               |
+| -------- | ------------------- |
+| Email    | `admin@shranix.com` |
+| Password | `admin123`          |
+
+---
+
+## 🗄️ Database Setup
+
+### Engine
+
+The schema is defined once in `database/src/schema/` and supports **both** SQLite and PostgreSQL (dual-mode). Drizzle generates dialect-specific SQL automatically.
+
+- **Development:** SQLite file at `backend/data/dev.db` (or `database/data/dev.db`)
+- **Production:** PostgreSQL 16+
+
+### Schema overview
+
+20+ business domains across ~80 tables: sales, purchase, inventory, finance, GL, GST/audit, workflow, masters, multi-company, users/permissions, AI, DMS.
+
+**Deep dive:** see [docs/DATABASE.md](./docs/DATABASE.md).
+
+---
+
+## ⚙️ Migrations & Seed
+
+```bash
+# Generate a new migration from schema changes
+pnpm db:generate
+
+# Apply pending migrations
+pnpm db:migrate
+
+# Seed the database (idempotent — safe to re-run)
+pnpm db:seed
+
+# Open Drizzle Studio (GUI browser for the DB)
+pnpm db:studio
+```
+
+Migrations live in `database/src/migrations/` (SQL + journal). The migration tooling (drizzle-kit) lives in the repo's `database/` workspace, so migrations are run from a machine with the repo checked out, pointing at the target database:
+
+```bash
+# Run against your local dev DB
+pnpm db:migrate
+
+# Run against a remote/production DB (from the repo, with production env)
+DATABASE_URL=postgresql://user:pass@host:5432/shranix_erp pnpm db:migrate
+```
+
+> In Docker, migrations are applied to the attached volume once it is created; the backend does **not** auto-migrate on boot, so run this step explicitly before first use (e.g. in CI or on the deploy host).
+
+### Backup & Restore
+
+```bash
+# Backup (pg_dump with verification & retention)
+./scripts/backup.sh backup
+./scripts/backup.sh restore --file=backup.sql.gz
+./scripts/backup.sh list
+```
+
+Scheduled daily backups are provided via `scripts/schedule-backup.sh` (cron). Backups are stored outside the repo (`**/backups/*.db` is gitignored).
+
+---
+
+## 🔨 Build Commands
+
+```bash
+pnpm build                 # Build database → backend → frontend (production)
+pnpm build:frontend        # Frontend only
+pnpm build:backend         # Backend only
+```
+
+### Quality gates
+
+```bash
+pnpm typecheck             # TypeScript strict check (all packages)
+pnpm lint                  # ESLint
+pnpm format:check          # Prettier check
 ```
 
 ---
 
-## Project Status
+## 🧪 Testing
 
-| Attribute | Status |
-|---|---|
-| **Phase** | Workspace Stabilization (PRM-004A) |
-| **Progress** | 75% |
-| **Health Score** | 🟢 8.2 / 10 |
-| **Documentation** | ✅ Complete (35+ files) |
-| **Architecture** | ✅ Complete (8.5/10 score) |
-| **Frontend Scaffold** | ✅ Complete (React 19 + ShadCN + RTK + Zustand) |
-| **Backend Scaffold** | ✅ Module structure created |
-| **Code** | ⏳ Scaffolding in progress |
-| **Tests** | ⏳ Not started |
-| **CI/CD** | ⏳ Not setup |
-| **PRM-004A** | ✅ Complete — Workspace stabilized |
+```bash
+pnpm test                  # All unit tests (Vitest, all packages)
+pnpm test:coverage         # With coverage report
+pnpm test:e2e              # Backend E2E tests
+pnpm --filter @shranix/frontend test:watch
+```
+
+> **Note:** `auth.e2e.spec.ts` requires a live database and is designed to run in an environment with one (CI excludes it unless a DB service is provisioned).
 
 ---
 
-## License
+## 🐳 Docker Commands
+
+### Development stack (PostgreSQL + Redis + MinIO + backend + frontend)
+
+```bash
+docker compose up --build
+```
+
+### Production stack (Nginx + scaled backend)
+
+```bash
+cp .env.example .env          # set DATABASE_URL, JWT_SECRET, etc.
+docker compose -f docker-compose.production.yml up -d --build
+```
+
+### Useful commands
+
+```bash
+docker compose ps                                # service status
+docker compose logs -f backend                   # follow backend logs
+docker compose exec backend node dist/main.js    # shell into backend
+docker compose down                              # stop everything
+docker system prune -f                           # clean up
+```
+
+---
+
+## 🚢 Production Deployment
+
+Supported targets:
+
+- **Docker / Docker Compose** — the recommended path (`docker-compose.production.yml`)
+- **Linux server (bare metal)** — build locally, run with PM2 or systemd
+- **Reverse proxy** — bundled `nginx.conf` (TLS, HSTS, security headers, rate limiting, SPA routing)
+- **SSL** — the nginx config expects certs at `/etc/ssl/certs/shranix.crt` + `/etc/ssl/private/shranix.key`
+
+### CI/CD
+
+GitHub Actions workflows are included:
+
+| Workflow      | Trigger                      | Purpose                                                   |
+| ------------- | ---------------------------- | --------------------------------------------------------- |
+| `ci.yml`      | push/PR to `main`, `develop` | lint → typecheck → test → build → migration check         |
+| `release.yml` | tag `v*`                     | version validation, build, Docker publish, GitHub release |
+| `deploy.yml`  | manual                       | Docker deploy to staging/production + optional rollback   |
+| `quality.yml` | weekly schedule              | full quality-gate suite                                   |
+
+### Environment configuration
+
+Set secrets in GitHub → Settings → Secrets: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER`, `DATABASE_URL`, `JWT_SECRET`, `REDIS_PASSWORD`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `SMTP_*`.
+
+**Complete guides:** [deployment/README.md](./deployment/README.md) · [admin-guide.md](./deployment/admin-guide.md) · [go-live-checklist.md](./deployment/go-live-checklist.md) · [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)
+
+---
+
+## 🔐 Environment Variables
+
+All variables are documented with placeholders in [`.env.example`](./.env.example).
+
+| Variable                           | Required | Default             | Description                                                   |
+| ---------------------------------- | -------- | ------------------- | ------------------------------------------------------------- |
+| `NODE_ENV`                         | —        | `development`       | `development` / `test` / `production`                         |
+| `APP_PORT`                         | —        | `4001`              | Backend HTTP port                                             |
+| `DATABASE_PROVIDER`                | —        | `sqlite`            | `sqlite` or `postgresql`                                      |
+| `DATABASE_URL`                     | ✅       | —                   | `file:./data/dev.db` or `postgresql://user:pass@host:5432/db` |
+| `JWT_SECRET`                       | ✅       | —                   | ≥ 32 chars                                                    |
+| `JWT_EXPIRES_IN`                   | —        | `7d`                | Access-token lifetime                                         |
+| `JWT_REFRESH_SECRET`               | —        | —                   | Refresh-token secret                                          |
+| `JWT_REFRESH_EXPIRES_IN`           | —        | `30d`               | Refresh-token lifetime                                        |
+| `CORS_ORIGINS`                     | —        | localhost           | Comma-separated allowed origins                               |
+| `SWAGGER_ENABLED` / `SWAGGER_PATH` | —        | `true` / `api/docs` | API docs toggles                                              |
+| `REDIS_URL`                        | —        | —                   | Optional Redis cache/queue                                    |
+| `STORAGE_ADAPTER`                  | —        | `local`             | `local` / `s3` / `minio`                                      |
+| `SMTP_HOST/PORT/USER/PASS/FROM`    | —        | —                   | Email notifications                                           |
+| `AI_PROVIDER` + provider keys      | —        | —                   | Optional AI assistant                                         |
+| `VITE_API_URL`                     | —        | `/api/v1`           | Frontend API base                                             |
+
+> **Never commit real secrets.** Only `.env.example` (placeholders) is version-controlled.
+
+---
+
+## 📚 API Documentation
+
+- **Base URL:** `http://localhost:4001/api/v1`
+- **Interactive docs (Swagger):** `http://localhost:4001/api/docs`
+- **Auth:** `Authorization: Bearer <access_token>` (JWT)
+- **Response envelope:** `{ success, data, error, timestamp, path, method }`
+
+The API exposes **160+ REST endpoints** across 20+ domains. A full endpoint reference is in [docs/API_REFERENCE.md](./docs/API_REFERENCE.md), organized by module:
+
+| Module     | Base routes (examples)                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Auth       | `POST /auth/login`, `/auth/refresh`, `/auth/register`                                                                     |
+| Sales      | `/sales/quotations`, `/sales/orders`, `/sales/delivery-challans`, `/sales/invoices`, `/sales/returns`, `/sales/approvals` |
+| Purchase   | `/purchase/orders`, `/purchase/grn`, `/purchase/invoices`, `/purchase/returns`, `/purchase/requisitions`                  |
+| Inventory  | `/inventory/items`, `/inventory/batches`, `/inventory/serials`, `/inventory/stock-ledger`, `/inventory/transfers`         |
+| Finance    | `/finance/chart-of-accounts`, `/finance/ledgers`, `/finance/journal-entries`, `/finance/settings`                         |
+| GL         | `/gl/entries`, `/gl/reports`, `/gl/posting-rules`                                                                         |
+| GST/Audit  | `/gst/registrations`, `/gst/returns`, `/gst/period-locks`, `/gst/audit-details`                                           |
+| Masters    | `/companies`, `/branches`, `/warehouses`, `/units`, `/tax-groups`                                                         |
+| Users/RBAC | `/users`, `/roles`, `/permissions`                                                                                        |
+| Workflow   | `/workflow/templates`, `/workflow/instances`, `/workflow/tasks`, `/workflow/approval-matrix`                              |
+| Health     | `GET /v1/health`, `/v1/health/live`, `/v1/health/ready` (excluded from `/api` prefix), `/api/v1/health/metrics`           |
+
+---
+
+## ✅ Deployment Checklist
+
+Before going live:
+
+- [ ] Set strong `JWT_SECRET` (≥ 32 chars, `openssl rand -base64 48`)
+- [ ] Configure PostgreSQL `DATABASE_URL` with TLS
+- [ ] Run `pnpm db:migrate` and `pnpm db:seed`
+- [ ] **Change the default admin password** immediately
+- [ ] Configure SSL certificates for Nginx (TLS 1.2/1.3, HSTS)
+- [ ] Set `NODE_ENV=production`
+- [ ] Configure SMTP for notifications (or disable)
+- [ ] Configure storage (local path / MinIO / S3)
+- [ ] Verify health endpoints (`/health`, `/health/ready`)
+- [ ] Configure monitoring (Prometheus + Grafana) and backups (cron)
+- [ ] Set GitHub secrets for CI/CD deploy
+- [ ] Run the [go-live checklist](./deployment/go-live-checklist.md)
+
+---
+
+## 🔧 Troubleshooting
+
+### Login fails with "Failed to fetch" on the frontend
+
+The Vite proxy targets `http://localhost:4001`. Ensure the backend is running and the port is not occupied:
+
+```bash
+netstat -ano | findstr ":4001"
+```
+
+### Migrations are not applying
+
+```bash
+pnpm db:migrate
+```
+
+Check `DATABASE_URL` — relative paths are resolved from the workspace package directory.
+
+### Port 4000/4001 already in use
+
+The dev launcher kills lingering processes automatically; if not:
+
+```bash
+# Windows
+taskkill /PID <pid> /F
+```
+
+### Linter errors on Windows
+
+ESLint can report I/O errors on Windows. CI runs on Ubuntu where it passes. Prefer `pnpm lint` inside WSL or CI.
+
+### AI endpoints return fallback behavior
+
+When no provider key is configured, the AI service uses the circuit-breaker fallback. Configure `AI_PROVIDER` + matching key to enable.
+
+### More
+
+See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) → Troubleshooting and [deployment/README.md](./deployment/README.md).
+
+---
+
+## ⚠️ Known Limitations
+
+- S3/MinIO storage adapters require additional npm packages (currently shipped with a Local adapter wired end-to-end).
+- Email/SMS/Push providers need third-party credentials to activate.
+- `auth.e2e.spec.ts` requires a live database (not runnable in CI without a DB service).
+- The default seed admin (`admin123`) is for development only — must be changed in production.
+- Desktop (Tauri) shell exists but the primary target is the web/PWA distribution.
+
+---
+
+## 🔮 Future Improvements
+
+See the [ROADMAP.md](./ROADMAP.md) for the full plan:
+
+- Payroll processing module
+- Multi-currency support
+- E-invoice (IRN) integration
+- E-way bill API integration
+- Offline sync engine hardening
+- Data import/export wizards
+- Field-level permissions
+- Multi-tenant SaaS packaging
+
+---
+
+## 📦 Version Information
+
+| Attribute       | Value                                        |
+| --------------- | -------------------------------------------- |
+| Current version | **1.0.0** (Production Release)               |
+| SemVer          | `MAJOR.MINOR.PATCH` (+ pre-release suffixes) |
+| Changelog       | [CHANGELOG.md](./CHANGELOG.md)               |
+| Release notes   | [RELEASE_NOTES.md](./RELEASE_NOTES.md)       |
+| Roadmap         | [ROADMAP.md](./ROADMAP.md)                   |
+
+---
+
+## 📄 License
 
 **Proprietary** — All Rights Reserved.
 
 Copyright © 2026 SHRANIX Technologies. This software and its documentation are confidential and proprietary. Unauthorized copying, distribution, or use is strictly prohibited.
 
-See [LICENSE.md](./LICENSE.md) for full terms.
+See [LICENSE.md](./LICENSE.md) for full terms. For enterprise licensing inquiries: [licensing@shranix.com](mailto:licensing@shranix.com).
 
 ---
 
-*This document is maintained as part of the SHRANIX Krushi ERP documentation suite. For questions, contact architecture@shranix.com.*
+_Maintained by SHRANIX Technologies. Questions? [developers@shranix.com](mailto:developers@shranix.com)._

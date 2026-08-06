@@ -17,10 +17,12 @@ import {
   SalesApprovalsController,
   SalesSettingsController,
 } from './controllers';
+import { DocumentConversionService } from './conversion.service';
 import { SalesCreditEngineService } from './credit-engine.service';
 import { SalesCreditController } from './credit.controller';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
+import { DocumentNumberingService } from './numbering.service';
 import { PostingEngineService } from './posting-engine.service';
 import { SalesReportsController } from './reports.controller';
 import { SalesReportsService } from './reports.service';
@@ -69,6 +71,8 @@ import {
     SalesCreditEngineService,
     SalesReturnEngineService,
     PostingEngineService,
+    DocumentNumberingService,
+    DocumentConversionService,
     DatabaseService,
     AuditService,
   ],
@@ -82,6 +86,8 @@ import {
     SalesApprovalsService,
     SalesSettingsService,
     PostingEngineService,
+    DocumentNumberingService,
+    DocumentConversionService,
   ],
 })
 export class SalesModule {}

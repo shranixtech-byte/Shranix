@@ -1,4 +1,4 @@
-import { DynamicFormPage } from '@/components/ui/DynamicFormPage';
+import { DynamicFormPage, type DynamicOptionSource } from '@/components/ui/DynamicFormPage';
 
 import type { FormField } from '../masters/master-data-page';
 
@@ -9,6 +9,7 @@ function makeFormPage(
   description: string,
   apiPath: string,
   fields: FormField[],
+  dynamicOptions?: DynamicOptionSource[],
 ) {
   return function FormPage() {
     return (
@@ -19,6 +20,7 @@ function makeFormPage(
         formFields={fields}
         module={module}
         listPath={listPath}
+        dynamicOptions={dynamicOptions}
       />
     );
   };
@@ -30,6 +32,8 @@ export const settingsFields: FormField[] = [
   { name: 'autoQuoteNumber', label: 'Auto Quote Numbering', type: 'boolean' },
   { name: 'quotePrefix', label: 'Quote Prefix', type: 'text' },
   { name: 'quoteNextNumber', label: 'Next Quote Number', type: 'number' },
+  { name: 'quoteFyPrefix', label: 'Financial Year Prefix in Quote Number', type: 'boolean' },
+  { name: 'quoteBranchPrefix', label: 'Branch Prefix in Quote Number', type: 'boolean' },
   { name: 'autoOrderNumber', label: 'Auto Order Numbering', type: 'boolean' },
   { name: 'orderPrefix', label: 'Order Prefix', type: 'text' },
   { name: 'orderNextNumber', label: 'Next Order Number', type: 'number' },

@@ -1,4 +1,4 @@
-import { Injectable, Logger, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, ConflictException, NotFoundException } from '@nestjs/common';
 import { UserRecord } from '@shranix/database';
 import * as argon2 from 'argon2';
 
@@ -7,6 +7,7 @@ import * as argon2 from 'argon2';
 import { DatabaseService } from '../database/database.service';
 
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -65,6 +66,73 @@ export class UsersService {
     } catch (error) {
       this.logger.warn(`Failed to assign admin role to ${user.email}: ${(error as Error).message}`);
     }
+  }
+
+  async updateUser(id: string, dto: UpdateUserDto): Promise<UserRecord> {
+    const existing = await this.database.users.findById(id);
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+    const data: Partial<Record<string, unknown>> = {};
+    if (dto.email !== undefined && dto.email !== existing.email) {
+      const clash = await this.database.users.findByEmail(dto.email);
+      if (clash) {
+        throw new ConflictException('User with this email already exists');
+      }
+      data.email = dto.email;
+    }
+    if (dto.firstName !== undefined) {
+      data.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      data.lastName = dto.lastName;
+    }
+    if (dto.phone !== undefined) {
+      data.phone = dto.phone;
+    }
+    if (dto.isActive !== undefined) {
+      data.isActive = dto.isActive;
+    }
+    if (dto.password) {
+      data.passwordHash = await argon2.hash(dto.password, {
+        type: argon2.argon2id,
+        memoryCost: 19456,
+        timeCost: 1,
+        parallelism: 1,
+      });
+    }
+    if (dto.allowedModules !== undefined) {
+      data.allowedModules = dto.allowedModules.length ? JSON.stringify(dto.allowedModules) : null;
+    }
+    const updated = await this.database.users.update(id, data as never);
+    // Deactivation should kill existing sessions immediately
+    if (updated && dto.isActive === false) {
+      await this.database.users.incrementTokenVersion(id).catch(() => {
+        /* non-critical */
+      });
+    }
+    this.logger.log(`User updated: ${existing.email} (${id})`);
+    return updated as unknown as UserRecord;
+  }
+
+  async softDelete(id: string): Promise<void> {
+    const user = await this.database.users.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.isDeleted) {
+      throw new ConflictException('User already deleted');
+    }
+    await this.database.users.update(id, {
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+      isActive: false,
+    } as never);
+    // Invalidate sessions immediately — deleted user ka refresh token turant kaam karna band
+    await this.database.users.incrementTokenVersion(id).catch(() => {
+      /* non-critical */
+    });
+    this.logger.log(`User soft-deleted: ${user.email} (${id})`);
   }
 
   async findById(id: string): Promise<UserRecord | null> {

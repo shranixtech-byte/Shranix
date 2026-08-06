@@ -29,6 +29,8 @@ export interface CreateEditPageProps {
   onSaveDraft?: () => void;
   onSaveNew?: () => void;
   onCancel?: () => void;
+  /** Extra action buttons rendered in the header before Cancel (e.g. Download PDF). */
+  headerActions?: ReactNode;
   showDraft?: boolean;
   showSaveNew?: boolean;
 }
@@ -47,6 +49,7 @@ export function CreateEditPage({
   onSaveDraft,
   onSaveNew,
   onCancel,
+  headerActions,
   showDraft = false,
   showSaveNew = false,
 }: CreateEditPageProps) {
@@ -128,6 +131,7 @@ export function CreateEditPage({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
+          {headerActions}
           <Button variant="secondary" onClick={handleCancel} icon={<X className="h-4 w-4" />}>
             Cancel
           </Button>

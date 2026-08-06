@@ -139,12 +139,27 @@ export class CustomersService {
     };
   }
 
-  async findAll(page = 1, pageSize = 50, search?: string) {
+  /**
+   * Search customers by field — name (default), mobile, gstin or code.
+   * Mobile/GSTIN/code live in the `notes` JSON payload, so those searches use a
+   * JSON-substring LIKE on notes; name searches the party_id column.
+   */
+  async findAll(page = 1, pageSize = 50, search?: string, searchField?: string) {
+    const q = String(search || '').trim();
+    const filters: any[] = [{ field: 'ledgerType', operator: 'eq', value: 'customer' }];
+    if (q) {
+      const field = searchField || 'name';
+      if (field === 'mobile' || field === 'gstin' || field === 'code') {
+        // notes JSON: {"code":"...","gstin":"...","mobile":"...",...}
+        filters.push({ field: 'notes', operator: 'like', value: `%"${field}":"${q}` });
+      } else {
+        filters.push({ field: 'partyId', operator: 'like', value: `%${q}%` });
+      }
+    }
     const result = await this.database.ledgerMaster.findAll({
       page,
       pageSize,
-      search,
-      filters: [{ field: 'ledgerType', operator: 'eq', value: 'customer' }],
+      filters,
     } as any);
     return {
       ...result,

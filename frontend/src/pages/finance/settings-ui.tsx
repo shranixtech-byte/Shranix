@@ -58,6 +58,7 @@ export function FieldText({
   placeholder,
   type = 'text',
   hint,
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -65,6 +66,7 @@ export function FieldText({
   placeholder?: string;
   type?: string;
   hint?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -74,7 +76,8 @@ export function FieldText({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:focus:bg-slate-800"
+        disabled={disabled}
+        className={`mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-100 dark:focus:bg-slate-800`}
       />
       {hint && <span className="mt-0.5 block text-[10px] text-slate-400">{hint}</span>}
     </label>

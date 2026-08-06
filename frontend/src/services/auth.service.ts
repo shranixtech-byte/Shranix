@@ -1,4 +1,6 @@
-const API_BASE = `${(import.meta.env.VITE_API_URL || (window.location.protocol === 'file:' ? 'http://localhost:4001/api/v1' : '/api/v1')).replace(/\/$/, '')}/auth`;
+import { resolveApiBase } from '@/lib/api-base';
+
+const API_BASE = `${resolveApiBase()}/auth`;
 
 const SESSION_KEY = 'shranix_session';
 

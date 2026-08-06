@@ -532,8 +532,25 @@ export function CustomerSelectionScreen({ onSelect, onCancel }: CustomerSelectio
       const res = await apiRequest<{ data: CustomerRecord[]; total: number }>(
         `/customers?${params}`,
       );
-      const list = Array.isArray(res) ? res : (res?.data ?? []);
-      const totalCount = !Array.isArray(res) ? (res?.total ?? list.length) : list.length;
+      const raw = Array.isArray(res) ? res : (res?.data ?? []);
+      const totalCount = !Array.isArray(res) ? (res?.total ?? raw.length) : raw.length;
+      // Normalize financial fields — customers without a credit profile return
+      // undefined outstanding/creditLimit, which would crash .toLocaleString().
+      const list = (raw as CustomerRecord[]).map((c) => ({
+        ...c,
+        creditLimit: Number(c.creditLimit) || 0,
+        creditDays: Number(c.creditDays) || 0,
+        outstanding: Number(c.outstanding) || 0,
+        // keep these nullable — preview shows '—' when absent
+        totalPurchases:
+          c.totalPurchases === null || c.totalPurchases === undefined
+            ? undefined
+            : Number(c.totalPurchases) || 0,
+        totalPayments:
+          c.totalPayments === null || c.totalPayments === undefined
+            ? undefined
+            : Number(c.totalPayments) || 0,
+      }));
       // Alphabetical sort — naam A→Z (case-insensitive), list jaldi scan karne ke liye
       list.sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
       setCustomers(list);

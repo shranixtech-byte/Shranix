@@ -53,9 +53,15 @@ export class CustomersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'ps', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'searchField', required: false, enum: ['name', 'mobile', 'gstin', 'code'] })
   @ApiResponse({ status: 200, description: 'Paginated list of customers' })
-  async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
-    return this.service.findAll(Number(p), Number(ps), s);
+  async findAll(
+    @Query('page') p = 1,
+    @Query('ps') ps = 50,
+    @Query('search') s?: string,
+    @Query('searchField') sf?: string,
+  ) {
+    return this.service.findAll(Number(p), Number(ps), s, sf);
   }
 
   @Get(':id')

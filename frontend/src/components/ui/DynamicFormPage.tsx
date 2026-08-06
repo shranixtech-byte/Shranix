@@ -9,6 +9,13 @@ import { FormInput } from './FormInput';
 import { FormSelect } from './FormSelect';
 import { FormTextarea } from './FormTextarea';
 
+export interface DynamicOptionSource {
+  field: string;
+  apiPath: string;
+  labelKey?: string;
+  valueKey?: string;
+}
+
 export interface DynamicFormPageProps {
   title: string;
   description: string;
@@ -22,6 +29,8 @@ export interface DynamicFormPageProps {
   defaultsLoader?: () => Promise<Record<string, unknown>>;
   /** Optional banner rendered above the form (e.g. default ledger/tax hint). */
   banner?: React.ReactNode;
+  /** Optional runtime-loaded select options (e.g. branches from /branches). */
+  dynamicOptions?: DynamicOptionSource[];
 }
 
 export function DynamicFormPage({
@@ -33,6 +42,7 @@ export function DynamicFormPage({
   listPath,
   defaultsLoader,
   banner,
+  dynamicOptions,
 }: DynamicFormPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -41,6 +51,42 @@ export function DynamicFormPage({
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEditing);
   const [error, setError] = useState<string | null>(null);
+  const [extraOptions, setExtraOptions] = useState<
+    Record<string, { label: string; value: string }[]>
+  >({});
+
+  // ── Load runtime select options (e.g. branches) ──────────────
+  useEffect(() => {
+    if (!dynamicOptions?.length) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const out: Record<string, { label: string; value: string }[]> = {};
+      for (const src of dynamicOptions) {
+        try {
+          const res = await apiRequest<any>(`${src.apiPath}?pageSize=200`);
+          const body =
+            res?.data && typeof res.data === 'object' && 'data' in res.data
+              ? (res.data as any).data
+              : res?.data;
+          const rows = Array.isArray(body) ? body : Array.isArray(res) ? res : [];
+          out[src.field] = rows.map((r: Record<string, unknown>) => ({
+            label: String(r[src.labelKey || 'name'] ?? r.id ?? ''),
+            value: String(r[src.valueKey || 'id'] ?? ''),
+          }));
+        } catch {
+          out[src.field] = [];
+        }
+      }
+      if (!cancelled) {
+        setExtraOptions(out);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dynamicOptions]);
 
   // ── Init form with defaults (plus optional async settings defaults) ──
   useEffect(() => {
@@ -133,7 +179,9 @@ export function DynamicFormPage({
     sections.push({
       title: `${title} Details`,
       description: 'Basic information',
-      fields: <DynamicFields fields={firstHalf} form={form} update={update} />,
+      fields: (
+        <DynamicFields fields={firstHalf} form={form} update={update} extraOptions={extraOptions} />
+      ),
     });
   }
 
@@ -141,7 +189,14 @@ export function DynamicFormPage({
     sections.push({
       title: 'Additional Information',
       description: 'Extended details',
-      fields: <DynamicFields fields={secondHalf} form={form} update={update} />,
+      fields: (
+        <DynamicFields
+          fields={secondHalf}
+          form={form}
+          update={update}
+          extraOptions={extraOptions}
+        />
+      ),
     });
   }
 
@@ -170,10 +225,12 @@ function DynamicFields({
   fields,
   form,
   update,
+  extraOptions,
 }: {
   fields: FormField[];
   form: Record<string, unknown>;
   update: (name: string, value: unknown) => void;
+  extraOptions: Record<string, { label: string; value: string }[]>;
 }) {
   return (
     <>
@@ -195,6 +252,7 @@ function DynamicFields({
         }
 
         if (field.type === 'select') {
+          const options = field.options || extraOptions[field.name] || [];
           return (
             <FormSelect
               key={key}
@@ -203,7 +261,7 @@ function DynamicFields({
               placeholder={field.placeholder || 'Select...'}
               value={String(value ?? '')}
               onChange={(e) => update(field.name, e.target.value)}
-              options={field.options || []}
+              options={options}
             />
           );
         }

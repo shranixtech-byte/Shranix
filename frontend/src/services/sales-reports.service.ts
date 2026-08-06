@@ -39,6 +39,16 @@ export interface PaginatedData<T> {
   totalPages: number;
 }
 
+export interface QuotationSummaryData {
+  kpis: Record<string, { value: number; label: string }>;
+  statusBreakdown: { status: string; count: number; color: string }[];
+  dailyTrend: { date: string; count: number; value: number }[];
+  monthlyTrend: { month: string; count: number; value: number }[];
+  converted: number;
+  lost: number;
+  total: number;
+}
+
 // ═════════════════════════════════════════════════════════
 // HELPERS
 // ═════════════════════════════════════════════════════════
@@ -94,6 +104,13 @@ function buildQuery(filters?: ReportFilters): string {
  */
 export async function getSalesDashboard(filters?: ReportFilters): Promise<DashboardData> {
   return apiRequest<DashboardData>(`/sales/reports/dashboard${buildQuery(filters)}`);
+}
+
+/**
+ * GET /sales/reports/quotation-summary
+ */
+export async function getQuotationSummary(): Promise<QuotationSummaryData> {
+  return apiRequest<QuotationSummaryData>('/sales/reports/quotation-summary');
 }
 
 /**

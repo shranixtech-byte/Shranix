@@ -1,19 +1,35 @@
-import { eq, and, isNull, count, desc } from 'drizzle-orm';
 import crypto from 'node:crypto';
+
+import { eq, and, isNull, count, desc, like } from 'drizzle-orm';
+
 import type { DatabaseClient } from '../client/index';
 import {
-  sqliteCompanies, pgCompanies,
-  sqliteFinancialYears, pgFinancialYears,
-  sqliteBranches, pgBranches,
-  sqliteWarehouses, pgWarehouses,
-  sqliteUnits, pgUnits,
-  sqliteCategories, pgCategories,
-  sqliteBrands, pgBrands,
-  sqliteTaxGroups, pgTaxGroups,
-  sqliteGSTRates, pgGSTRates,
+  sqliteCompanies,
+  pgCompanies,
+  sqliteFinancialYears,
+  pgFinancialYears,
+  sqliteBranches,
+  pgBranches,
+  sqliteWarehouses,
+  pgWarehouses,
+  sqliteUnits,
+  pgUnits,
+  sqliteCategories,
+  pgCategories,
+  sqliteBrands,
+  pgBrands,
+  sqliteTaxGroups,
+  pgTaxGroups,
+  sqliteGSTRates,
+  pgGSTRates,
 } from '../schema/masters';
 import type { PaginatedResult, PaginationParams, EnterpriseQuery } from '../types/index';
-import { paginateResult, buildEnterpriseConditions, buildOrderByClauses, extractPagination } from '../utils/query.helper';
+import {
+  paginateResult,
+  buildEnterpriseConditions,
+  buildOrderByClauses,
+  extractPagination,
+} from '../utils/query.helper';
 
 // ── Generic Master Record Interface ─────────────────────
 export interface MasterRecord {
@@ -48,11 +64,25 @@ export class MasterDataRepository<T extends MasterRecord> {
     return this.table as unknown as Record<string, any>;
   }
 
+  /**
+   * True when the table actually has a given column. Some tables (approval
+   * history/comments/notifications) were created without the soft-delete and
+   * timestamp base columns — every access must be guarded or drizzle builds
+   * invalid SQL (e.g. `where is null` → 500 on GET workflow/:id).
+   */
+  private hasColumn(name: string): boolean {
+    return Boolean((this.table as any)[name]);
+  }
+
   async findById(id: string): Promise<T | null> {
+    const conds: any[] = [eq(this.table.id, id)];
+    if (this.hasColumn('deletedAt')) {
+      conds.push(isNull(this.table.deletedAt));
+    }
     const rows = await this.activeDb
       .select()
       .from(this.table)
-      .where(and(eq(this.table.id, id), isNull(this.table.deletedAt)));
+      .where(and(...conds));
     return rows.length > 0 ? (rows[0] as T) : null;
   }
 
@@ -64,7 +94,10 @@ export class MasterDataRepository<T extends MasterRecord> {
    * New enterprise features (searchFields, filters, sortBy, sortOrder, sorts) are all optional.
    */
   async findAll(
-    params: (PaginationParams & { search?: string; isActive?: boolean }) | EnterpriseQuery = { page: 1, pageSize: 50 },
+    params: (PaginationParams & { search?: string; isActive?: boolean }) | EnterpriseQuery = {
+      page: 1,
+      pageSize: 50,
+    },
   ): Promise<PaginatedResult<T>> {
     const columns = this.tableColumns;
 
@@ -72,8 +105,8 @@ export class MasterDataRepository<T extends MasterRecord> {
     const { page, pageSize } = extractPagination(params as EnterpriseQuery);
     const offset = (page - 1) * pageSize;
 
-    // Base conditions: soft-delete filter
-    const baseConds: any[] = [isNull(this.table.deletedAt)];
+    // Base conditions: soft-delete filter (guard for tables without deletedAt)
+    const baseConds: any[] = this.hasColumn('deletedAt') ? [isNull(this.table.deletedAt)] : [];
 
     // Build enterprise conditions (supports search, searchFields, filters, isActive)
     const eqParams = params as EnterpriseQuery;
@@ -85,17 +118,25 @@ export class MasterDataRepository<T extends MasterRecord> {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Build ORDER BY
-    let orderByClauses = buildOrderByClauses(columns, eqParams.sorts, eqParams.sortBy, eqParams.sortOrder);
+    let orderByClauses = buildOrderByClauses(
+      columns,
+      eqParams.sorts,
+      eqParams.sortBy,
+      eqParams.sortOrder,
+    );
 
-    // Default order: createdAt DESC
-    if (orderByClauses.length === 0) {
+    // Default order: createdAt DESC — but guard for tables that don't have a
+    // createdAt column (e.g. approval_history uses `timestamp`): ordering by a
+    // non-existent column generates invalid SQL (500 on GET workflow/:id).
+    if (orderByClauses.length === 0 && this.table.createdAt) {
       orderByClauses = [desc(this.table.createdAt)];
     }
 
     // Column projection: if fields specified, select only those columns
-    const selectFields = eqParams.fields && eqParams.fields.length > 0
-      ? Object.fromEntries(eqParams.fields.map((f) => [f, columns[f]]).filter(([, v]) => v))
-      : undefined;
+    const selectFields =
+      eqParams.fields && eqParams.fields.length > 0
+        ? Object.fromEntries(eqParams.fields.map((f) => [f, columns[f]]).filter(([, v]) => v))
+        : undefined;
 
     const selectBuilder = selectFields
       ? this.activeDb.select(selectFields)
@@ -108,10 +149,7 @@ export class MasterDataRepository<T extends MasterRecord> {
         .orderBy(...orderByClauses)
         .limit(pageSize)
         .offset(offset),
-      this.activeDb
-        .select({ value: count() })
-        .from(this.table)
-        .where(whereClause),
+      this.activeDb.select({ value: count() }).from(this.table).where(whereClause),
     ]);
     const total = Number(countResult[0]?.value ?? 0);
     return paginateResult(rows as T[], total, { page, pageSize });
@@ -125,20 +163,41 @@ export class MasterDataRepository<T extends MasterRecord> {
   async create(data: Partial<T>): Promise<T> {
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
-    const values = { ...data, id, createdAt: now, updatedAt: now, deletedAt: null, isDeleted: false } as any;
+    const values = { ...data, id } as any;
+    if (this.hasColumn('createdAt')) {
+      values.createdAt = now;
+    }
+    if (this.hasColumn('updatedAt')) {
+      values.updatedAt = now;
+    }
+    if (this.hasColumn('deletedAt')) {
+      values.deletedAt = null;
+    }
+    if (this.hasColumn('isDeleted')) {
+      values.isDeleted = false;
+    }
     await this.activeDb.insert(this.table).values(values);
     return values as T;
   }
 
   async update(id: string, data: Partial<T>): Promise<T | null> {
     const existing = await this.findById(id);
-    if (!existing) return null;
-    const updateData = { ...data, updatedAt: new Date().toISOString() };
+    if (!existing) {
+      return null;
+    }
+    const updateData = { ...data } as any;
+    if (this.hasColumn('updatedAt')) {
+      updateData.updatedAt = new Date().toISOString();
+    }
     await this.activeDb.update(this.table).set(updateData).where(eq(this.table.id, id));
     return { ...existing, ...updateData } as T;
   }
 
   async softDelete(id: string): Promise<void> {
+    if (!this.hasColumn('deletedAt') || !this.hasColumn('isDeleted')) {
+      // Table has no soft-delete columns (e.g. approval history/comments) — nothing to mark.
+      return;
+    }
     const now = new Date().toISOString();
     await this.activeDb
       .update(this.table)
@@ -147,6 +206,9 @@ export class MasterDataRepository<T extends MasterRecord> {
   }
 
   async restore(id: string): Promise<void> {
+    if (!this.hasColumn('deletedAt') || !this.hasColumn('isDeleted')) {
+      return;
+    }
     const now = new Date().toISOString();
     await this.activeDb
       .update(this.table)
@@ -155,7 +217,9 @@ export class MasterDataRepository<T extends MasterRecord> {
   }
 
   async count(conditions?: Partial<T>): Promise<number> {
-    const whereConditions: any[] = [isNull(this.table.deletedAt)];
+    const whereConditions: any[] = this.hasColumn('deletedAt')
+      ? [isNull(this.table.deletedAt)]
+      : [];
     if (conditions) {
       for (const [key, value] of Object.entries(conditions)) {
         if (value !== undefined && this.table[key]) {
@@ -166,8 +230,35 @@ export class MasterDataRepository<T extends MasterRecord> {
     const result = await this.activeDb
       .select({ value: count() })
       .from(this.table)
-      .where(and(...whereConditions));
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
     return Number(result[0]?.value ?? 0);
+  }
+
+  /**
+   * Find the max numeric sequence for a prefix on a given column, INCLUDING
+   * soft-deleted rows (unique indexes still block numbers of deleted records,
+   * so deleted numbers must not be reused). Returns 0 when nothing matches.
+   */
+  async findMaxSequenceForPrefix(columnName: string, prefix: string): Promise<number> {
+    const col = (this.table as any)[columnName];
+    const rows = await this.activeDb
+      .select({ val: col })
+      .from(this.table)
+      .where(like(col, `${prefix}%`))
+      .limit(10000);
+    let max = 0;
+    for (const r of rows as any[]) {
+      const num = String(r.val || '');
+      const rest = num.startsWith(prefix) ? num.slice(prefix.length) : num;
+      const m = rest.match(/^(\d+)/);
+      if (m) {
+        const s = parseInt(m[1], 10);
+        if (!isNaN(s) && s > max) {
+          max = s;
+        }
+      }
+    }
+    return max;
   }
 }
 

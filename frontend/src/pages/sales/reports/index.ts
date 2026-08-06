@@ -1,4 +1,5 @@
 export { SalesReportsDashboardPage } from './dashboard';
+export { QuotationDashboardPage } from './quotation-dashboard';
 export { SalesRegisterReport } from './sales-register';
 export { InvoiceRegisterReport } from './invoice-register';
 export { CustomerLedgerReport } from './customer-ledger';

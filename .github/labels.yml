@@ -1,0 +1,95 @@
+# Suggested GitHub issue/PR labels
+# Install with the "GitHub Label Sync" action or manually via Settings → Labels.
+
+# ── Type ───────────────────────────────────────────────────────
+- name: bug
+  color: d73a4a
+  description: Something isn't working as expected
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+- name: feature
+  color: 1d76db
+  description: New feature implementation
+- name: refactor
+  color: fbca04
+  description: Code change that neither fixes a bug nor adds a feature
+- name: chore
+  color: 5319e7
+  description: Maintenance tasks, dependencies, CI
+- name: documentation
+  color: 0075ca
+  description: Documentation improvements
+- name: database
+  color: 0e8a16
+  description: Migrations or schema changes
+- name: performance
+  color: 9b51e0
+  description: Performance improvements
+- name: security
+  color: b60205
+  description: Security-related changes or vulnerabilities
+
+# ── Scope ──────────────────────────────────────────────────────
+- name: sales
+  color: c2e0c6
+  description: Sales module
+- name: purchase
+  color: c2e0c6
+  description: Purchase module
+- name: inventory
+  color: c2e0c6
+  description: Inventory module
+- name: finance
+  color: c2e0c6
+  description: Finance & GL module
+- name: gst
+  color: c2e0c6
+  description: GST & audit module
+- name: workflow
+  color: c2e0c6
+  description: Workflow & approvals
+- name: frontend
+  color: d4c5f9
+  description: Frontend/UI work
+- name: backend
+  color: d4c5f9
+  description: Backend/API work
+- name: ai
+  color: 5319e7
+  description: AI assistant module
+- name: devops
+  color: 008672
+  description: Docker, CI/CD, deployment, monitoring
+
+# ── Priority & Workflow ────────────────────────────────────────
+- name: priority-high
+  color: b60205
+  description: High priority
+- name: priority-medium
+  color: fbca04
+  description: Medium priority
+- name: priority-low
+  color: 0e8a16
+  description: Low priority
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed
+- name: triage
+  color: ffffff
+  description: Awaiting triage
+- name: needs-info
+  color: ffffff
+  description: More information needed from reporter
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+- name: duplicate
+  color: cfd3d7
+  description: Duplicate of another issue
+- name: stale
+  color: 888888
+  description: No recent activity

@@ -2,13 +2,13 @@
 
 ## Document Control
 
-| Field | Value |
-|---|---|
-| **Document ID** | SHRANIX-DOC-002 |
-| **Version** | 1.0 |
-| **Status** | Draft |
-| **Author** | SHRANIX Technologies |
-| **Last Updated** | YYYY-MM-DD |
+| Field            | Value                |
+| ---------------- | -------------------- |
+| **Document ID**  | SHRANIX-DOC-002      |
+| **Version**      | 1.0                  |
+| **Status**       | Draft                |
+| **Author**       | SHRANIX Technologies |
+| **Last Updated** | YYYY-MM-DD           |
 
 ---
 
@@ -23,12 +23,14 @@
 ## Architecture Principles
 
 ### Separation of Concerns
+
 - **Frontend** — Presentation only. No business logic.
 - **Backend** — Business logic and data access. No HTML rendering.
 - **Shared** — Types, constants, and utilities shared across layers.
 - **Database** — Data storage and integrity constraints only.
 
 ### SOLID Principles
+
 - **Single Responsibility:** Every module, class, and function has exactly one job.
 - **Open/Closed:** Open for extension, closed for modification.
 - **Liskov Substitution:** Subtypes must be substitutable for their base types.
@@ -48,6 +50,7 @@
 ## Git Workflow
 
 ### Branching Strategy
+
 ```
 main          ─── Production-ready code
   ├── develop     ─── Integration branch
@@ -58,6 +61,7 @@ main          ─── Production-ready code
 ```
 
 ### Commit Message Format
+
 ```
 <type>(<scope>): <subject>
 
@@ -67,21 +71,23 @@ main          ─── Production-ready code
 ```
 
 ### Types
-| Type | Usage |
-|---|---|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, missing semicolons, etc. |
-| `refactor` | Code restructuring |
-| `perf` | Performance improvement |
-| `test` | Adding/updating tests |
-| `chore` | Build, CI, dependencies |
-| `db` | Database migration or seed |
+
+| Type       | Usage                                |
+| ---------- | ------------------------------------ |
+| `feat`     | New feature                          |
+| `fix`      | Bug fix                              |
+| `docs`     | Documentation only                   |
+| `style`    | Formatting, missing semicolons, etc. |
+| `refactor` | Code restructuring                   |
+| `perf`     | Performance improvement              |
+| `test`     | Adding/updating tests                |
+| `chore`    | Build, CI, dependencies              |
+| `db`       | Database migration or seed           |
 
 ## Code Review Standards
 
 ### Reviewer Must Check
+
 - [ ] Logic correctness
 - [ ] Security (injection, auth, data exposure)
 - [ ] Error handling (no unhandled rejections)
@@ -92,29 +98,30 @@ main          ─── Production-ready code
 - [ ] i18n (all user-facing strings localized)
 
 ### PR Size Limit
+
 - **Max 400 lines** per pull request (excluding generated files, tests, and config).
 
 ## Performance Budgets
 
-| Metric | Target |
-|---|---|
-| Initial load time | < 2 seconds |
-| API response (p95) | < 500 ms |
-| DB query (p95) | < 200 ms |
-| UI interaction response | < 100 ms |
-| Desktop app memory | < 500 MB baseline |
-| Installer size | < 200 MB |
+| Metric                  | Target            |
+| ----------------------- | ----------------- |
+| Initial load time       | < 2 seconds       |
+| API response (p95)      | < 500 ms          |
+| DB query (p95)          | < 200 ms          |
+| UI interaction response | < 100 ms          |
+| Desktop app memory      | < 500 MB baseline |
+| Installer size          | < 200 MB          |
 
 ---
 
 ## Related Reports
 
-| Report | Link | Relevance |
-|---|---|---|
-| Execution Report | [View](../reports/Execution_Report.md) | Logs development actions against these rules |
-| Technical Debt Register | [View](../reports/Technical_Debt.md) | Tracks debt incurred by deviating from these rules |
-| Decision Log | [View](../reports/Decision_Log.md) | Records architecture decisions guided by these rules |
+| Report                  | Link                                           | Relevance                                            |
+| ----------------------- | ---------------------------------------------- | ---------------------------------------------------- |
+| Execution Report        | [View](../archive/reports/Execution_Report.md) | Logs development actions against these rules         |
+| Technical Debt Register | [View](../archive/reports/Technical_Debt.md)   | Tracks debt incurred by deviating from these rules   |
+| Decision Log            | [View](../archive/reports/Decision_Log.md)     | Records architecture decisions guided by these rules |
 
 ---
 
-*This document is proprietary and confidential. © 2026 SHRANIX Technologies.*
+_This document is proprietary and confidential. © 2026 SHRANIX Technologies._
