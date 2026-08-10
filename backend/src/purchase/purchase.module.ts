@@ -33,13 +33,18 @@ import {
   SupplierPriceListService,
   PurchaseApprovalsService,
   PurchaseSettingsService,
-  SuppliersService,
   PurchaseRequisitionsService,
   PurchaseDashboardService,
   PurchaseReportsService,
   PurchaseSearchService,
   StockPostingService,
 } from './services';
+import {
+  SupplierCategoriesController,
+  SupplierDetailsController,
+  SupplierGroupsController,
+} from './supplier-details.controller';
+import { SuppliersService } from './suppliers.service';
 
 @Module({
   imports: [WorkflowModule, AutomationModule],
@@ -59,6 +64,9 @@ import {
     PurchaseSearchController,
     PurchaseDebitNoteController,
     PurchasePostingController,
+    SupplierDetailsController,
+    SupplierGroupsController,
+    SupplierCategoriesController,
   ],
   providers: [
     PurchaseOrdersService,

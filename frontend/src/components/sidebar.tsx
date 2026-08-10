@@ -93,6 +93,8 @@ const sections: SectionGroup[] = [
       { label: 'विक्री परत', icon: 'Undo2', path: '/sales/returns' },
       { label: 'वितरण चलान', icon: 'Truck', path: '/sales/delivery-challans' },
       { label: 'क्रेडिट नोट', icon: 'FileEdit', path: '/sales/returns/credit-notes' },
+      { label: 'पेमेंट कलेक्शन', icon: 'Wallet', path: '/sales/payments' },
+      { label: 'कस्टमर लेजर', icon: 'BookOpen', path: '/sales/customer-ledger' },
     ],
   },
   {
@@ -125,20 +127,30 @@ const sections: SectionGroup[] = [
     label: 'ग्राहक',
     icon: 'Users',
     module: 'customers',
-    items: [{ label: 'ग्राहक', icon: 'Users', path: '/customers' }],
+    items: [
+      { label: 'ग्राहक यादी', icon: 'Users', path: '/customers' },
+      { label: 'ग्राहक डॅशबोर्ड', icon: 'BarChart3', path: '/customers/dashboard' },
+      { label: 'थकबाकी (Outstanding)', icon: 'Wallet', path: '/customers/outstanding' },
+    ],
   },
   {
     label: 'पुरवठादार',
     icon: 'Truck',
     module: 'suppliers',
-    items: [{ label: 'पुरवठादार', icon: 'Truck', path: '/suppliers' }],
+    items: [
+      { label: 'पुरवठादार यादी', icon: 'Truck', path: '/suppliers' },
+      { label: 'पुरवठादार डॅशबोर्ड', icon: 'BarChart3', path: '/suppliers/dashboard' },
+      { label: 'थकबाकी (Outstanding)', icon: 'Wallet', path: '/suppliers/outstanding' },
+    ],
   },
   {
     label: 'उत्पादने',
     icon: 'Boxes',
     module: 'products',
     items: [
-      { label: 'उत्पादने', icon: 'Boxes', path: '/inventory/products' },
+      { label: 'उत्पादने', icon: 'Boxes', path: '/products' },
+      { label: 'उत्पादन डॅशबोर्ड', icon: 'BarChart3', path: '/products/dashboard' },
+      { label: 'उत्पादन अहवाल', icon: 'BarChart3', path: '/products/reports' },
       { label: 'श्रेण्या', icon: 'Boxes', path: '/categories' },
     ],
   },

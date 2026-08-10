@@ -20,9 +20,16 @@ import {
 import { DocumentConversionService } from './conversion.service';
 import { SalesCreditEngineService } from './credit-engine.service';
 import { SalesCreditController } from './credit.controller';
+import { CustomerDetailsController } from './customer-details.controller';
+import {
+  CustomerCategoriesController,
+  CustomerGroupsController,
+} from './customer-reference.controller';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 import { DocumentNumberingService } from './numbering.service';
+import { SalesPaymentCollectionController } from './payment-collection.controller';
+import { SalesPaymentCollectionService } from './payment-collection.service';
 import { PostingEngineService } from './posting-engine.service';
 import { SalesReportsController } from './reports.controller';
 import { SalesReportsService } from './reports.service';
@@ -54,7 +61,11 @@ import {
     SalesApprovalController,
     SalesCreditController,
     SalesReturnEngineController,
+    SalesPaymentCollectionController,
     CustomersController,
+    CustomerDetailsController,
+    CustomerGroupsController,
+    CustomerCategoriesController,
   ],
   providers: [
     SalesQuotationsService,
@@ -73,6 +84,7 @@ import {
     PostingEngineService,
     DocumentNumberingService,
     DocumentConversionService,
+    SalesPaymentCollectionService,
     DatabaseService,
     AuditService,
   ],

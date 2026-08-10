@@ -381,6 +381,22 @@ export class PurchaseOrdersService extends BaseMasterService {
   override async create(data: any, userId?: string) {
     const settings = await this.loadSettings();
     const enriched = { ...data };
+    // Business rule — blocked supplier cannot create a Purchase Order
+    if (enriched.supplierId) {
+      try {
+        const sup = await this.db.suppliers.findById(enriched.supplierId);
+        if (sup && String(sup.status) === 'blocked') {
+          throw new BadRequestException(
+            `Supplier "${sup.name}" is blocked — cannot create a purchase order`,
+          );
+        }
+      } catch (e) {
+        if (e instanceof BadRequestException) {
+          throw e;
+        }
+        /* supplier master missing → legacy supplier, allow */
+      }
+    }
     // NOTE: paymentMode purchase_orders table var nahi (schema check) — default
     // payment mode posting engine (cash book) mein lagta hai, yahan nahi.
     if (!enriched.warehouseId && settings?.defaultWarehouseId) {
@@ -478,8 +494,63 @@ export class PurchaseOrdersService extends BaseMasterService {
 
 @Injectable()
 export class PurchaseInvoicesService extends BaseMasterService {
-  constructor(database: DatabaseService, audit: AuditService) {
+  constructor(
+    database: DatabaseService,
+    audit: AuditService,
+    private readonly db: DatabaseService,
+  ) {
     super(database.purchaseInvoices, 'PurchaseInvoice', audit, 'invoiceNumber');
+  }
+
+  override async create(data: any, userId?: string) {
+    const enriched = { ...data };
+    // Business rule — inactive (or blocked) supplier cannot create a Purchase Invoice
+    if (enriched.supplierId) {
+      try {
+        const sup = await this.db.suppliers.findById(enriched.supplierId);
+        if (sup && String(sup.status) === 'inactive') {
+          throw new BadRequestException(
+            `Supplier "${sup.name}" is inactive — cannot create a purchase invoice`,
+          );
+        }
+        if (sup && String(sup.status) === 'blocked') {
+          throw new BadRequestException(
+            `Supplier "${sup.name}" is blocked — cannot create a purchase invoice`,
+          );
+        }
+      } catch (e) {
+        if (e instanceof BadRequestException) {
+          throw e;
+        }
+        /* supplier master missing → legacy supplier, allow */
+      }
+    }
+    // Product Master business rules — blocked/discontinued products cannot be purchased
+    const itemRows = Array.isArray(data?.items) ? data.items : [];
+    if (itemRows.length > 0) {
+      const itemIds = [...new Set(itemRows.map((i: any) => i?.itemId).filter(Boolean))] as string[];
+      for (const pid of itemIds) {
+        try {
+          const prod = (await this.db.items.findById(pid)) as any;
+          if (prod && String(prod.status) === 'blocked') {
+            throw new BadRequestException(
+              `Product "${prod.name}" is blocked — cannot be purchased`,
+            );
+          }
+          if (prod && String(prod.status) === 'discontinued') {
+            throw new BadRequestException(
+              `Product "${prod.name}" is discontinued — cannot be purchased`,
+            );
+          }
+        } catch (e) {
+          if (e instanceof BadRequestException) {
+            throw e;
+          }
+          /* product master missing → legacy item, allow */
+        }
+      }
+    }
+    return super.create(enriched, userId);
   }
 }
 
@@ -578,34 +649,6 @@ export class PurchaseSettingsService extends BaseMasterService {
 // ═════════════════════════════════════════════════════════
 // PRM-016 NEW SERVICES
 // ═════════════════════════════════════════════════════════
-
-@Injectable()
-export class SuppliersService extends BaseMasterService {
-  constructor(
-    database: DatabaseService,
-    audit: AuditService,
-    private readonly db: DatabaseService,
-  ) {
-    super(database.suppliers, 'Supplier', audit, 'code');
-  }
-
-  override async create(data: any, userId?: string) {
-    // Purchase Settings → Supplier Credit Days: naya supplier creditDays na de to default apply
-    const enriched = { ...data };
-    if (enriched.creditDays === undefined || enriched.creditDays === null) {
-      try {
-        const r = await this.db.purchaseSettings.findAll({ page: 1, pageSize: 1 } as any);
-        const settings = r.data?.[0];
-        if (typeof settings?.supplierCreditDays === 'number') {
-          enriched.creditDays = settings.supplierCreditDays;
-        }
-      } catch {
-        /* best-effort default */
-      }
-    }
-    return super.create(enriched, userId);
-  }
-}
 
 @Injectable()
 export class PurchaseRequisitionsService extends BaseMasterService {

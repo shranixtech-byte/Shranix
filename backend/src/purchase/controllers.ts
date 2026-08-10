@@ -3,14 +3,19 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
   HttpCode,
   HttpStatus,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -19,6 +24,7 @@ import {
   ApiResponse,
   ApiBody,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -47,6 +53,9 @@ import {
   UpdatePurchaseSettingsDto,
   CreateSupplierDto,
   UpdateSupplierDto,
+  SupplierStatusDto,
+  BulkSupplierStatusDto,
+  BulkSupplierDeleteDto,
   CreatePurchaseRequisitionDto,
   UpdatePurchaseRequisitionDto,
 } from './dto';
@@ -60,12 +69,12 @@ import {
   SupplierPriceListService,
   PurchaseApprovalsService,
   PurchaseSettingsService,
-  SuppliersService,
   PurchaseRequisitionsService,
   PurchaseDashboardService,
   PurchaseReportsService,
   PurchaseSearchService,
 } from './services';
+import { SuppliersService } from './suppliers.service';
 
 @ApiTags('Purchase - Orders')
 @ApiBearerAuth('access-token')
@@ -595,6 +604,107 @@ export class PurchaseSettingsController {
 @Controller('suppliers')
 export class SuppliersController {
   constructor(public readonly service: SuppliersService) {}
+
+  // ── Static routes FIRST so they never collide with :id ──
+  @Get('dashboard')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Supplier dashboard — counts, payable, top suppliers' })
+  async dashboard() {
+    return this.service.getDashboard();
+  }
+
+  @Get('search')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Quick search across name / code / mobile / gstin / firm' })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  async search(@Query('q') q: string, @Query('page') p = 1, @Query('pageSize') ps = 50) {
+    return this.service.searchSuppliers({ q, page: Number(p), pageSize: Number(ps) });
+  }
+
+  @Get('outstanding')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Outstanding (payable) report from unpaid purchase invoices' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  async outstanding(
+    @Query('page') p = 1,
+    @Query('pageSize') ps = 50,
+    @Query('search') s?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.service.getOutstanding({
+      page: Number(p),
+      pageSize: Number(ps),
+      search: s,
+      status,
+    });
+  }
+
+  @Get('export')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Export suppliers as CSV / XLSX / JSON' })
+  @ApiQuery({
+    name: 'format',
+    required: false,
+    enum: ['csv', 'xlsx', 'json'],
+    description: 'Default csv',
+  })
+  async exportData(@Query('format') format = 'csv') {
+    const { fileName, buffer, mime } = await this.service.exportSuppliers(format);
+    return new StreamableFile(buffer, {
+      type: mime,
+      disposition: `attachment; filename="${fileName}"`,
+    });
+  }
+
+  @Post('import')
+  @Roles('admin', 'manager')
+  @Permissions('purchase.create')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Import suppliers from Excel / CSV / JSON with duplicate detection' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ description: 'File upload (file + mode=insert|upsert)', required: true })
+  @UseInterceptors(FileInterceptor('file'))
+  async importData(
+    @UploadedFile() file: any,
+    @Query('mode') mode: 'insert' | 'upsert' = 'insert',
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.importSuppliers(file, mode, u?.id);
+  }
+
+  @Post('bulk-status')
+  @Roles('admin', 'manager')
+  @Permissions('purchase.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bulk status update for suppliers' })
+  @ApiBody({ type: BulkSupplierStatusDto })
+  async bulkStatus(@Body() dto: BulkSupplierStatusDto, @CurrentUser() u: { id: string }) {
+    return this.service.bulkStatus(dto.ids, dto.status, u?.id);
+  }
+
+  @Post('bulk-delete')
+  @Roles('admin')
+  @Permissions('purchase.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bulk soft-delete suppliers (guarded against purchase documents)' })
+  @ApiBody({ type: BulkSupplierDeleteDto })
+  async bulkDelete(@Body() dto: BulkSupplierDeleteDto, @CurrentUser() u: { id: string }) {
+    return this.service.bulkDelete(dto.ids, u?.id);
+  }
+
   @Post()
   @Roles('admin', 'manager')
   @Permissions('purchase.create')
@@ -613,10 +723,67 @@ export class SuppliersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'ps', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'supplierType', required: false, type: String })
+  @ApiQuery({ name: 'groupId', required: false, type: String })
+  @ApiQuery({ name: 'categoryId', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortDir', required: false, enum: ['asc', 'desc'] })
   @ApiResponse({ status: 200, description: 'Paginated list of suppliers' })
-  async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
-    return this.service.findAll(Number(p), Number(ps), s);
+  async findAll(
+    @Query('page') p = 1,
+    @Query('ps') ps = 50,
+    @Query('search') s?: string,
+    @Query('status') status?: string,
+    @Query('supplierType') supplierType?: string,
+    @Query('groupId') groupId?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+  ) {
+    // Legacy consumers (selection screens) call with only page/ps/search —
+    // route them through findAll; the enterprise list page passes filters.
+    if (!status && !supplierType && !sortBy && !groupId && !categoryId) {
+      return this.service.findAll(Number(p), Number(ps), s);
+    }
+    return this.service.listSuppliers({
+      page: Number(p),
+      pageSize: Number(ps),
+      search: s,
+      status,
+      supplierType,
+      groupId,
+      categoryId,
+      sortBy,
+      sortDir: (sortDir as 'asc' | 'desc') || 'asc',
+    });
   }
+
+  @Get('ledger/:id')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Supplier 360° ledger — purchase invoices + payment status' })
+  @ApiParam({ name: 'id', description: 'Supplier ID' })
+  async ledger(@Param('id') id: string) {
+    return this.service.getLedger(id);
+  }
+
+  @Patch(':id/status')
+  @Roles('admin', 'manager')
+  @Permissions('purchase.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update supplier status (active / inactive / blocked)' })
+  @ApiParam({ name: 'id', description: 'Supplier ID' })
+  @ApiBody({ type: SupplierStatusDto })
+  async status(
+    @Param('id') id: string,
+    @Body() dto: SupplierStatusDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.setStatus(id, dto.status, u?.id);
+  }
+
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('purchase.read')

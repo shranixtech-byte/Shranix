@@ -10,6 +10,15 @@ import { ForgotPasswordPage } from '@/pages/auth/forgot-password';
 import { LoginPage } from '@/pages/auth/login';
 import { RegisterPage } from '@/pages/auth/register';
 import { SessionExpiredPage } from '@/pages/auth/session-expired';
+import {
+  CreateCustomerPage,
+  CustomerDashboardPage,
+  CustomerDetailPage,
+  CustomerDocumentsPage,
+  CustomersPage,
+  EditCustomerPage,
+  OutstandingPage,
+} from '@/pages/customers';
 import { DashboardPage } from '@/pages/dashboard';
 import {
   DocumentListPage,
@@ -157,6 +166,14 @@ import {
 } from '@/pages/masters';
 import { NotFoundPage } from '@/pages/not-found-page';
 import {
+  ProductDashboardPage as MasterProductDashboardPage,
+  ProductsListPage as MasterProductsListPage,
+  CreateProductPage as MasterCreateProductPage,
+  EditProductPage as MasterEditProductPage,
+  ProductDetailPage as MasterProductDetailPage,
+  ProductReportsPage as MasterProductReportsPage,
+} from '@/pages/products';
+import {
   PurchaseOrdersPage,
   PurchaseQuotationsPage,
   GrnPage,
@@ -165,9 +182,6 @@ import {
   SupplierPriceListPage,
   PurchaseApprovalsPage,
   PurchaseSettingsPage,
-  SuppliersPage,
-  CreateSupplierPage,
-  EditSupplierPage,
   PurchaseRequisitionsPage,
   PurchaseRegisterReport,
   GrnRegisterReport,
@@ -186,9 +200,6 @@ import {
   CustomerPriceListPage,
   SalesApprovalsPage,
   SalesSettingsPage,
-  CustomersPage,
-  CreateCustomerPage,
-  EditCustomerPage,
 } from '@/pages/sales';
 import { ApprovalsPage, ApprovalDashboard, ApprovalSettings } from '@/pages/sales/approvals';
 import {
@@ -199,8 +210,10 @@ import {
   CreditHoldDashboardPage,
   ReminderEnginePage,
 } from '@/pages/sales/credit';
+import { CustomerLedgerPage } from '@/pages/sales/customer-ledger-page';
 import { DeliveryChallanFormPage } from '@/pages/sales/delivery-challan-form-page';
 import { CreateSalesSettingsPage } from '@/pages/sales/dynamic-forms';
+import { PaymentCollectionPage } from '@/pages/sales/payment-collection-page';
 import { SalesQuotationFormPage } from '@/pages/sales/quotation-form-page';
 import {
   QuotationDashboardPage,
@@ -222,6 +235,15 @@ import {
   ReturnReportsPage,
 } from '@/pages/sales/returns';
 import { SalesOrderFormPage } from '@/pages/sales/sales-order-form-page';
+import {
+  CreateSupplierPage,
+  EditSupplierPage,
+  SupplierDashboardPage,
+  SupplierDetailPage,
+  SupplierDocumentsPage,
+  SupplierOutstandingPage,
+  SuppliersPage,
+} from '@/pages/suppliers';
 import {
   ApprovalDashboardPage,
   PendingTasksDashboardPage,
@@ -284,6 +306,13 @@ export const routes: RouteObject[] = [
       { path: 'gst-rates/create', element: <CreateGstRatePage /> },
       { path: 'gst-rates/:id/edit', element: <EditGstRatePage /> },
       // ── Inventory Modules ───────────────────────────
+      // ── Product Master (Phase 3.2) ──────────────────
+      { path: 'products', element: <MasterProductsListPage /> },
+      { path: 'products/dashboard', element: <MasterProductDashboardPage /> },
+      { path: 'products/reports', element: <MasterProductReportsPage /> },
+      { path: 'products/create', element: <MasterCreateProductPage /> },
+      { path: 'products/:id/edit', element: <MasterEditProductPage /> },
+      { path: 'products/:id', element: <MasterProductDetailPage /> },
       { path: 'inventory/products', element: <ProductsPage /> },
       { path: 'inventory/products/create', element: <CreateProductPage /> },
       { path: 'inventory/products/:id/edit', element: <EditProductPage /> },
@@ -359,8 +388,12 @@ export const routes: RouteObject[] = [
       { path: 'purchase/settings/create', element: <CreatePurchaseSettingsPage /> },
       { path: 'purchase/settings/:id/edit', element: <CreatePurchaseSettingsPage /> },
       { path: 'suppliers', element: <SuppliersPage /> },
+      { path: 'suppliers/dashboard', element: <SupplierDashboardPage /> },
+      { path: 'suppliers/outstanding', element: <SupplierOutstandingPage /> },
       { path: 'suppliers/create', element: <CreateSupplierPage /> },
       { path: 'suppliers/:id/edit', element: <EditSupplierPage /> },
+      { path: 'suppliers/:id/documents', element: <SupplierDocumentsPage /> },
+      { path: 'suppliers/:id', element: <SupplierDetailPage /> },
       { path: 'purchase/requisitions', element: <PurchaseRequisitionsPage /> },
       { path: 'purchase/reports/purchase-register', element: <PurchaseRegisterReport /> },
       { path: 'purchase/reports/grn-register', element: <GrnRegisterReport /> },
@@ -385,11 +418,19 @@ export const routes: RouteObject[] = [
       { path: 'sales/customer-prices', element: <CustomerPriceListPage /> },
       { path: 'sales/approvals/legacy', element: <SalesApprovalsPage /> },
       { path: 'customers', element: <CustomersPage /> },
+      { path: 'customers/dashboard', element: <CustomerDashboardPage /> },
+      { path: 'customers/outstanding', element: <OutstandingPage /> },
       { path: 'customers/create', element: <CreateCustomerPage /> },
       { path: 'customers/:id/edit', element: <EditCustomerPage /> },
+      { path: 'customers/:id/documents', element: <CustomerDocumentsPage /> },
+      { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'sales/settings', element: <SalesSettingsPage /> },
       { path: 'sales/settings/create', element: <CreateSalesSettingsPage /> },
       { path: 'sales/settings/:id/edit', element: <CreateSalesSettingsPage /> },
+      // ── Sales Payment Collection (Phase 4) ──────
+      { path: 'sales/payments', element: <PaymentCollectionPage /> },
+      // ── Customer Ledger 360° (Phase 5) ───────────
+      { path: 'sales/customer-ledger', element: <CustomerLedgerPage /> },
       // ── Sales Reports ────────────────────────────
       { path: 'sales/reports/dashboard', element: <SalesReportsDashboardPage /> },
       { path: 'sales/reports/register', element: <SalesRegisterReport /> },

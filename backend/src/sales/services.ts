@@ -506,7 +506,9 @@ export class SalesOrdersService extends BaseMasterService {
         }
       }
     }
-    const nextSeq = String(maxSeq + 1).padStart(3, '0');
+    // Pad 4 digits — numbering service (nextOrderNumber) bhi 4-digit deta hai
+    // (SO-0001). 3-digit preview (SO-001) se mismatch hota tha — ab consistent.
+    const nextSeq = String(maxSeq + 1).padStart(4, '0');
     return { orderNumber: `${prefix}${nextSeq}` };
   }
 
@@ -602,9 +604,36 @@ export class SalesOrdersService extends BaseMasterService {
     }
   }
 
-  /** Update order — items provided → replace the whole line-item set. */
+  /**
+   * Update order — items provided → replace the whole line-item set.
+   *
+   * GUARD: delivered/dispatched orders lock hoti hain item changes ke liye —
+   * challan items purane orderItemId se linked hote hain; items replace karne par
+   * delivered-quantity tracking (syncOrderDispatchState) toot jata hai. Header
+   * changes (notes/status/address) allowed rehte hain.
+   */
   override async update(id: string, data: any, userId?: string) {
+    const existing = (await super.findById(id)) as any;
     const { items, ...rest } = data;
+
+    if (Array.isArray(items) && items.length >= 0) {
+      const hasChallans = await this.db.deliveryChallans
+        .findAll({
+          filters: [{ field: 'orderId', operator: 'eq', value: id }],
+          page: 1,
+          pageSize: 10,
+        } as any)
+        .catch(() => ({ data: [] }));
+      const challenged =
+        (hasChallans as any)?.data?.length > 0 ||
+        ['dispatched', 'partial', 'completed'].includes(String(existing?.status));
+      if (challenged) {
+        throw new BadRequestException(
+          'This order already has deliveries/challans — line items cannot be edited. Header changes are still allowed, or create a new order.',
+        );
+      }
+    }
+
     const record = await super.update(id, rest, userId);
 
     if (Array.isArray(items)) {
@@ -1016,11 +1045,28 @@ export class DeliveryChallansService extends BaseMasterService {
 export class SalesInvoicesService extends BaseMasterService {
   private readonly invoiceItemsRepo: any;
   private readonly settingsRepo: any;
+  private readonly db: DatabaseService;
 
   constructor(database: DatabaseService, audit: AuditService) {
     super(database.salesInvoices, 'SalesInvoice', audit, 'invoiceNumber');
     this.invoiceItemsRepo = database.invoiceItems;
     this.settingsRepo = database.salesSettings;
+    this.db = database;
+  }
+
+  /** Attach line items when a single invoice is fetched (PDF/share/print flow). */
+  override async findById(id: string) {
+    const record = await super.findById(id);
+    try {
+      const items = await this.invoiceItemsRepo.findAll({
+        filters: [{ field: 'invoiceId', operator: 'eq', value: id }],
+        page: 1,
+        pageSize: 1000,
+      } as any);
+      return { ...record, items: (items as any)?.data || [] };
+    } catch {
+      return { ...record, items: [] };
+    }
   }
 
   /**
@@ -1133,6 +1179,35 @@ export class SalesInvoicesService extends BaseMasterService {
         throw e;
       }
       // settings load fail → enforcement skip (best-effort)
+    }
+
+    // Product Master business rules — blocked/inactive products cannot be sold
+    const itemRows = Array.isArray(data?.items) ? data.items : [];
+    if (itemRows.length > 0) {
+      const itemIds = [...new Set(itemRows.map((i: any) => i?.itemId).filter(Boolean))] as string[];
+      for (const pid of itemIds) {
+        try {
+          const prod = (await this.db.items.findById(pid)) as any;
+          if (prod && String(prod.status) === 'blocked') {
+            throw new BadRequestException(`Product "${prod.name}" is blocked — cannot be sold`);
+          }
+          if (prod && String(prod.status) === 'discontinued') {
+            throw new BadRequestException(
+              `Product "${prod.name}" is discontinued — cannot be sold`,
+            );
+          }
+          if (prod && String(prod.status) === 'inactive') {
+            throw new BadRequestException(
+              `Product "${prod.name}" is inactive — cannot be used in new transactions`,
+            );
+          }
+        } catch (e) {
+          if (e instanceof BadRequestException) {
+            throw e;
+          }
+          /* product master missing → legacy item, allow */
+        }
+      }
     }
 
     // 1) Separate items from invoice data

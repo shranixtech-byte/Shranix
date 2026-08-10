@@ -503,6 +503,48 @@ export class CreateCustomerDto {
   @ApiPropertyOptional() @IsOptional() @IsString() priceList?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) loyaltyPoints?: number;
+  // ── Phase 3: Customer Master fields ──
+  @ApiPropertyOptional() @IsOptional() @IsString() firmName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerCategory?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() altMobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() whatsapp?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() website?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
+}
+
+// ═════════════════════════════════════════════════════════
+// 10. PAYMENT COLLECTION (Phase 4)
+// ═════════════════════════════════════════════════════════
+export class CollectPaymentDto {
+  @ApiProperty() @IsString() customerId!: string;
+  @ApiProperty() @IsString() paymentDate!: string;
+  @ApiProperty({ enum: ['cash', 'upi', 'bank', 'cheque'] })
+  @IsIn(['cash', 'upi', 'bank', 'cheque'])
+  mode!: string;
+  @ApiProperty() @IsNumber() @Min(0.01) amount!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() referenceNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() bankName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() chequeNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() chequeDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  invoiceIds?: string[];
+}
+
+export class ApplyAdvanceDto {
+  @ApiProperty() @IsString() customerId!: string;
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) invoiceIds!: string[];
+  @ApiProperty() @IsNumber() @Min(0.01) amount!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }
 export class UpdateCustomerDto {
   @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
@@ -523,4 +565,86 @@ export class UpdateCustomerDto {
   @ApiPropertyOptional() @IsOptional() @IsString() priceList?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) loyaltyPoints?: number;
+  // ── Phase 3: Customer Master fields ──
+  @ApiPropertyOptional() @IsOptional() @IsString() firmName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() customerCategory?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() altMobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() whatsapp?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() website?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
+}
+
+// ═════════════════════════════════════════════════════════
+// 11. CUSTOMER MASTER (Phase 3) — status, children, reference, bulk
+// ═════════════════════════════════════════════════════════
+export class CustomerStatusDto {
+  @ApiProperty({ enum: ['active', 'inactive', 'blocked'] })
+  @IsIn(['active', 'inactive', 'blocked'])
+  status!: string;
+}
+
+export class CustomerAddressDto {
+  @ApiProperty({ enum: ['billing', 'shipping', 'branch'] })
+  @IsIn(['billing', 'shipping', 'branch'])
+  addressType!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pincode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+
+export class CustomerContactDto {
+  @ApiProperty({ enum: ['owner', 'accounts', 'purchase', 'sales'] })
+  @IsIn(['owner', 'accounts', 'purchase', 'sales'])
+  contactType!: string;
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() designation?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean;
+}
+
+export class CustomerDocumentDto {
+  @ApiProperty({ enum: ['gst_certificate', 'pan', 'agreement', 'shop_license', 'other'] })
+  @IsIn(['gst_certificate', 'pan', 'agreement', 'shop_license', 'other'])
+  docType!: string;
+  @ApiProperty() @IsString() fileName!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() fileUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) fileSize?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() mimeType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+export class CustomerGroupDto {
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) sortOrder?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class CustomerCategoryDto {
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) priority?: number;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
+export class BulkCustomerStatusDto {
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) ids!: string[];
+  @ApiProperty({ enum: ['active', 'inactive', 'blocked'] })
+  @IsIn(['active', 'inactive', 'blocked'])
+  status!: string;
+}
+
+export class BulkCustomerDeleteDto {
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) ids!: string[];
 }

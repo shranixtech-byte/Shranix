@@ -8,6 +8,7 @@ import {
   uuid as pgUuid,
   timestamp as pgTimestamp,
   uniqueIndex as pgUniqueIndex,
+  index as pgIndex,
   boolean as pgBoolean,
 } from 'drizzle-orm/pg-core';
 import {
@@ -16,6 +17,7 @@ import {
   integer as sqliteInteger,
   real as sqliteReal,
   uniqueIndex,
+  index as sqliteIndex,
 } from 'drizzle-orm/sqlite-core';
 
 const sqliteBase = {
@@ -1054,6 +1056,9 @@ export const sqliteCreditProfiles = sqliteTableBase('shranix_credit_profiles', {
   warningLevel: sqliteText('warning_level').notNull().default('green'),
   lastPaymentDate: sqliteText('last_payment_date'),
   averagePaymentDays: sqliteInteger('average_payment_days').notNull().default(0),
+  // Phase 4: Customer advance balance (paise advance me liye — invoice settle karne
+  // ke liye baad mein use hota hai). Payments with invoiceId=null → mode advance.
+  advanceBalance: sqliteReal('advance_balance').notNull().default(0),
 });
 
 export const pgCreditProfiles = pgTableBase('shranix_credit_profiles', {
@@ -1079,6 +1084,8 @@ export const pgCreditProfiles = pgTableBase('shranix_credit_profiles', {
   warningLevel: pgText('warning_level').notNull().default('green'),
   lastPaymentDate: pgTimestamp('last_payment_date', { withTimezone: true }),
   averagePaymentDays: pgInteger('average_payment_days').notNull().default(0),
+  // Phase 4: Customer advance balance
+  advanceBalance: pgReal('advance_balance').notNull().default(0),
 });
 
 // Credit Overrides
@@ -1181,3 +1188,63 @@ export const pgDebitNotes = pgTableBase('shranix_debit_notes', {
   status: pgText('status').notNull().default('draft'),
   createdBy: pgUuid('created_by'),
 });
+
+// ═════════════════════════════════════════════════════════
+// ⭐ Phase 4: SALES PAYMENTS (Payment Collection)
+// Invoice → Payment: cash / UPI / bank / cheque / advance.
+// Har payment ka apna record (paymentNumber, mode, ref/cheque, amount) —
+// invoiceId null = advance (customer ke paas credit, baad mein settle hota hai).
+// ═════════════════════════════════════════════════════════
+export const sqliteSalesPayments = sqliteTableBase(
+  'shranix_sales_payments',
+  {
+    ...sqliteBase,
+    paymentNumber: sqliteText('payment_number').notNull(),
+    invoiceId: sqliteText('invoice_id'),
+    customerId: sqliteText('customer_id').notNull(),
+    paymentDate: sqliteText('payment_date').notNull(),
+    mode: sqliteText('mode').notNull().default('cash'), // cash, upi, bank, cheque, advance
+    amount: sqliteReal('amount').notNull().default(0),
+    referenceNo: sqliteText('reference_no'),
+    bankName: sqliteText('bank_name'),
+    chequeNo: sqliteText('cheque_no'),
+    chequeDate: sqliteText('cheque_date'),
+    notes: sqliteText('notes'),
+    status: sqliteText('status').notNull().default('completed'), // completed, bounced, cancelled
+    isAdvance: sqliteInteger('is_advance', { mode: 'boolean' }).notNull().default(false),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
+  },
+  (table) => ({
+    paymentNumberIdx: uniqueIndex('sp_payment_number_idx').on(table.paymentNumber),
+    paymentInvoiceIdx: sqliteIndex('sp_payment_invoice_idx').on(table.invoiceId),
+    paymentCustomerIdx: sqliteIndex('sp_payment_customer_idx').on(table.customerId),
+  }),
+);
+
+export const pgSalesPayments = pgTableBase(
+  'shranix_sales_payments',
+  {
+    ...pgBase,
+    paymentNumber: pgText('payment_number').notNull(),
+    invoiceId: pgUuid('invoice_id'),
+    customerId: pgUuid('customer_id').notNull(),
+    paymentDate: pgTimestamp('payment_date', { withTimezone: true }).notNull(),
+    mode: pgText('mode').notNull().default('cash'),
+    amount: pgReal('amount').notNull().default(0),
+    referenceNo: pgText('reference_no'),
+    bankName: pgText('bank_name'),
+    chequeNo: pgText('cheque_no'),
+    chequeDate: pgTimestamp('cheque_date', { withTimezone: true }),
+    notes: pgText('notes'),
+    status: pgText('status').notNull().default('completed'),
+    isAdvance: pgBoolean('is_advance').notNull().default(false),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
+  },
+  (table) => ({
+    paymentNumberIdx: pgUniqueIndex('sp_payment_number_idx').on(table.paymentNumber),
+    paymentInvoiceIdx: pgIndex('sp_payment_invoice_idx').on(table.invoiceId),
+    paymentCustomerIdx: pgIndex('sp_payment_customer_idx').on(table.customerId),
+  }),
+);

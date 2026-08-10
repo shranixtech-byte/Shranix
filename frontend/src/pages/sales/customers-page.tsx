@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
 
 const customerColumns: ColumnDef[] = [
@@ -8,15 +10,29 @@ const customerColumns: ColumnDef[] = [
   { key: 'mobile', label: 'Mobile' },
   { key: 'email', label: 'Email' },
   { key: 'city', label: 'City' },
-  { key: 'creditLimit', label: 'Credit Limit ₹', render: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}` },
-  { key: 'status', label: 'Status', render: (v) => {
-    const styles: Record<string, string> = {
-      active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
-      inactive: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
-      blocked: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
-    };
-    return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[(v as string)] || styles.active}`}>{(v as string) || 'active'}</span>;
-  }},
+  {
+    key: 'creditLimit',
+    label: 'Credit Limit ₹',
+    render: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`,
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (v) => {
+      const styles: Record<string, string> = {
+        active: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+        inactive: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+        blocked: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
+      };
+      return (
+        <span
+          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${styles[v as string] || styles.active}`}
+        >
+          {(v as string) || 'active'}
+        </span>
+      );
+    },
+  },
 ];
 
 const customerFields: FormField[] = [
@@ -33,15 +49,21 @@ const customerFields: FormField[] = [
   { name: 'pin', label: 'PIN Code', type: 'text' },
   { name: 'creditLimit', label: 'Credit Limit', type: 'number' },
   { name: 'creditDays', label: 'Credit Days', type: 'number' },
-  { name: 'status', label: 'Status', type: 'select', options: [
-    { label: 'Active', value: 'active' },
-    { label: 'Inactive', value: 'inactive' },
-    { label: 'Blocked', value: 'blocked' },
-  ]},
+  {
+    name: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Active', value: 'active' },
+      { label: 'Inactive', value: 'inactive' },
+      { label: 'Blocked', value: 'blocked' },
+    ],
+  },
   { name: 'remarks', label: 'Remarks', type: 'textarea' },
 ];
 
 export function CustomersPage() {
+  const navigate = useNavigate();
   return (
     <MasterDataPage
       title="Customers"
@@ -49,6 +71,17 @@ export function CustomersPage() {
       columns={customerColumns}
       apiPath="/customers"
       formFields={customerFields}
+      rowActions={[
+        {
+          label: 'Ledger',
+          title:
+            'Customer 360° ledger — Quotation → Order → Challan → Invoice → Payment → Outstanding → Ledger',
+          variant: 'primary',
+          onClick: async (record) => {
+            navigate(`/sales/customer-ledger?customerId=${record.id}`);
+          },
+        },
+      ]}
     />
   );
 }

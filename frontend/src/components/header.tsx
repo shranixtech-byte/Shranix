@@ -116,6 +116,7 @@ const breadcrumbLabels: BreadcrumbLabel = {
   user: 'My Dashboard',
   bi: 'BI Analytics',
   customers: 'Customers',
+  outstanding: 'Outstanding',
   suppliers: 'Suppliers',
   profitability: 'Profitability',
   growth: 'Growth',

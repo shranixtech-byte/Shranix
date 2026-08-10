@@ -465,7 +465,7 @@ CREATE TABLE `shranix_purchase_requisitions` (
 	`financial_year_id` text
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `pr_number_idx` ON `shranix_purchase_requisitions` (`pr_number`);--> statement-breakpoint
+CREATE UNIQUE INDEX `pr_requisition_number_idx` ON `shranix_purchase_requisitions` (`pr_number`);--> statement-breakpoint
 CREATE TABLE `shranix_purchase_return_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`return_id` text NOT NULL,
@@ -877,7 +877,6 @@ CREATE TABLE `__new_shranix_sales_approvals` (
 	`approval_level` integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
-INSERT INTO `__new_shranix_sales_approvals`("id", "created_at", "updated_at", "deleted_at", "is_deleted", "document_type", "document_id", "document_number", "customer_id", "customer_name", "amount", "discount_amount", "discount_percent", "gst_amount", "created_by", "created_by_name", "current_level", "total_levels", "status", "priority", "risk", "credit_status", "assigned_to", "assigned_to_name", "is_overdue", "due_date", "requested_by", "approved_by", "approval_date", "comments", "approval_level") SELECT "id", "created_at", "updated_at", "deleted_at", "is_deleted", "document_type", "document_id", "document_number", "customer_id", "customer_name", "amount", "discount_amount", "discount_percent", "gst_amount", "created_by", "created_by_name", "current_level", "total_levels", "status", "priority", "risk", "credit_status", "assigned_to", "assigned_to_name", "is_overdue", "due_date", "requested_by", "approved_by", "approval_date", "comments", "approval_level" FROM `shranix_sales_approvals`;--> statement-breakpoint
 DROP TABLE `shranix_sales_approvals`;--> statement-breakpoint
 ALTER TABLE `__new_shranix_sales_approvals` RENAME TO `shranix_sales_approvals`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint

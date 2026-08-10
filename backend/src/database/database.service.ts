@@ -22,6 +22,8 @@ import {
   HsnCodesRepository,
   StockOpeningRepository,
   ItemImagesRepository,
+  ProductDocumentsRepository,
+  ProductPriceHistoryRepository,
   InventorySettingsRepository,
   WarehouseZonesRepository,
   WarehouseRacksRepository,
@@ -62,6 +64,11 @@ import {
   PurchaseApprovalsRepository,
   PurchaseSettingsRepository,
   SuppliersRepository,
+  SupplierAddressesRepository,
+  SupplierContactsRepository,
+  SupplierDocumentsRepository,
+  SupplierGroupsRepository,
+  SupplierCategoriesRepository,
   PurchaseRequisitionsRepository,
   PurchaseRequisitionItemsRepository,
   StockLedgerRepository,
@@ -88,6 +95,13 @@ import {
   CreditOverridesRepository,
   CreditNotesRepository,
   DebitNotesRepository,
+  SalesPaymentsRepository,
+  CustomersRepository,
+  CustomerAddressesRepository,
+  CustomerContactsRepository,
+  CustomerDocumentsRepository,
+  CustomerGroupsRepository,
+  CustomerCategoriesRepository,
   AccountGroupsRepository,
   ChartOfAccountsRepository,
   LedgerMasterRepository,
@@ -165,6 +179,8 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly hsnCodes: HsnCodesRepository;
   public readonly stockOpening: StockOpeningRepository;
   public readonly itemImages: ItemImagesRepository;
+  public readonly productDocuments: ProductDocumentsRepository;
+  public readonly productPriceHistory: ProductPriceHistoryRepository;
   public readonly inventorySettings: InventorySettingsRepository;
   public readonly warehouseZones: WarehouseZonesRepository;
   public readonly warehouseRacks: WarehouseRacksRepository;
@@ -231,6 +247,17 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly creditOverrides: CreditOverridesRepository;
   public readonly creditNotes: CreditNotesRepository;
   public readonly debitNotes: DebitNotesRepository;
+
+  // ⭐ Phase 4: Payment Collection
+  public readonly salesPayments: SalesPaymentsRepository;
+
+  // ⭐ Phase 3: Customer Master
+  public readonly customers: CustomersRepository;
+  public readonly customerAddresses: CustomerAddressesRepository;
+  public readonly customerContacts: CustomerContactsRepository;
+  public readonly customerDocuments: CustomerDocumentsRepository;
+  public readonly customerGroups: CustomerGroupsRepository;
+  public readonly customerCategories: CustomerCategoriesRepository;
 
   // Finance
   public readonly accountGroups: AccountGroupsRepository;
@@ -304,6 +331,13 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly dataRetentionPolicies: any;
   public readonly legalHolds: any;
 
+  // ⭐ Phase 3: Supplier Master
+  public readonly supplierAddresses: SupplierAddressesRepository;
+  public readonly supplierContacts: SupplierContactsRepository;
+  public readonly supplierDocuments: SupplierDocumentsRepository;
+  public readonly supplierGroups: SupplierGroupsRepository;
+  public readonly supplierCategories: SupplierCategoriesRepository;
+
   // PRM-016 Purchase & GRN
   public readonly suppliers: SuppliersRepository;
   public readonly purchaseRequisitions: PurchaseRequisitionsRepository;
@@ -346,6 +380,8 @@ export class DatabaseService implements OnApplicationShutdown {
     this.hsnCodes = new HsnCodesRepository(db as any, isPostgres);
     this.stockOpening = new StockOpeningRepository(db as any, isPostgres);
     this.itemImages = new ItemImagesRepository(db as any, isPostgres);
+    this.productDocuments = new ProductDocumentsRepository(db as any, isPostgres);
+    this.productPriceHistory = new ProductPriceHistoryRepository(db as any, isPostgres);
     this.inventorySettings = new InventorySettingsRepository(db as any, isPostgres);
 
     this.warehouseZones = new WarehouseZonesRepository(db as any, isPostgres);
@@ -389,6 +425,13 @@ export class DatabaseService implements OnApplicationShutdown {
     this.purchaseApprovals = new PurchaseApprovalsRepository(db as any, isPostgres);
     this.purchaseSettings = new PurchaseSettingsRepository(db as any, isPostgres);
 
+    // ⭐ Phase 3: Supplier Master
+    this.supplierAddresses = new SupplierAddressesRepository(db as any, isPostgres);
+    this.supplierContacts = new SupplierContactsRepository(db as any, isPostgres);
+    this.supplierDocuments = new SupplierDocumentsRepository(db as any, isPostgres);
+    this.supplierGroups = new SupplierGroupsRepository(db as any, isPostgres);
+    this.supplierCategories = new SupplierCategoriesRepository(db as any, isPostgres);
+
     // PRM-016 Purchase & GRN
     this.suppliers = new SuppliersRepository(db as any, isPostgres);
     this.purchaseRequisitions = new PurchaseRequisitionsRepository(db as any, isPostgres);
@@ -421,6 +464,17 @@ export class DatabaseService implements OnApplicationShutdown {
     this.creditOverrides = new CreditOverridesRepository(db as any, isPostgres);
     this.creditNotes = new CreditNotesRepository(db as any, isPostgres);
     this.debitNotes = new DebitNotesRepository(db as any, isPostgres);
+
+    // ⭐ Phase 4: Payment Collection
+    this.salesPayments = new SalesPaymentsRepository(db as any, isPostgres);
+
+    // ⭐ Phase 3: Customer Master
+    this.customers = new CustomersRepository(db as any, isPostgres);
+    this.customerAddresses = new CustomerAddressesRepository(db as any, isPostgres);
+    this.customerContacts = new CustomerContactsRepository(db as any, isPostgres);
+    this.customerDocuments = new CustomerDocumentsRepository(db as any, isPostgres);
+    this.customerGroups = new CustomerGroupsRepository(db as any, isPostgres);
+    this.customerCategories = new CustomerCategoriesRepository(db as any, isPostgres);
 
     // Finance
     this.accountGroups = new AccountGroupsRepository(db as any, isPostgres);

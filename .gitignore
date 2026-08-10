@@ -82,6 +82,7 @@ database/pgdata/
 **/backups/*.db
 data/backups/
 backend/data/backups/
+database/data/
 database/data/backups/
 **/*.db.bak-restore-*
 
@@ -113,6 +114,7 @@ scripts/invoice-*.pdf
 scripts/invoice-*.png
 scripts/*.log
 scripts/*.log.err
+scripts/*.err
 qa-browser-report.json
 scripts/qa-browser-report.json
 

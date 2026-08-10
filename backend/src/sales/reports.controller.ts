@@ -1,4 +1,4 @@
-import { Controller, Get, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -147,6 +147,22 @@ export class SalesReportsController {
       endDate,
     };
     return this.reports.getCustomerLedger(filters);
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // 4b. CUSTOMER LEDGER 360° (single customer drill-down)
+  // ═════════════════════════════════════════════════════════
+
+  @Get('customer-ledger/:id')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('sales.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Customer 360° ledger: quotations, orders, challans, invoices, payments, outstanding + running ledger',
+  })
+  async getCustomerLedgerDetail(@Param('id') id: string) {
+    return this.reports.getCustomerLedgerDetail(id);
   }
 
   // ═════════════════════════════════════════════════════════

@@ -36,6 +36,7 @@ const permissionResourceFamilies: Record<string, readonly string[]> = {
     'stock-opening',
     'item-images',
     'inventory-settings',
+    'product',
   ],
   assets: ['asset', 'asset-category'],
   // integrations.* (seeded) grants the integration.api_key / integration.webhook / integration.import controllers

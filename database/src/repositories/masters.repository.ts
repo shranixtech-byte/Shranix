@@ -162,7 +162,9 @@ export class MasterDataRepository<T extends MasterRecord> {
 
   async create(data: Partial<T>): Promise<T> {
     const now = new Date().toISOString();
-    const id = crypto.randomUUID();
+    // Respect a caller-provided id (dual-write facades must mirror the ledger
+    // id 1:1 so cross-table lookups + duplicate checks stay consistent).
+    const id = (data as any)?.id || crypto.randomUUID();
     const values = { ...data, id } as any;
     if (this.hasColumn('createdAt')) {
       values.createdAt = now;

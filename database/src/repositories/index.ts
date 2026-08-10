@@ -31,6 +31,8 @@ export {
   HsnCodesRepository,
   StockOpeningRepository,
   ItemImagesRepository,
+  ProductDocumentsRepository,
+  ProductPriceHistoryRepository,
   InventorySettingsRepository,
   WarehouseZonesRepository,
   WarehouseRacksRepository,
@@ -73,6 +75,11 @@ export {
   PurchaseApprovalsRepository,
   PurchaseSettingsRepository,
   SuppliersRepository,
+  SupplierAddressesRepository,
+  SupplierContactsRepository,
+  SupplierDocumentsRepository,
+  SupplierGroupsRepository,
+  SupplierCategoriesRepository,
   PurchaseRequisitionsRepository,
   PurchaseRequisitionItemsRepository,
   StockLedgerRepository,
@@ -102,7 +109,17 @@ export {
   CreditOverridesRepository,
   CreditNotesRepository,
   DebitNotesRepository,
+  SalesPaymentsRepository,
 } from './sales.repository';
+
+export {
+  CustomersRepository,
+  CustomerAddressesRepository,
+  CustomerContactsRepository,
+  CustomerDocumentsRepository,
+  CustomerGroupsRepository,
+  CustomerCategoriesRepository,
+} from './customers.repository';
 
 export {
   AccountGroupsRepository,

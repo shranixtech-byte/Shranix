@@ -8,6 +8,7 @@ import {
   uuid as pgUuid,
   timestamp as pgTimestamp,
   uniqueIndex as pgUniqueIndex,
+  index as pgIndex,
   boolean as pgBoolean,
 } from 'drizzle-orm/pg-core';
 import {
@@ -16,6 +17,7 @@ import {
   integer as sqliteInteger,
   real as sqliteReal,
   uniqueIndex,
+  index as sqliteIndex,
 } from 'drizzle-orm/sqlite-core';
 
 const sqliteBase = {
@@ -457,7 +459,7 @@ export const pgPurchaseApprovals = pgTableBase('shranix_purchase_approvals', {
 });
 
 // ═════════════════════════════════════════════════════════
-// 8a. SUPPLIERS (PRM-016 Module 1)
+// 8a. SUPPLIERS — MASTER (Phase 3 Supplier Master, mirrors ledger_master)
 // ═════════════════════════════════════════════════════════
 export const sqliteSuppliers = sqliteTableBase(
   'shranix_suppliers',
@@ -465,29 +467,51 @@ export const sqliteSuppliers = sqliteTableBase(
     ...sqliteBase,
     code: sqliteText('code'),
     name: sqliteText('name').notNull(),
+    firmName: sqliteText('firm_name'),
+    supplierType: sqliteText('supplier_type').notNull().default('regular'), // regular, trader, manufacturer, distributor, service, other
+    groupId: sqliteText('group_id'),
+    categoryId: sqliteText('category_id'),
     gstin: sqliteText('gstin'),
     pan: sqliteText('pan'),
+    aadhaar: sqliteText('aadhaar'),
     contactPerson: sqliteText('contact_person'),
     mobile: sqliteText('mobile'),
+    altMobile: sqliteText('alt_mobile'),
+    whatsapp: sqliteText('whatsapp'),
     email: sqliteText('email'),
+    website: sqliteText('website'),
     address: sqliteText('address'),
-    state: sqliteText('state'),
+    village: sqliteText('village'),
+    taluka: sqliteText('taluka'),
     district: sqliteText('district'),
+    state: sqliteText('state'),
+    country: sqliteText('country').notNull().default('India'),
     city: sqliteText('city'),
     pin: sqliteText('pin'),
+    openingBalance: sqliteReal('opening_balance').notNull().default(0),
+    currentBalance: sqliteReal('current_balance').notNull().default(0),
     creditLimit: sqliteReal('credit_limit').notNull().default(0),
     creditDays: sqliteInteger('credit_days').notNull().default(0),
+    paymentTerms: sqliteText('payment_terms'),
+    upiId: sqliteText('upi_id'),
     bankName: sqliteText('bank_name'),
     bankAccountNo: sqliteText('bank_account_no'),
     bankIfsc: sqliteText('bank_ifsc'),
     bankBranch: sqliteText('bank_branch'),
     status: sqliteText('status').notNull().default('active'), // active, inactive, blocked
     remarks: sqliteText('remarks'),
+    notes: sqliteText('notes'), // dual-write extras JSON (backward-compat)
     isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
   },
   (table) => ({
     supplierCodeIdx: uniqueIndex('supplier_code_idx').on(table.code),
     supplierNameIdx: uniqueIndex('supplier_name_idx').on(table.name),
+    supplierGstinIdx: sqliteIndex('supplier_gstin_idx').on(table.gstin),
+    supplierMobileIdx: sqliteIndex('supplier_mobile_idx').on(table.mobile),
+    supplierGroupIdx: sqliteIndex('supplier_group_idx').on(table.groupId),
+    supplierCategoryIdx: sqliteIndex('supplier_category_idx').on(table.categoryId),
   }),
 );
 
@@ -497,18 +521,33 @@ export const pgSuppliers = pgTableBase(
     ...pgBase,
     code: pgText('code'),
     name: pgText('name').notNull(),
+    firmName: pgText('firm_name'),
+    supplierType: pgText('supplier_type').notNull().default('regular'),
+    groupId: pgUuid('group_id'),
+    categoryId: pgUuid('category_id'),
     gstin: pgText('gstin'),
     pan: pgText('pan'),
+    aadhaar: pgText('aadhaar'),
     contactPerson: pgText('contact_person'),
     mobile: pgText('mobile'),
+    altMobile: pgText('alt_mobile'),
+    whatsapp: pgText('whatsapp'),
     email: pgText('email'),
+    website: pgText('website'),
     address: pgText('address'),
-    state: pgText('state'),
+    village: pgText('village'),
+    taluka: pgText('taluka'),
     district: pgText('district'),
+    state: pgText('state'),
+    country: pgText('country').notNull().default('India'),
     city: pgText('city'),
     pin: pgText('pin'),
+    openingBalance: pgReal('opening_balance').notNull().default(0),
+    currentBalance: pgReal('current_balance').notNull().default(0),
     creditLimit: pgReal('credit_limit').notNull().default(0),
     creditDays: pgInteger('credit_days').notNull().default(0),
+    paymentTerms: pgText('payment_terms'),
+    upiId: pgText('upi_id'),
     bankName: pgText('bank_name'),
     bankAccountNo: pgText('bank_account_no'),
     bankIfsc: pgText('bank_ifsc'),
@@ -516,10 +555,164 @@ export const pgSuppliers = pgTableBase(
     status: pgText('status').notNull().default('active'),
     isActive: pgBoolean('is_active').notNull().default(true),
     remarks: pgText('remarks'),
+    notes: pgText('notes'),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
   },
   (table) => ({
     supplierCodeIdx: pgUniqueIndex('supplier_code_idx').on(table.code),
     supplierNameIdx: pgUniqueIndex('supplier_name_idx').on(table.name),
+    supplierGstinIdx: pgIndex('supplier_gstin_idx').on(table.gstin),
+    supplierMobileIdx: pgIndex('supplier_mobile_idx').on(table.mobile),
+    supplierGroupIdx: pgIndex('supplier_group_idx').on(table.groupId),
+    supplierCategoryIdx: pgIndex('supplier_category_idx').on(table.categoryId),
+  }),
+);
+
+// ── SUPPLIER ADDRESSES (multiple: billing / shipping / branch) ──────
+export const sqliteSupplierAddresses = sqliteTableBase('shranix_supplier_addresses', {
+  ...sqliteBase,
+  supplierId: sqliteText('supplier_id').notNull(),
+  addressType: sqliteText('address_type').notNull().default('billing'), // billing, shipping, branch
+  address: sqliteText('address'),
+  village: sqliteText('village'),
+  taluka: sqliteText('taluka'),
+  district: sqliteText('district'),
+  state: sqliteText('state'),
+  country: sqliteText('country').notNull().default('India'),
+  pincode: sqliteText('pincode'),
+  isDefault: sqliteInteger('is_default', { mode: 'boolean' }).notNull().default(false),
+});
+
+export const pgSupplierAddresses = pgTableBase('shranix_supplier_addresses', {
+  ...pgBase,
+  supplierId: pgUuid('supplier_id').notNull(),
+  addressType: pgText('address_type').notNull().default('billing'),
+  address: pgText('address'),
+  village: pgText('village'),
+  taluka: pgText('taluka'),
+  district: pgText('district'),
+  state: pgText('state'),
+  country: pgText('country').notNull().default('India'),
+  pincode: pgText('pincode'),
+  isDefault: pgBoolean('is_default').notNull().default(false),
+});
+
+// ── SUPPLIER CONTACTS (multiple: owner / accounts / purchase / sales) ──
+export const sqliteSupplierContacts = sqliteTableBase('shranix_supplier_contacts', {
+  ...sqliteBase,
+  supplierId: sqliteText('supplier_id').notNull(),
+  contactType: sqliteText('contact_type').notNull().default('owner'), // owner, accounts, purchase, sales
+  name: sqliteText('name').notNull(),
+  mobile: sqliteText('mobile'),
+  email: sqliteText('email'),
+  designation: sqliteText('designation'),
+  isPrimary: sqliteInteger('is_primary', { mode: 'boolean' }).notNull().default(false),
+});
+
+export const pgSupplierContacts = pgTableBase('shranix_supplier_contacts', {
+  ...pgBase,
+  supplierId: pgUuid('supplier_id').notNull(),
+  contactType: pgText('contact_type').notNull().default('owner'),
+  name: pgText('name').notNull(),
+  mobile: pgText('mobile'),
+  email: pgText('email'),
+  designation: pgText('designation'),
+  isPrimary: pgBoolean('is_primary').notNull().default(false),
+});
+
+// ── SUPPLIER DOCUMENTS (GST cert / PAN / agreement / license / other) ──
+export const sqliteSupplierDocuments = sqliteTableBase('shranix_supplier_documents', {
+  ...sqliteBase,
+  supplierId: sqliteText('supplier_id').notNull(),
+  docType: sqliteText('doc_type').notNull().default('other'), // gst_certificate, pan, agreement, shop_license, other
+  fileName: sqliteText('file_name').notNull(),
+  fileUrl: sqliteText('file_url'),
+  fileSize: sqliteInteger('file_size').notNull().default(0),
+  mimeType: sqliteText('mime_type'),
+  notes: sqliteText('notes'),
+});
+
+export const pgSupplierDocuments = pgTableBase('shranix_supplier_documents', {
+  ...pgBase,
+  supplierId: pgUuid('supplier_id').notNull(),
+  docType: pgText('doc_type').notNull().default('other'),
+  fileName: pgText('file_name').notNull(),
+  fileUrl: pgText('file_url'),
+  fileSize: pgInteger('file_size').notNull().default(0),
+  mimeType: pgText('mime_type'),
+  notes: pgText('notes'),
+});
+
+// ═════════════════════════════════════════════════════════
+// 8a.1 SUPPLIER GROUPS (Retail Supplier / Manufacturer / Distributor / …)
+// ═════════════════════════════════════════════════════════
+export const sqliteSupplierGroups = sqliteTableBase(
+  'shranix_supplier_groups',
+  {
+    ...sqliteBase,
+    name: sqliteText('name').notNull(),
+    description: sqliteText('description'),
+    isSystem: sqliteInteger('is_system', { mode: 'boolean' }).notNull().default(false),
+    sortOrder: sqliteInteger('sort_order').notNull().default(0),
+    isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
+  },
+  (table) => ({
+    supplierGroupNameIdx: uniqueIndex('supplier_group_name_idx').on(table.name),
+  }),
+);
+
+export const pgSupplierGroups = pgTableBase(
+  'shranix_supplier_groups',
+  {
+    ...pgBase,
+    name: pgText('name').notNull(),
+    description: pgText('description'),
+    isSystem: pgBoolean('is_system').notNull().default(false),
+    sortOrder: pgInteger('sort_order').notNull().default(0),
+    isActive: pgBoolean('is_active').notNull().default(true),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
+  },
+  (table) => ({
+    supplierGroupNameIdx: pgUniqueIndex('supplier_group_name_idx').on(table.name),
+  }),
+);
+
+// ═════════════════════════════════════════════════════════
+// 8a.2 SUPPLIER CATEGORIES (A / B / C / Premium / Preferred)
+// ═════════════════════════════════════════════════════════
+export const sqliteSupplierCategories = sqliteTableBase(
+  'shranix_supplier_categories',
+  {
+    ...sqliteBase,
+    name: sqliteText('name').notNull(),
+    description: sqliteText('description'),
+    priority: sqliteInteger('priority').notNull().default(0),
+    isActive: sqliteInteger('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
+  },
+  (table) => ({
+    supplierCategoryNameIdx: uniqueIndex('supplier_category_name_idx').on(table.name),
+  }),
+);
+
+export const pgSupplierCategories = pgTableBase(
+  'shranix_supplier_categories',
+  {
+    ...pgBase,
+    name: pgText('name').notNull(),
+    description: pgText('description'),
+    priority: pgInteger('priority').notNull().default(0),
+    isActive: pgBoolean('is_active').notNull().default(true),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
+  },
+  (table) => ({
+    supplierCategoryNameIdx: pgUniqueIndex('supplier_category_name_idx').on(table.name),
   }),
 );
 
@@ -542,7 +735,7 @@ export const sqlitePurchaseRequisitions = sqliteTableBase(
     rejectionReason: sqliteText('rejection_reason'),
     financialYearId: sqliteText('financial_year_id'),
   },
-  (table) => ({ prNumberIdx: uniqueIndex('pr_number_idx').on(table.prNumber) }),
+  (table) => ({ prNumberIdx: uniqueIndex('pr_requisition_number_idx').on(table.prNumber) }),
 );
 
 export const pgPurchaseRequisitions = pgTableBase(
@@ -561,7 +754,7 @@ export const pgPurchaseRequisitions = pgTableBase(
     rejectionReason: pgText('rejection_reason'),
     financialYearId: pgUuid('financial_year_id'),
   },
-  (table) => ({ prNumberIdx: pgUniqueIndex('pr_number_idx').on(table.prNumber) }),
+  (table) => ({ prNumberIdx: pgUniqueIndex('pr_requisition_number_idx').on(table.prNumber) }),
 );
 
 // Purchase Requisition Items

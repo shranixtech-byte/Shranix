@@ -225,6 +225,20 @@ export class SalesOrdersController {
   async findOne(@Param('id') id: string) {
     return this.service.findById(id);
   }
+  // Full update — header + items replace (edit form ka main flow). Items change
+  // delivered orders par guard service mein hota hai (challan tracking protect).
+  @Put(':id')
+  @Roles('admin', 'manager')
+  @Permissions('sales.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update sales order (header + line items replace)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesOrderDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto, u?.id);
+  }
   @Put(':id/status')
   @Roles('admin', 'manager')
   @Permissions('sales.update')

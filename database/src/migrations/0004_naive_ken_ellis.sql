@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS `shranix_bank_accounts`;--> statement-breakpoint
 CREATE TABLE `shranix_bank_accounts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`created_at` text NOT NULL,
@@ -56,12 +57,6 @@ ALTER TABLE `shranix_companies` ADD `invoice_signature` text;--> statement-break
 ALTER TABLE `shranix_companies` ADD `email_logo` text;--> statement-breakpoint
 ALTER TABLE `shranix_companies` ADD `invoice_footer` text;--> statement-breakpoint
 ALTER TABLE `shranix_companies` ADD `qr_logo` text;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `lot_tracking` integer DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `auto_barcode` integer DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `auto_sku` integer DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `low_stock_alert` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `low_stock_threshold` integer DEFAULT 5 NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_inventory_settings` ADD `stock_reservation` integer DEFAULT true NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_purchase_settings` ADD `auto_grn` integer DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_purchase_settings` ADD `supplier_credit_days` integer DEFAULT 30 NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_purchase_settings` ADD `default_tax_group_id` text;--> statement-breakpoint
@@ -114,15 +109,4 @@ ALTER TABLE `shranix_sales_settings` ADD `loyalty_points_per_amount` integer DEF
 ALTER TABLE `shranix_sales_settings` ADD `default_price_list` text DEFAULT 'standard' NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_sales_settings` ADD `gst_validation` integer DEFAULT true NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_sales_settings` ADD `pan_validation` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `invoice_suffix` text DEFAULT '' NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `print_format` text DEFAULT 'a4_portrait' NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `duplicate_copy` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `transport_copy` integer DEFAULT false NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_qr` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_hsn` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_batch` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_expiry` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_discount` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_gst` integer DEFAULT true NOT NULL;--> statement-breakpoint
-ALTER TABLE `shranix_sales_settings` ADD `show_barcode` integer DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE `shranix_users` ADD `allowed_modules` text;

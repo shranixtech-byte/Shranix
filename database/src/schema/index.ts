@@ -129,6 +129,10 @@ export {
   pgAdjustmentItems,
   sqliteInventorySettings,
   pgInventorySettings,
+  sqliteProductDocuments,
+  pgProductDocuments,
+  sqliteProductPriceHistory,
+  pgProductPriceHistory,
 } from './inventory';
 export {
   sqlitePhysicalCountHeaders,
@@ -160,6 +164,16 @@ export {
   pgPurchaseSettings,
   sqliteSuppliers,
   pgSuppliers,
+  sqliteSupplierAddresses,
+  pgSupplierAddresses,
+  sqliteSupplierContacts,
+  pgSupplierContacts,
+  sqliteSupplierDocuments,
+  pgSupplierDocuments,
+  sqliteSupplierGroups,
+  pgSupplierGroups,
+  sqliteSupplierCategories,
+  pgSupplierCategories,
   sqlitePurchaseRequisitions,
   pgPurchaseRequisitions,
   sqlitePurchaseRequisitionItems,
@@ -217,7 +231,24 @@ export {
   pgCreditNotes,
   sqliteDebitNotes,
   pgDebitNotes,
+  sqliteSalesPayments,
+  pgSalesPayments,
 } from './sales';
+
+export {
+  sqliteCustomers,
+  pgCustomers,
+  sqliteCustomerAddresses,
+  pgCustomerAddresses,
+  sqliteCustomerContacts,
+  pgCustomerContacts,
+  sqliteCustomerDocuments,
+  pgCustomerDocuments,
+  sqliteCustomerGroups,
+  pgCustomerGroups,
+  sqliteCustomerCategories,
+  pgCustomerCategories,
+} from './customers';
 
 export {
   sqliteAccountGroups,

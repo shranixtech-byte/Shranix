@@ -1,45 +1,86 @@
 import type { DatabaseClient } from '../client/index';
-import { MasterDataRepository } from './masters.repository';
 import {
-  sqliteItems, pgItems,
-  sqliteItemVariants, pgItemVariants,
-  sqliteItemGroups, pgItemGroups,
-  sqliteItemPricing, pgItemPricing,
-  sqliteItemBarcodes, pgItemBarcodes,
-  sqliteHsnCodes, pgHsnCodes,
-  sqliteStockOpening, pgStockOpening,
-  sqliteItemImages, pgItemImages,
-  sqliteWarehouseZones, pgWarehouseZones,
-  sqliteWarehouseRacks, pgWarehouseRacks,
-  sqliteWarehouseShelves, pgWarehouseShelves,
-  sqliteWarehouseBins, pgWarehouseBins,
-  sqliteUOMConversions, pgUOMConversions,
-  sqliteProductAttributes, pgProductAttributes,
-  sqliteItemPackaging, pgItemPackaging,
-  sqliteBatchMaster, pgBatchMaster,
-  sqliteBatchLots, pgBatchLots,
-  sqliteBatchGenealogy, pgBatchGenealogy,
-  sqliteSerialMaster, pgSerialMaster,
-  sqliteSerialHistory, pgSerialHistory,
-  sqliteSerialWarranty, pgSerialWarranty,
-  sqliteSerialInstallation, pgSerialInstallation,
-  sqliteSerialService, pgSerialService,
-  sqliteSerialRMA, pgSerialRMA,
-  sqliteSerialRelationship, pgSerialRelationship,
-  sqliteSerialDocument, pgSerialDocument,
-  sqliteInvStockLedger, pgInvStockLedger,
-  sqliteInvStockBalance, pgInvStockBalance,
-  sqliteInvStockReservation, pgInvStockReservation,
-  sqliteStockTransfers, pgStockTransfers,
-  sqliteTransferItems, pgTransferItems,
-  sqliteStockAdjustments, pgStockAdjustments,
-  sqliteAdjustmentItems, pgAdjustmentItems,
-  sqliteInventorySettings, pgInventorySettings,
+  sqliteItems,
+  pgItems,
+  sqliteItemVariants,
+  pgItemVariants,
+  sqliteItemGroups,
+  pgItemGroups,
+  sqliteItemPricing,
+  pgItemPricing,
+  sqliteItemBarcodes,
+  pgItemBarcodes,
+  sqliteHsnCodes,
+  pgHsnCodes,
+  sqliteStockOpening,
+  pgStockOpening,
+  sqliteItemImages,
+  pgItemImages,
+  sqliteWarehouseZones,
+  pgWarehouseZones,
+  sqliteWarehouseRacks,
+  pgWarehouseRacks,
+  sqliteWarehouseShelves,
+  pgWarehouseShelves,
+  sqliteWarehouseBins,
+  pgWarehouseBins,
+  sqliteUOMConversions,
+  pgUOMConversions,
+  sqliteProductAttributes,
+  pgProductAttributes,
+  sqliteItemPackaging,
+  pgItemPackaging,
+  sqliteBatchMaster,
+  pgBatchMaster,
+  sqliteBatchLots,
+  pgBatchLots,
+  sqliteBatchGenealogy,
+  pgBatchGenealogy,
+  sqliteSerialMaster,
+  pgSerialMaster,
+  sqliteSerialHistory,
+  pgSerialHistory,
+  sqliteSerialWarranty,
+  pgSerialWarranty,
+  sqliteSerialInstallation,
+  pgSerialInstallation,
+  sqliteSerialService,
+  pgSerialService,
+  sqliteSerialRMA,
+  pgSerialRMA,
+  sqliteSerialRelationship,
+  pgSerialRelationship,
+  sqliteSerialDocument,
+  pgSerialDocument,
+  sqliteInvStockLedger,
+  pgInvStockLedger,
+  sqliteInvStockBalance,
+  pgInvStockBalance,
+  sqliteInvStockReservation,
+  pgInvStockReservation,
+  sqliteStockTransfers,
+  pgStockTransfers,
+  sqliteTransferItems,
+  pgTransferItems,
+  sqliteStockAdjustments,
+  pgStockAdjustments,
+  sqliteAdjustmentItems,
+  pgAdjustmentItems,
+  sqliteInventorySettings,
+  pgInventorySettings,
+  sqliteProductDocuments,
+  pgProductDocuments,
+  sqliteProductPriceHistory,
+  pgProductPriceHistory,
 } from '../schema/inventory';
 import {
-  sqlitePhysicalCountHeaders, pgPhysicalCountHeaders,
-  sqlitePhysicalCountItems, pgPhysicalCountItems,
+  sqlitePhysicalCountHeaders,
+  pgPhysicalCountHeaders,
+  sqlitePhysicalCountItems,
+  pgPhysicalCountItems,
 } from '../schema/physical-count';
+
+import { MasterDataRepository } from './masters.repository';
 
 // ═════════════════════════════════════════════════════════
 // 1. ITEMS
@@ -110,6 +151,24 @@ export class StockOpeningRepository extends MasterDataRepository<any> {
 export class ItemImagesRepository extends MasterDataRepository<any> {
   constructor(db: DatabaseClient, isPostgres: boolean) {
     super(sqliteItemImages, pgItemImages, db, isPostgres);
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// 8b. PRODUCT DOCUMENTS (Phase 3.2 — images, licenses, certificates)
+// ═════════════════════════════════════════════════════════
+export class ProductDocumentsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) {
+    super(sqliteProductDocuments, pgProductDocuments, db, isPostgres);
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// 8c. PRODUCT PRICE HISTORY (Phase 3.2 — immutable price trail)
+// ═════════════════════════════════════════════════════════
+export class ProductPriceHistoryRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) {
+    super(sqliteProductPriceHistory, pgProductPriceHistory, db, isPostgres);
   }
 }
 

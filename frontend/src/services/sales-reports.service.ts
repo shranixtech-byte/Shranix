@@ -135,6 +135,14 @@ export async function getCustomerLedger(filters?: ReportFilters): Promise<any[]>
 }
 
 /**
+ * GET /sales/reports/customer-ledger/:id — ek customer ka pura 360° chain
+ * (quotations, orders, challans, invoices, payments, outstanding + ledger).
+ */
+export async function getCustomerLedgerDetail(customerId: string): Promise<any> {
+  return apiRequest<any>(`/sales/reports/customer-ledger/${encodeURIComponent(customerId)}`);
+}
+
+/**
  * GET /sales/reports/products
  */
 export async function getProductSales(filters?: ReportFilters): Promise<PaginatedData<any>> {

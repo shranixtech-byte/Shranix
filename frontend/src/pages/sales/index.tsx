@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { UpiQrCode } from '@/components/ui/UpiQrCode';
 import { cn } from '@/lib/utils';
 import { apiRequest } from '@/services/api-client';
 import { downloadQuotationPdf } from '@/services/quotation-pdf.service';
+import { downloadSavedInvoicePdf } from '@/services/saved-invoice-pdf.service';
 
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
 
+import { InvoiceShareModal } from './invoice-share-modal';
 import { QuotationConvertModal } from './quotation-convert-modal';
 import { QuotationShareModal } from './quotation-share-modal';
 
@@ -556,14 +559,57 @@ const invoiceFields: FormField[] = [
 ];
 
 export function SalesInvoicesPage() {
+  const navigate = useNavigate();
+  const [sendId, setSendId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   return (
-    <MasterDataPage
-      title="Sales Invoices"
-      description="Manage customer invoices with GST, discount, round-off, payment tracking, and order/challan linking"
-      columns={invoiceColumns}
-      apiPath="/sales/invoices"
-      formFields={invoiceFields}
-    />
+    <>
+      <MasterDataPage
+        title="Sales Invoices"
+        description="Manage customer invoices with GST, discount, round-off, payment tracking, and order/challan linking"
+        columns={invoiceColumns}
+        apiPath="/sales/invoices"
+        formFields={invoiceFields}
+        refreshKey={refreshKey}
+        rowActions={[
+          {
+            label: 'Send',
+            title: 'Print, Email PDF, WhatsApp PDF ya download karo — customer ko bhejo',
+            variant: 'primary',
+            onClick: async (record) => {
+              setSendId(record.id as string);
+            },
+          },
+          {
+            label: 'PDF',
+            title: 'Download professional invoice PDF — GST, discount, round-off, UPI QR, barcode',
+            variant: 'ghost',
+            onClick: async (record) => {
+              await downloadSavedInvoicePdf(record.id as string);
+            },
+          },
+          {
+            label: 'Collect',
+            title: 'Is invoice ke liye payment collect karo — Cash/UPI/Bank/Cheque/Advance',
+            variant: 'primary',
+            disabled: (record) => record.paymentStatus === 'paid',
+            onClick: async (record) => {
+              navigate(`/sales/payments?invoiceId=${record.id}`);
+            },
+          },
+        ]}
+      />
+      {sendId && (
+        <InvoiceShareModal
+          invoiceId={sendId}
+          onClose={() => {
+            setSendId(null);
+            // Email/WhatsApp send karne ke baad status/counters refresh karo
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+    </>
   );
 }
 

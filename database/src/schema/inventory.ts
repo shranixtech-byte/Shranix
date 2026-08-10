@@ -8,6 +8,7 @@ import {
   uuid as pgUuid,
   timestamp as pgTimestamp,
   uniqueIndex as pgUniqueIndex,
+  index as pgIndex,
   boolean as pgBoolean,
 } from 'drizzle-orm/pg-core';
 import {
@@ -16,6 +17,7 @@ import {
   integer as sqliteInteger,
   real as sqliteReal,
   uniqueIndex,
+  index as sqliteIndex,
 } from 'drizzle-orm/sqlite-core';
 
 const sqliteBase = {
@@ -74,6 +76,8 @@ export const sqliteItems = sqliteTableBase(
     maxStock: sqliteReal('max_stock').notNull().default(0),
     reorderLevel: sqliteReal('reorder_level').notNull().default(0),
     openingStock: sqliteReal('opening_stock').notNull().default(0),
+    openingRate: sqliteReal('opening_rate').notNull().default(0),
+    openingValue: sqliteReal('opening_value').notNull().default(0),
     currentStock: sqliteReal('current_stock').notNull().default(0),
     weight: sqliteReal('weight'),
     weightUnit: sqliteText('weight_unit'),
@@ -94,10 +98,36 @@ export const sqliteItems = sqliteTableBase(
     isTaxable: sqliteInteger('is_taxable', { mode: 'boolean' }).notNull().default(true),
     taxPreference: sqliteText('tax_preference').notNull().default('taxable'), // taxable, exempt, nil_rated
     notes: sqliteText('notes'),
+    // ── Product Master (Phase 3.2) — enterprise extensions ──
+    productCode: sqliteText('product_code'),
+    subCategoryId: sqliteText('sub_category_id'),
+    barcode: sqliteText('barcode'),
+    qrCode: sqliteText('qr_code'),
+    packSize: sqliteText('pack_size'),
+    conversionFactor: sqliteReal('conversion_factor').notNull().default(1),
+    sacCode: sqliteText('sac_code'),
+    wholesalePrice: sqliteReal('wholesale_price').notNull().default(0),
+    dealerPrice: sqliteReal('dealer_price').notNull().default(0),
+    minSellingPrice: sqliteReal('min_selling_price').notNull().default(0),
+    maxDiscountPercent: sqliteReal('max_discount_percent').notNull().default(0),
+    preferredSupplierId: sqliteText('preferred_supplier_id'),
+    trackInventory: sqliteInteger('track_inventory', { mode: 'boolean' }).notNull().default(true),
+    allowNegativeStock: sqliteInteger('allow_negative_stock', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
   },
   (table) => ({
     skuIdx: uniqueIndex('items_sku_idx').on(table.sku),
     nameIdx: uniqueIndex('items_name_idx').on(table.name),
+    codeIdx: uniqueIndex('items_code_idx').on(table.productCode),
+    barcodeIdx: sqliteIndex('items_barcode_idx').on(table.barcode),
+    catIdx: sqliteIndex('items_category_idx').on(table.categoryId),
+    subCatIdx: sqliteIndex('items_subcategory_idx').on(table.subCategoryId),
+    brandIdx: sqliteIndex('items_brand_idx').on(table.brandId),
+    typeIdx: sqliteIndex('items_type_idx').on(table.type),
+    statusIdx: sqliteIndex('items_status_idx').on(table.status),
   }),
 );
 
@@ -128,6 +158,8 @@ export const pgItems = pgTableBase(
     maxStock: pgReal('max_stock').notNull().default(0),
     reorderLevel: pgReal('reorder_level').notNull().default(0),
     openingStock: pgReal('opening_stock').notNull().default(0),
+    openingRate: pgReal('opening_rate').notNull().default(0),
+    openingValue: pgReal('opening_value').notNull().default(0),
     currentStock: pgReal('current_stock').notNull().default(0),
     weight: pgReal('weight'),
     weightUnit: pgText('weight_unit'),
@@ -148,10 +180,34 @@ export const pgItems = pgTableBase(
     isTaxable: pgBoolean('is_taxable').notNull().default(true),
     taxPreference: pgText('tax_preference').notNull().default('taxable'),
     notes: pgText('notes'),
+    // ── Product Master (Phase 3.2) — enterprise extensions ──
+    productCode: pgText('product_code'),
+    subCategoryId: pgUuid('sub_category_id'),
+    barcode: pgText('barcode'),
+    qrCode: pgText('qr_code'),
+    packSize: pgText('pack_size'),
+    conversionFactor: pgReal('conversion_factor').notNull().default(1),
+    sacCode: pgText('sac_code'),
+    wholesalePrice: pgReal('wholesale_price').notNull().default(0),
+    dealerPrice: pgReal('dealer_price').notNull().default(0),
+    minSellingPrice: pgReal('min_selling_price').notNull().default(0),
+    maxDiscountPercent: pgReal('max_discount_percent').notNull().default(0),
+    preferredSupplierId: pgUuid('preferred_supplier_id'),
+    trackInventory: pgBoolean('track_inventory').notNull().default(true),
+    allowNegativeStock: pgBoolean('allow_negative_stock').notNull().default(false),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
   },
   (table) => ({
     skuIdx: pgUniqueIndex('items_sku_idx').on(table.sku),
     nameIdx: pgUniqueIndex('items_name_idx').on(table.name),
+    codeIdx: pgUniqueIndex('items_code_idx').on(table.productCode),
+    barcodeIdx: pgIndex('items_barcode_idx').on(table.barcode),
+    catIdx: pgIndex('items_category_idx').on(table.categoryId),
+    subCatIdx: pgIndex('items_subcategory_idx').on(table.subCategoryId),
+    brandIdx: pgIndex('items_brand_idx').on(table.brandId),
+    typeIdx: pgIndex('items_type_idx').on(table.type),
+    statusIdx: pgIndex('items_status_idx').on(table.status),
   }),
 );
 
@@ -1690,5 +1746,83 @@ export const pgTransferItems = pgTableBase(
       table.itemId,
       table.batchNo,
     ),
+  }),
+);
+
+// ═════════════════════════════════════════════════════════
+// 24. PRODUCT DOCUMENTS (Phase 3.2 — images, licenses, certificates)
+// ═════════════════════════════════════════════════════════
+export const sqliteProductDocuments = sqliteTableBase(
+  'shranix_product_documents',
+  {
+    ...sqliteBase,
+    productId: sqliteText('product_id').notNull(),
+    docType: sqliteText('doc_type').notNull().default('other'), // product_image, product_doc, license, gst_certificate, other
+    fileName: sqliteText('file_name').notNull(),
+    fileUrl: sqliteText('file_url'),
+    fileSize: sqliteInteger('file_size').notNull().default(0),
+    mimeType: sqliteText('mime_type'),
+    notes: sqliteText('notes'),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
+  },
+  (table) => ({
+    productDocIdx: sqliteIndex('product_doc_product_idx').on(table.productId),
+  }),
+);
+
+export const pgProductDocuments = pgTableBase(
+  'shranix_product_documents',
+  {
+    ...pgBase,
+    productId: pgUuid('product_id').notNull(),
+    docType: pgText('doc_type').notNull().default('other'),
+    fileName: pgText('file_name').notNull(),
+    fileUrl: pgText('file_url'),
+    fileSize: pgInteger('file_size').notNull().default(0),
+    mimeType: pgText('mime_type'),
+    notes: pgText('notes'),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
+  },
+  (table) => ({
+    productDocIdx: pgIndex('product_doc_product_idx').on(table.productId),
+  }),
+);
+
+// ═════════════════════════════════════════════════════════
+// 25. PRODUCT PRICE HISTORY (Phase 3.2 — immutable price trail)
+// ═════════════════════════════════════════════════════════
+export const sqliteProductPriceHistory = sqliteTableBase(
+  'shranix_product_price_history',
+  {
+    ...sqliteBase,
+    productId: sqliteText('product_id').notNull(),
+    priceType: sqliteText('price_type').notNull(), // mrp, purchase, sales, wholesale, dealer, min_selling
+    oldValue: sqliteReal('old_value').notNull().default(0),
+    newValue: sqliteReal('new_value').notNull().default(0),
+    changedBy: sqliteText('changed_by'),
+    changedAt: sqliteText('changed_at'),
+    remarks: sqliteText('remarks'),
+  },
+  (table) => ({
+    priceHistoryIdx: sqliteIndex('product_price_history_product_idx').on(table.productId),
+  }),
+);
+
+export const pgProductPriceHistory = pgTableBase(
+  'shranix_product_price_history',
+  {
+    ...pgBase,
+    productId: pgUuid('product_id').notNull(),
+    priceType: pgText('price_type').notNull(),
+    oldValue: pgReal('old_value').notNull().default(0),
+    newValue: pgReal('new_value').notNull().default(0),
+    changedBy: pgUuid('changed_by'),
+    changedAt: pgTimestamp('changed_at', { withTimezone: true }),
+    remarks: pgText('remarks'),
+  },
+  (table) => ({
+    priceHistoryIdx: pgIndex('product_price_history_product_idx').on(table.productId),
   }),
 );

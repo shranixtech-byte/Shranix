@@ -47,6 +47,8 @@ import {
   SerialDashboardController,
 } from './controllers';
 import { PhysicalCountController } from './physical-count.controllers';
+import { ProductsMasterController } from './products-master.controller';
+import { ProductsMasterService } from './products-master.service';
 import { ProductsController } from './products.controllers';
 import { ProductsService } from './products.service';
 import {
@@ -158,6 +160,7 @@ import { EnterpriseTransferController } from './stock-transfer.controllers';
     EnterpriseAdjustmentController,
     PhysicalCountController,
     ProductsController,
+    ProductsMasterController,
   ],
   providers: [
     ItemsService,
@@ -207,6 +210,7 @@ import { EnterpriseTransferController } from './stock-transfer.controllers';
     EnterpriseAdjustmentService,
     PhysicalCountService,
     ProductsService,
+    ProductsMasterService,
   ],
   exports: [
     ItemsService,

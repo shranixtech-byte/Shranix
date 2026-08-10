@@ -6,6 +6,8 @@ import {
   IsBoolean,
   IsNumber,
   IsInt,
+  IsIn,
+  IsEmail,
   Min,
   Max,
   IsArray,
@@ -13,50 +15,164 @@ import {
 } from 'class-validator';
 
 // ═════════════════════════════════════════════════════════
-// SUPPLIER DTOs (PRM-016 Module 1)
+// SUPPLIER DTOs (PRM-016 Module 1 + Supplier Master Phase)
 // ═════════════════════════════════════════════════════════
 export class CreateSupplierDto {
   @ApiPropertyOptional() @IsOptional() @IsString() code?: string;
   @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() firmName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() supplierType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() groupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() aadhaar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() altMobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() whatsapp?: string;
+  @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() website?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() upiId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankAccountNo?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankIfsc?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankBranch?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsIn(['active', 'inactive', 'blocked']) status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
 }
 export class UpdateSupplierDto {
   @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() firmName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() supplierType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() groupId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() gstin?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pan?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() aadhaar?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() contactPerson?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() altMobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() whatsapp?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() website?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() pin?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) openingBalance?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentTerms?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() upiId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankAccountNo?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bankIfsc?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() bankBranch?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isActive?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
+}
+
+export class SupplierStatusDto {
+  @ApiProperty({ enum: ['active', 'inactive', 'blocked'] })
+  @IsIn(['active', 'inactive', 'blocked'])
+  status!: string;
+}
+
+export class SupplierAddressDto {
+  @ApiPropertyOptional({ enum: ['billing', 'shipping', 'branch', 'head_office'] })
+  @IsOptional()
+  @IsIn(['billing', 'shipping', 'branch', 'head_office'])
+  addressType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() village?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() taluka?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() district?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() pincode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isDefault?: boolean;
+}
+
+export class SupplierGroupDto {
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) sortOrder?: number;
+}
+
+export class SupplierCategoryDto {
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() description?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) priority?: number;
+}
+
+export class SupplierContactDto {
+  @ApiPropertyOptional({
+    enum: ['owner', 'accounts', 'purchase', 'sales', 'dispatch', 'purchase_manager'],
+  })
+  @IsOptional()
+  @IsIn(['owner', 'accounts', 'purchase', 'sales', 'dispatch', 'purchase_manager'])
+  contactType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() name?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() designation?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean;
+}
+
+/** Create-only contact DTO — name is mandatory for new records. */
+export class CreateSupplierContactDto {
+  @ApiPropertyOptional({
+    enum: ['owner', 'accounts', 'purchase', 'sales', 'dispatch', 'purchase_manager'],
+  })
+  @IsOptional()
+  @IsIn(['owner', 'accounts', 'purchase', 'sales', 'dispatch', 'purchase_manager'])
+  contactType?: string;
+  @ApiProperty() @IsString() name!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mobile?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() email?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() designation?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isPrimary?: boolean;
+}
+
+export class SupplierDocumentDto {
+  @ApiProperty({ enum: ['gst_certificate', 'pan', 'agreement', 'shop_license', 'other'] })
+  @IsIn(['gst_certificate', 'pan', 'agreement', 'shop_license', 'other'])
+  docType!: string;
+  @ApiProperty() @IsString() fileName!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() fileUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) fileSize?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() mimeType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+}
+
+export class BulkSupplierStatusDto {
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) ids!: string[];
+  @ApiProperty({ enum: ['active', 'inactive', 'blocked'] })
+  @IsIn(['active', 'inactive', 'blocked'])
+  status!: string;
+}
+
+export class BulkSupplierDeleteDto {
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) ids!: string[];
 }
 
 // ═════════════════════════════════════════════════════════

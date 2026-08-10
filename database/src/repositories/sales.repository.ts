@@ -46,6 +46,8 @@ import {
   pgCreditNotes,
   sqliteDebitNotes,
   pgDebitNotes,
+  sqliteSalesPayments,
+  pgSalesPayments,
 } from '../schema/sales';
 
 import { MasterDataRepository } from './masters.repository';
@@ -196,5 +198,14 @@ export class CreditNotesRepository extends MasterDataRepository<any> {
 export class DebitNotesRepository extends MasterDataRepository<any> {
   constructor(db: DatabaseClient, isPostgres: boolean) {
     super(sqliteDebitNotes, pgDebitNotes, db, isPostgres);
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// ⭐ Phase 4: Payment Collection
+// ═════════════════════════════════════════════════════════
+export class SalesPaymentsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) {
+    super(sqliteSalesPayments, pgSalesPayments, db, isPostgres);
   }
 }

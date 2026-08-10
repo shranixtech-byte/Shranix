@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { EnterpriseQuery, FilterCondition } from '@shranix/database';
 
 import { DatabaseService } from '../database/database.service';
@@ -657,6 +657,339 @@ export class SalesReportsService {
     });
 
     return customerLedger;
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // 4b. CUSTOMER LEDGER 360° — ek customer ka pura document chain
+  // Quotation → Sales Order → Delivery Challan → Invoice → Payment →
+  // Outstanding → Ledger. Har document type ki list + chronological ledger
+  // (running balance ke saath) ek hi response mein.
+  // ═════════════════════════════════════════════════════════
+
+  async getCustomerLedgerDetail(customerId: string): Promise<any> {
+    if (!customerId) {
+      throw new BadRequestException('Customer ID is required');
+    }
+    const customer = await this.database.ledgerMaster.findById(customerId).catch(() => null);
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    const byCustomer = (field: string) => ({
+      filters: [{ field, operator: 'eq' as const, value: customerId }],
+      page: 1,
+      pageSize: 5000,
+    });
+
+    // ── 1. SABHI DOCUMENT TYPES fetch karo ────────────────
+    const [quotes, orders, challans, invoices, payments, returns, creditNotes, profileRes] =
+      await Promise.all([
+        this.database.salesQuotations
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.salesOrders
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.deliveryChallans
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.salesInvoices
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.salesPayments
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.salesReturns
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.creditNotes
+          .findAll(byCustomer('customerId') as any)
+          .catch(() => ({ data: [] })),
+        this.database.creditProfiles
+          .findAll({
+            filters: [{ field: 'customerId', operator: 'eq' as const, value: customerId }],
+            page: 1,
+            pageSize: 1,
+          } as any)
+          .catch(() => ({ data: [] })),
+      ]);
+
+    const quoteList = quotes?.data || [];
+    const orderList = orders?.data || [];
+    const challanList = challans?.data || [];
+    const invoiceList = invoices?.data || [];
+    const paymentList = payments?.data || [];
+    const returnList = returns?.data || [];
+    const creditNoteList = creditNotes?.data || [];
+    const profile = profileRes?.data?.[0];
+
+    // ── 2. CROSS-REFERENCE MAPS (chain numbering) ─────────
+    const quoteNumberById = new Map(quoteList.map((q: any) => [q.id, q.quoteNumber]));
+    const orderNumberById = new Map(orderList.map((o: any) => [o.id, o.orderNumber]));
+    const challanNumberById = new Map(challanList.map((c: any) => [c.id, c.challanNumber]));
+
+    const orderRows = orderList.map((o: any) => ({
+      id: o.id,
+      documentNumber: o.orderNumber,
+      orderNumber: o.orderNumber,
+      date: o.orderDate,
+      deliveryDate: o.deliveryDate || '',
+      quotationId: o.quotationId || null,
+      quotationNumber: o.quotationId ? quoteNumberById.get(o.quotationId) || '' : '',
+      status: o.status || 'draft',
+      grandTotal: Number(o.grandTotal) || 0,
+    }));
+
+    const challanRows = challanList.map((c: any) => ({
+      id: c.id,
+      documentNumber: c.challanNumber,
+      challanNumber: c.challanNumber,
+      date: c.dispatchDate,
+      orderId: c.orderId || null,
+      orderNumber: c.orderId ? orderNumberById.get(c.orderId) || '' : '',
+      dispatchType: c.dispatchType || 'full',
+      vehicleNo: c.vehicleNo || '',
+      status: c.status || 'draft',
+      totalAmount: Number(c.totalAmount) || 0,
+    }));
+
+    const invoiceRows = invoiceList.map((i: any) => ({
+      id: i.id,
+      documentNumber: i.invoiceNumber,
+      invoiceNumber: i.invoiceNumber,
+      date: i.invoiceDate,
+      dueDate: i.dueDate || '',
+      orderId: i.orderId || null,
+      orderNumber: i.orderId ? orderNumberById.get(i.orderId) || '' : '',
+      challanId: i.challanId || null,
+      challanNumber: i.challanId ? challanNumberById.get(i.challanId) || '' : '',
+      grandTotal: Number(i.grandTotal) || 0,
+      paidAmount: Number(i.paidAmount) || 0,
+      balanceAmount: Number(i.balanceAmount) || 0,
+      paymentStatus: i.paymentStatus || 'unpaid',
+      status: i.status || 'draft',
+    }));
+
+    // Financial figures sirf real invoices par — draft/cancelled bahar.
+    const financialInvoices = invoiceRows.filter(
+      (i: any) => i.status !== 'cancelled' && i.status !== 'draft',
+    );
+
+    const paymentRows = paymentList.map((p: any) => ({
+      id: p.id,
+      documentNumber: p.paymentNumber,
+      paymentNumber: p.paymentNumber,
+      date: p.paymentDate,
+      mode: p.mode || 'cash',
+      amount: Number(p.amount) || 0,
+      invoiceId: p.invoiceId || null,
+      isAdvance: Boolean(p.isAdvance),
+      referenceNo: p.referenceNo || '',
+      bankName: p.bankName || '',
+      chequeNo: p.chequeNo || '',
+      status: p.status || 'completed',
+    }));
+
+    // mode='advance' wale records sirf internal advance-application hain (koi
+    // cash movement nahi) — real receipt pehle hi isAdvance wale entry se credit
+    // ho chuki hai. Ledger/financial sums mein double-count se bachne ke liye
+    // unhe bahar rakho.
+    const receiptPayments = paymentRows.filter((p: any) => p.mode !== 'advance');
+
+    const returnRows = returnList
+      .filter((r: any) => r.status !== 'cancelled')
+      .map((r: any) => ({
+        id: r.id,
+        documentNumber: r.returnNumber,
+        returnNumber: r.returnNumber,
+        date: r.returnDate,
+        invoiceId: r.invoiceId || null,
+        grandTotal: Number(r.grandTotal) || 0,
+        creditNoteNo: r.creditNoteNo || '',
+        status: r.status || 'draft',
+      }));
+
+    const creditNoteRows = creditNoteList
+      .filter((c: any) => c.status !== 'cancelled')
+      .map((c: any) => ({
+        id: c.id,
+        documentNumber: c.creditNoteNumber,
+        creditNoteNumber: c.creditNoteNumber,
+        date: c.referenceDate || c.createdAt || '',
+        originalInvoiceNumber: c.originalInvoiceNumber || '',
+        returnAmount: Number(c.returnAmount) || 0,
+        status: c.status || 'draft',
+      }));
+
+    // ── 3. SUMMARY ───────────────────────────────────────
+    const totalSales = financialInvoices.reduce((s: number, i: any) => s + i.grandTotal, 0);
+    const totalPaid = financialInvoices.reduce((s: number, i: any) => s + i.paidAmount, 0);
+    const totalOutstanding = financialInvoices
+      .filter((i: any) => i.paymentStatus !== 'paid')
+      .reduce((s: number, i: any) => s + (i.balanceAmount || i.grandTotal), 0);
+    const totalPayments = receiptPayments.reduce((s: number, p: any) => s + p.amount, 0);
+    const totalReturns = returnRows.reduce((s: number, r: any) => s + r.grandTotal, 0);
+    const totalCreditNotes = creditNoteRows.reduce((s: number, c: any) => s + c.returnAmount, 0);
+    const totalAdvance = receiptPayments
+      .filter((p: any) => p.isAdvance)
+      .reduce((s: number, p: any) => s + p.amount, 0);
+
+    // ── 4. AGING ─────────────────────────────────────────
+    const now = new Date();
+    const aging = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+    for (const inv of invoiceRows) {
+      const balance = inv.balanceAmount || (inv.paymentStatus !== 'paid' ? inv.grandTotal : 0);
+      if (balance <= 0 || inv.status === 'cancelled' || inv.status === 'draft') {
+        continue;
+      }
+      const due = new Date(inv.dueDate || inv.date);
+      const diffDays = Math.max(0, Math.floor((now.getTime() - due.getTime()) / 86400000));
+      if (diffDays <= 30) {
+        aging['0-30'] += balance;
+      } else if (diffDays <= 60) {
+        aging['31-60'] += balance;
+      } else if (diffDays <= 90) {
+        aging['61-90'] += balance;
+      } else {
+        aging['90+'] += balance;
+      }
+    }
+
+    // ── 5. LEDGER (chronological, running balance) ───────
+    type LedgerRow = {
+      date: string;
+      type: string;
+      documentNumber: string;
+      debit: number;
+      credit: number;
+      reference: string;
+      status: string;
+    };
+    const ledgerRows: LedgerRow[] = [
+      // Sirf real invoices (draft/cancelled nahi) ledger mein debit hoti hain
+      ...financialInvoices.map((i: any) => ({
+        date: i.date,
+        type: 'invoice',
+        documentNumber: i.invoiceNumber,
+        debit: i.grandTotal,
+        credit: 0,
+        reference: i.orderNumber
+          ? `Order ${i.orderNumber}`
+          : i.challanNumber
+            ? `Challan ${i.challanNumber}`
+            : '',
+        status: i.status,
+      })),
+      // Sirf real receipts (advance-application internal records nahi)
+      ...receiptPayments.map((p: any) => ({
+        date: p.date,
+        type: p.isAdvance ? 'advance' : 'payment',
+        documentNumber: p.paymentNumber,
+        debit: 0,
+        credit: p.amount,
+        reference: p.mode,
+        status: p.status,
+      })),
+      ...returnRows.map((r: any) => ({
+        date: r.date,
+        type: 'return',
+        documentNumber: r.returnNumber,
+        debit: 0,
+        credit: r.grandTotal,
+        reference: r.creditNoteNo ? `CN ${r.creditNoteNo}` : '',
+        status: r.status,
+      })),
+      ...creditNoteRows.map((c: any) => ({
+        date: c.date,
+        type: 'credit_note',
+        documentNumber: c.creditNoteNumber,
+        debit: 0,
+        credit: c.returnAmount,
+        reference: c.originalInvoiceNumber ? `Invoice ${c.originalInvoiceNumber}` : '',
+        status: c.status,
+      })),
+    ].sort(
+      (a, b) =>
+        String(a.date).localeCompare(String(b.date)) ||
+        String(a.documentNumber).localeCompare(String(b.documentNumber)),
+    );
+
+    let running = 0;
+    const ledger = ledgerRows.map((r) => {
+      running = Math.round((running + r.debit - r.credit) * 100) / 100;
+      return { ...r, balance: running };
+    });
+
+    // ── 6. CUSTOMER PROFILE (notes JSON se mobile/gstin/code) ──
+    let extras: Record<string, any> = {};
+    try {
+      if (customer.notes && typeof customer.notes === 'string' && customer.notes.startsWith('{')) {
+        extras = JSON.parse(customer.notes);
+      }
+    } catch {
+      /* ignore */
+    }
+    const name = (customer as any).partyId || customerId;
+
+    return {
+      customer: {
+        id: customerId,
+        name,
+        code: extras.code || '',
+        gstin: extras.gstin || '',
+        mobile: extras.mobile || '',
+        email: extras.email || '',
+        address: extras.address || '',
+        city: extras.city || '',
+      },
+      profile: {
+        creditLimit: Number(profile?.creditLimit) || 0,
+        outstanding: Number(profile?.outstanding) || 0,
+        advanceBalance: Number(profile?.advanceBalance) || 0,
+        availableCredit: Number(profile?.availableCredit) || 0,
+        overdueAmount: Number(profile?.overdueAmount) || 0,
+        creditDays: Number(profile?.creditDays) || 0,
+        lastPaymentDate: profile?.lastPaymentDate || null,
+        isBlocked: Boolean(profile?.isBlocked),
+        blockReason: profile?.blockReason || '',
+      },
+      summary: {
+        totalSales,
+        totalPaid,
+        totalOutstanding,
+        totalPayments,
+        totalReturns,
+        totalCreditNotes,
+        totalAdvance,
+        quotations: quoteList.length,
+        orders: orderRows.length,
+        challans: challanRows.length,
+        invoices: invoiceRows.length,
+        payments: paymentRows.length,
+        returns: returnRows.length,
+        creditNotes: creditNoteRows.length,
+      },
+      quotations: quoteList.map((q: any) => ({
+        id: q.id,
+        documentNumber: q.quoteNumber,
+        quoteNumber: q.quoteNumber,
+        date: q.quoteDate,
+        validTill: q.validTill || '',
+        revision: Number(q.revision) || 1,
+        status: q.status || 'draft',
+        grandTotal: Number(q.grandTotal) || 0,
+        convertedToOrder: Boolean(q.convertedToOrder),
+        orderId: q.orderId || null,
+      })),
+      orders: orderRows,
+      challans: challanRows,
+      invoices: invoiceRows,
+      payments: paymentRows,
+      returns: returnRows,
+      creditNotes: creditNoteRows,
+      outstanding: { total: totalOutstanding, aging, overdue: aging['90+'] },
+      ledger,
+    };
   }
 
   // ═════════════════════════════════════════════════════════
