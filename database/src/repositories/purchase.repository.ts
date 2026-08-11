@@ -42,6 +42,10 @@ import {
   pgWarehouseStock,
   sqlitePurchaseReturnItems,
   pgPurchaseReturnItems,
+  sqlitePurchaseInvoiceItems,
+  pgPurchaseInvoiceItems,
+  sqlitePurchasePayments,
+  pgPurchasePayments,
 } from '../schema/purchase';
 
 import { MasterDataRepository } from './masters.repository';
@@ -84,6 +88,16 @@ export class PurchaseReturnsRepository extends MasterDataRepository<any> {
 export class PurchaseReturnItemsRepository extends MasterDataRepository<any> {
   constructor(db: DatabaseClient, isPostgres: boolean) {
     super(sqlitePurchaseReturnItems, pgPurchaseReturnItems, db, isPostgres);
+  }
+}
+export class PurchaseInvoiceItemsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) {
+    super(sqlitePurchaseInvoiceItems, pgPurchaseInvoiceItems, db, isPostgres);
+  }
+}
+export class PurchasePaymentsRepository extends MasterDataRepository<any> {
+  constructor(db: DatabaseClient, isPostgres: boolean) {
+    super(sqlitePurchasePayments, pgPurchasePayments, db, isPostgres);
   }
 }
 export class SupplierPriceListRepository extends MasterDataRepository<any> {

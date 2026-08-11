@@ -256,6 +256,12 @@ export class UpdatePurchaseOrderDto {
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() transportDetails?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() rejectionReason?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => POItemDto)
+  items?: POItemDto[];
 }
 export class POItemDto {
   @ApiProperty() @IsString() itemId!: string;
@@ -318,21 +324,62 @@ export class GRNItemDto {
 // PURCHASE INVOICE DTOs
 // ═════════════════════════════════════════════════════════
 export class CreatePurchaseInvoiceDto {
-  @ApiProperty() @IsString() invoiceNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() invoiceNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() supplierInvoiceNo?: string;
   @ApiProperty() @IsString() supplierId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() poId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() grnId?: string;
   @ApiProperty() @IsString() invoiceDate!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() dueDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) roundOff?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseInvoiceItemDto)
+  items?: PurchaseInvoiceItemDto[];
 }
 export class UpdatePurchaseInvoiceDto {
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() paymentStatus?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) paidAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) subTotal?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) taxAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) grandTotal?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PurchaseInvoiceItemDto)
+  items?: PurchaseInvoiceItemDto[];
+}
+
+export class PurchaseInvoiceItemDto {
+  @ApiProperty() @IsString() itemId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() poItemId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() grnItemId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() variantId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() batchNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() mfgDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() expDate?: string;
+  @ApiProperty() @IsNumber() @Min(0) quantity!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() unitId?: string;
+  @ApiProperty() @IsNumber() @Min(0) rate!: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) discountPercent?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) gstRate?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) igst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) sgst?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) cess?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() @Min(0) totalAmount?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() remarks?: string;
 }
 
 // ═════════════════════════════════════════════════════════
@@ -485,4 +532,35 @@ export class UpdatePurchaseSettingsDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() invoiceNextNumber?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() returnPrefix?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() returnNextNumber?: number;
+}
+
+// ═════════════════════════════════════════════════════════
+// PURCHASE PAYMENT DTOs (Phase 3.3 — G3 supplier payment collection)
+// ═════════════════════════════════════════════════════════
+export class CollectSupplierPaymentDto {
+  @ApiProperty() @IsString() supplierId!: string;
+  @ApiProperty() @IsString() paymentDate!: string;
+  @ApiProperty({ enum: ['cash', 'upi', 'bank', 'cheque'] })
+  @IsIn(['cash', 'upi', 'bank', 'cheque'])
+  mode!: string;
+  @ApiProperty() @IsNumber() @Min(0.01) amount!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() referenceNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() bankName?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() chequeNo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() chequeDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
+  /** Empty array = pura payment advance (invoice-free payment). */
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  invoiceIds?: string[];
+}
+
+export class ApplySupplierAdvanceDto {
+  @ApiProperty() @IsString() supplierId!: string;
+  @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) invoiceIds!: string[];
+  @ApiProperty() @IsNumber() @Min(0.01) amount!: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() paymentDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() notes?: string;
 }

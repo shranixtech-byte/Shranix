@@ -14,81 +14,116 @@
 export const KRUSHI_BILL_CSS = `
 @font-face {
   font-family: 'InvoiceFont';
-  src: local('Noto Sans Devanagari'), local('Arial');
+  src: local('Noto Sans Devanagari'), local('Mangal'), local('Segoe UI Historic'), local('Arial');
 }
 #invoice-preview, #invoice-preview * { box-sizing: border-box; }
 #invoice-preview {
-  font-family: 'InvoiceFont', Arial, Helvetica, sans-serif;
+  font-family: 'Noto Sans Devanagari', 'Mangal', 'Segoe UI Historic', 'InvoiceFont', Arial, sans-serif;
   color: #000;
+  width: 100%;
+  letter-spacing: normal;
+  font-variant-ligatures: normal;
+  font-feature-settings: "kern" 1, "liga" 1;
 }
 
-#invoice-preview .copy { border: 2px solid #000; padding: 3mm; position: relative; break-inside: avoid; page-break-inside: avoid; }
-#invoice-preview .copy + .cut-line { margin: 3mm 0; text-align: center; border-top: 1px dashed #000; position: relative; font-size: 10px; }
-#invoice-preview .cut-line span { position: relative; top: -8px; background: #fff; padding: 0 6px; }
+#invoice-preview .copy {
+  border: 2px solid #000;
+  padding: 2.5mm;
+  position: relative;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin-bottom: 1.5mm;
+  background: #fff;
+}
+#invoice-preview .copy + .cut-line {
+  margin: 1.5mm 0;
+  text-align: center;
+  border-top: 1px dashed #000;
+  position: relative;
+  font-size: 10px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
 
-#invoice-preview .badge { position: absolute; top: 0; right: 0; background: #000; color: #fff; font-weight: bold; font-size: 10px; padding: 3px 10px; z-index: 1; }
+#invoice-preview .badge { position: absolute; top: 0; right: 0; background: #000; color: #fff; font-weight: bold; font-size: 10px; padding: 2px 8px; z-index: 1; }
 #invoice-preview .badge.customer { background: #fff; color: #000; border: 1px solid #000; }
 
-#invoice-preview .doc-type { text-align: center; font-size: 10px; font-weight: bold; letter-spacing: 2px; width: 100%; }
-#invoice-preview h1.brand { text-align: center; font-size: 20px; margin: 2px 0; letter-spacing: 0.5px; }
-#invoice-preview .addr-block { text-align: center; font-size: 9.5px; line-height: 1.4; }
-#invoice-preview .gst-no { text-align: center; font-size: 11.5px; font-weight: bold; margin-top: 2px; }
+#invoice-preview .doc-type { text-align: center; font-size: 10px; font-weight: bold; letter-spacing: 1.5px; width: 100%; }
+#invoice-preview h1.brand { text-align: center; font-size: 19px; margin: 1px 0; letter-spacing: 0.5px; line-height: 1.15; }
+#invoice-preview .addr-block { text-align: center; font-size: 9.5px; line-height: 1.25; }
+#invoice-preview .gst-no { text-align: center; font-size: 11px; font-weight: bold; margin-top: 1px; }
 
 #invoice-preview .row-flex { display: flex; border: 1px solid #000; border-top: none; }
-#invoice-preview .row-flex > div { padding: 3px 6px; font-size: 9.5px; }
+#invoice-preview .row-flex > div { padding: 2.5px 5px; font-size: 9.5px; line-height: 1.25; }
 #invoice-preview .row-flex > div + div { border-left: 1px solid #000; }
 
-#invoice-preview .top-header-row { border-top: 1px solid #000; margin-top: 7mm; align-items: stretch; }
+#invoice-preview .top-header-row { border-top: none; margin-top: 0; align-items: stretch; }
 #invoice-preview .header-title-block { flex: 2.4; display: flex; flex-direction: column; justify-content: center; }
 #invoice-preview .lic-box { flex: 1.1; }
-#invoice-preview .lic-box .title { font-weight: bold; text-decoration: underline; margin-bottom: 2px; }
-#invoice-preview .lic-box div.line { display: flex; justify-content: space-between; }
-#invoice-preview .inv-meta { flex: 1; }
-#invoice-preview .inv-meta div.line { display: flex; justify-content: space-between; }
+#invoice-preview .lic-box .title { font-weight: bold; text-decoration: underline; margin-bottom: 1px; }
+#invoice-preview .lic-box div.line { display: flex; justify-content: space-between; line-height: 1.2; }
+#invoice-preview .inv-meta { flex: 1.1; font-size: 10.5px; }
+#invoice-preview .inv-meta div.line { display: flex; justify-content: space-between; line-height: 1.3; margin-bottom: 1px; }
+#invoice-preview .inv-meta div.line span:last-child { font-weight: bold; }
 #invoice-preview .cust-box { flex: 1.4; }
-#invoice-preview .cust-box div.line { margin-bottom: 1px; }
+#invoice-preview .cust-box div.line { margin-bottom: 1px; line-height: 1.25; }
 #invoice-preview .ship-box { flex: 1; }
-#invoice-preview .ship-box div.line { margin-bottom: 1px; }
+#invoice-preview .ship-box div.line { margin-bottom: 1px; line-height: 1.25; }
 
-#invoice-preview .compact-row > div { padding: 2px 6px; font-size: 8.5px; }
-#invoice-preview .compact-row div.line { margin-bottom: 0; line-height: 1.25; }
+#invoice-preview .compact-row > div { padding: 2px 5px; font-size: 8.5px; }
+#invoice-preview .compact-row div.line { margin-bottom: 0; line-height: 1.2; }
 
-#invoice-preview table.items { width: 100%; border-collapse: collapse; font-size: 9px; margin-top: -1px; }
-#invoice-preview table.items th, #invoice-preview table.items td { border-left: 1px solid #000; border-right: 1px solid #000; padding: 6px 3px; text-align: center; }
+#invoice-preview table.items { width: 100%; border-collapse: collapse; font-size: 9px; margin-top: -1px; table-layout: fixed; }
+#invoice-preview table.items th { border-left: 1px solid #000; border-right: 1px solid #000; padding: 3px 3px; text-align: center; font-weight: bold; line-height: 1.2; letter-spacing: normal; }
+#invoice-preview table.items td { border-left: 1px solid #000; border-right: 1px solid #000; padding: 2.5px 3px; text-align: center; line-height: 1.2; letter-spacing: normal; word-break: break-word; }
+#invoice-preview table.items thead { display: table-header-group; }
 #invoice-preview table.items thead th { border-top: 1px solid #000; border-bottom: 1px solid #000; }
+#invoice-preview table.items tbody tr { break-inside: avoid; page-break-inside: avoid; }
 #invoice-preview table.items tbody tr:first-child td { border-top: 1px solid #000; }
 #invoice-preview table.items tbody tr:last-child td { border-bottom: 1px solid #000; }
-#invoice-preview table.items th { font-weight: bold; }
 
-#invoice-preview .bottom-row { display: flex; border: 1px solid #000; border-top: none; }
-#invoice-preview .rupees-box { flex: 1.6; padding: 3px 6px; font-size: 9px; border-right: 1px solid #000; }
-#invoice-preview .rupees-box .rupees-line { font-weight: bold; margin-bottom: 2px; }
-#invoice-preview .rupees-box .note { line-height: 1.35; margin-top: 3px; }
+#invoice-preview table.items .col-sr { width: 3.5%; }
+#invoice-preview table.items .col-desc { width: 26%; text-align: left; }
+#invoice-preview table.items .col-mfg { width: 11.5%; }
+#invoice-preview table.items .col-batch { width: 10.5%; }
+#invoice-preview table.items .col-pkg-hsn { width: 12%; white-space: nowrap; }
+#invoice-preview table.items .col-qty { width: 4.5%; }
+#invoice-preview table.items .col-rate { width: 7.5%; }
+#invoice-preview table.items .col-amt { width: 8.5%; }
+#invoice-preview table.items .col-gst { width: 5%; white-space: nowrap; }
+#invoice-preview table.items .col-cgst { width: 5.5%; white-space: nowrap; padding-left: 1.5px; padding-right: 1.5px; }
+#invoice-preview table.items .col-sgst { width: 5.5%; white-space: nowrap; padding-left: 1.5px; padding-right: 1.5px; }
+#invoice-preview table.items .hsn-num { display: inline-block; white-space: nowrap; }
+
+#invoice-preview .bottom-row { display: flex; border: 1px solid #000; border-top: none; break-inside: avoid; page-break-inside: avoid; }
+#invoice-preview .rupees-box { flex: 1.6; padding: 2.5px 5px; font-size: 9px; border-right: 1px solid #000; }
+#invoice-preview .rupees-box .rupees-line { font-weight: bold; margin-bottom: 1px; }
+#invoice-preview .rupees-box .note { font-size: 8.5px; line-height: 1.35; margin-top: 2px; font-family: 'Noto Sans Devanagari', 'Mangal', 'Segoe UI Historic', 'InvoiceFont', Arial, sans-serif; letter-spacing: normal; }
 #invoice-preview .rupees-box .note.final { font-weight: bold; }
 
 #invoice-preview .totals-box { flex: 1.3; border-right: 1px solid #000; }
 #invoice-preview table.totals { width: 100%; border-collapse: collapse; font-size: 9px; }
 #invoice-preview table.totals th, #invoice-preview table.totals td { border: 1px solid #000; padding: 2px 4px; text-align: center; }
-#invoice-preview .deductions { padding: 3px 6px; font-size: 9px; }
+#invoice-preview .deductions { padding: 2.5px 5px; font-size: 9px; }
 #invoice-preview .deductions .line { display: flex; justify-content: space-between; margin-bottom: 1px; }
 
-#invoice-preview .bill-box { flex: 1; padding: 4px 6px; text-align: center; }
+#invoice-preview .bill-box { flex: 1; padding: 3px 5px; text-align: center; }
 #invoice-preview .bill-box .label { font-weight: bold; font-size: 10px; }
-#invoice-preview .bill-box .amount { font-weight: bold; font-size: 18px; margin-top: 4px; }
+#invoice-preview .bill-box .amount { font-weight: bold; font-size: 17px; margin-top: 3px; }
 
-#invoice-preview .sign-row { display: flex; justify-content: space-between; border: 1px solid #000; border-top: none; padding: 6px 8px; font-size: 9.5px; }
+#invoice-preview .sign-row { display: flex; justify-content: space-between; border: 1px solid #000; border-top: none; padding: 4px 6px; font-size: 9.5px; break-inside: avoid; page-break-inside: avoid; }
 #invoice-preview .sign-row .right { text-align: right; }
 
-#invoice-preview .upi-box { display: flex; align-items: center; gap: 3mm; border: 1px solid #000; border-top: none; padding: 2mm 3mm; }
-#invoice-preview .upi-qr img { width: 16mm; height: 16mm; border: 1px solid #000; padding: 1mm; }
-#invoice-preview .upi-info { font-size: 9.5px; line-height: 1.5; }
-#invoice-preview .upi-info .upi-title { font-weight: bold; font-size: 11px; letter-spacing: 1px; }
+#invoice-preview .upi-box { display: flex; align-items: center; gap: 2.5mm; border: 1px solid #000; border-top: none; padding: 1.5mm 2.5mm; break-inside: avoid; page-break-inside: avoid; }
+#invoice-preview .upi-qr img { width: 15mm; height: 15mm; border: 1px solid #000; padding: 1mm; }
+#invoice-preview .upi-info { font-size: 9px; line-height: 1.35; }
+#invoice-preview .upi-info .upi-title { font-weight: bold; font-size: 10.5px; letter-spacing: 0.5px; }
 #invoice-preview .upi-info .upi-id { font-weight: bold; margin-top: 1px; }
 #invoice-preview .upi-info .upi-note { color: #333; }
 
-#invoice-preview .barcode-row { display: flex; flex-direction: column; align-items: center; padding: 2mm 0 0; }
+#invoice-preview .barcode-row { display: flex; flex-direction: column; align-items: center; padding: 1.5mm 0 0; break-inside: avoid; page-break-inside: avoid; }
 #invoice-preview .barcode-row svg { display: block; }
-#invoice-preview .barcode-row .barcode-text { font-size: 9px; letter-spacing: 2px; margin-top: 1mm; }
+#invoice-preview .barcode-row .barcode-text { font-size: 8.5px; letter-spacing: 1.5px; margin-top: 0.5mm; }
 `;
 
 // ── Types ────────────────────────────────────────────────
@@ -266,15 +301,13 @@ export function code39Svg(value: string): string {
 const SIGNATURE_ROW = `
 <div class="sign-row">
   <div>Customer Signature ____________________</div>
-  <div class="right">For {{shopSignName}}<br>Authorised Signatory ____________________</div>
+  <div class="right">Authorised Signatory ____________________</div>
 </div>`;
 
 const CUT_LINE = `<div class="cut-line"><span>✂ CUT HERE ✂</span></div>`;
 
 const COPY_TEMPLATE = `
 <div class="copy">
-  <div class="{{badgeClass}}">{{copyLabel}}</div>
-
   <div class="row-flex top-header-row">
     <div class="lic-box">
       <div class="line"><span>Pesticides L.No</span><span>: {{pesticidesLicense}}</span></div>
@@ -368,13 +401,13 @@ export function renderKrushiBill(data: KrushiBillData): string {
   const itemsHeader = `
     <thead>
       <tr>
-        <th rowspan="2">Sr</th><th rowspan="2">Description</th><th rowspan="2">Mfg. Co.</th>
-        ${showBatch ? '<th rowspan="2">Batch/EXP</th>' : ''}
-        ${showHsn ? '<th rowspan="2">Pkg/Hsn</th>' : ''}
-        <th rowspan="2">Qty</th><th rowspan="2">Rate</th><th rowspan="2">Amount</th>
-        ${showGstCols ? '<th rowspan="2">GST %</th><th colspan="2">CGST/SGST</th>' : ''}
+        <th rowspan="2" class="col-sr">Sr</th><th rowspan="2" class="col-desc">Description</th><th rowspan="2" class="col-mfg">Mfg. Co.</th>
+        ${showBatch ? '<th rowspan="2" class="col-batch">Batch/EXP</th>' : ''}
+        ${showHsn ? '<th rowspan="2" class="col-pkg-hsn">Pkg/Hsn</th>' : ''}
+        <th rowspan="2" class="col-qty">Qty</th><th rowspan="2" class="col-rate">Rate</th><th rowspan="2" class="col-amt">Amount</th>
+        ${showGstCols ? '<th rowspan="2" class="col-gst">GST %</th><th colspan="2">CGST/SGST</th>' : ''}
       </tr>
-      ${showGstCols ? '<tr><th>CGST</th><th>SGST</th></tr>' : ''}
+      ${showGstCols ? '<tr><th class="col-cgst">CGST</th><th class="col-sgst">SGST</th></tr>' : ''}
     </thead>`;
 
   const itemsRows =
@@ -383,20 +416,20 @@ export function renderKrushiBill(data: KrushiBillData): string {
       : data.items
           .map((it, i) => {
             const batchCell = showBatch
-              ? `<td>${esc(it.batchNo || '—')}${showExp && it.expiryDate ? `<br>${formatDateDDMM(it.expiryDate)}` : ''}</td>`
+              ? `<td class="col-batch">${esc(it.batchNo || '—')}${showExp && it.expiryDate ? `<br>${formatDateDDMM(it.expiryDate)}` : ''}</td>`
               : '';
             const hsnCell = showHsn
-              ? `<td>${esc(it.pkg || '—')}${it.hsn ? `<br>${esc(it.hsn)}` : ''}</td>`
+              ? `<td class="col-pkg-hsn">${esc(it.pkg || '—')}${it.hsn ? `<br><span class="hsn-num">${esc(it.hsn)}</span>` : ''}</td>`
               : '';
             const gstCells = showGstCols
-              ? `<td>${it.gstPercent.toFixed(2)}</td><td>${fmtNum(it.cgst)}</td><td>${fmtNum(it.sgst)}</td>`
+              ? `<td class="col-gst">${it.gstPercent.toFixed(2)}</td><td class="col-cgst">${fmtNum(it.cgst)}</td><td class="col-sgst">${fmtNum(it.sgst)}</td>`
               : '';
             return `
 <tr>
-  <td>${i + 1}</td><td>${esc(it.description)}</td><td>${esc(it.mfgCo || '—')}</td>
+  <td class="col-sr">${i + 1}</td><td class="col-desc">${esc(it.description)}</td><td class="col-mfg">${esc(it.mfgCo || '—')}</td>
   ${batchCell}
   ${hsnCell}
-  <td>${it.qty}</td><td>${fmtNum(it.rate)}</td><td>${fmtNum(it.amount)}</td>
+  <td class="col-qty">${it.qty}</td><td class="col-rate">${fmtNum(it.rate)}</td><td class="col-amt">${fmtNum(it.amount)}</td>
   ${gstCells}
 </tr>`;
           })

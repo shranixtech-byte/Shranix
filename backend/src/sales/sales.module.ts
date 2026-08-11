@@ -89,6 +89,7 @@ import {
     AuditService,
   ],
   exports: [
+    CustomersService,
     SalesQuotationsService,
     SalesOrdersService,
     DeliveryChallansService,

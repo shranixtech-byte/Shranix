@@ -4,6 +4,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Header } from '@/components/header';
 import { BottomNav } from '@/components/mobile/BottomNav';
 import { Sidebar } from '@/components/sidebar';
+import { UpdateBanner } from '@/components/update-banner';
 import { useAuth } from '@/context/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { getUserLandingPath, isPathAllowed } from '@/lib/module-access';
@@ -31,7 +32,19 @@ export function AppLayout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100/80 dark:from-slate-950 dark:to-slate-900">
+    <div className="relative flex h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-900 selection:bg-emerald-500 selection:text-white dark:bg-[#071A2F] dark:text-slate-100">
+      {/* GLOBAL REUSABLE AGRICULTURAL BACKGROUND LAYER */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <img
+          src="/assets/dashboard-bg.png"
+          alt=""
+          aria-hidden="true"
+          className="h-full w-full object-cover opacity-[0.05] mix-blend-multiply dark:opacity-[0.10] dark:mix-blend-overlay"
+        />
+        {/* Subtle top atmospheric radial glow */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-emerald-500/[0.03] via-transparent to-transparent dark:from-emerald-500/[0.06]" />
+      </div>
+
       {/* Desktop sidebar - with mobile drawer */}
       {(isMobile ? mobileSidebarOpen : true) && (
         <Sidebar
@@ -41,8 +54,9 @@ export function AppLayout() {
         />
       )}
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header onToggleSidebar={handleToggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+        <UpdateBanner />
         <main
           className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-20 pt-4' : 'p-5 lg:p-8'}`}
           style={{

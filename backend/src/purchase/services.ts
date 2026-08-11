@@ -17,11 +17,74 @@ import { DatabaseService } from '../database/database.service';
 import { BaseMasterService } from '../masters/base-master.service';
 
 import { PurchaseDebitNoteService } from './debit-note.service';
+import { PurchaseNumberingService } from './purchase-numbering.service';
+
+/**
+ * Compute per-line purchase amounts (shared by PO + Invoice item persistence).
+ * honour explicit igst/cgst/sgst when provided, else split gstRate 50/50.
+ */
+export function computePurchaseLine(line: any): any {
+  const qty = Number(line?.quantity) || 0;
+  const rate = Number(line?.rate) || 0;
+  const gstRate = Number(line?.gstRate) || 0;
+  const discountPercent = Number(line?.discountPercent) || 0;
+  const lineAmount = Math.round(qty * rate * 100) / 100;
+  const discountAmount =
+    Number(line?.discountAmount) || Math.round(((lineAmount * discountPercent) / 100) * 100) / 100;
+  const taxableValue = Math.round((lineAmount - discountAmount) * 100) / 100;
+  const taxAmount = Math.round(((taxableValue * gstRate) / 100) * 100) / 100;
+  const igst = Number(line?.igst) || 0;
+  const cgst = Number(line?.cgst) || 0;
+  const sgst = Number(line?.sgst) || 0;
+  const hasExplicitSplit = igst > 0 || cgst > 0 || sgst > 0;
+  const finalIgst = igst;
+  let finalCgst = cgst;
+  let finalSgst = sgst;
+  if (!hasExplicitSplit && taxAmount > 0) {
+    finalCgst = Math.round(taxAmount * 0.5 * 100) / 100;
+    finalSgst = Math.round((taxAmount - finalCgst) * 100) / 100;
+  }
+  const totalAmount =
+    Number(line?.totalAmount) || Math.round((taxableValue + taxAmount) * 100) / 100;
+  return {
+    ...line,
+    quantity: qty,
+    rate,
+    gstRate,
+    discountPercent,
+    discountAmount,
+    taxableValue,
+    igst: finalIgst,
+    cgst: finalCgst,
+    sgst: finalSgst,
+    totalAmount,
+  };
+}
 
 @Injectable()
 export class PurchaseQuotationsService extends BaseMasterService {
-  constructor(database: DatabaseService, audit: AuditService) {
+  constructor(
+    database: DatabaseService,
+    audit: AuditService,
+    private readonly numbering: PurchaseNumberingService,
+  ) {
     super(database.purchaseQuotations, 'PurchaseQuotation', audit, 'quoteNumber');
+  }
+
+  override async create(data: any, userId?: string) {
+    // Auto-number when missing (conversion flows have no user-typed number).
+    const enriched = { ...data };
+    if (!enriched.quoteNumber) {
+      const settings = await this.numbering.loadSettings();
+      enriched.quoteNumber = await this.numbering.nextQuoteNumber(settings);
+    }
+    return super.create(enriched, userId);
+  }
+
+  /** Preview the next auto quotation number (e.g. QTN-0001). */
+  async getNextNumber(): Promise<{ nextNumber: string }> {
+    const settings = await this.numbering.loadSettings();
+    return { nextNumber: await this.numbering.nextQuoteNumber(settings) };
   }
 }
 
@@ -90,7 +153,10 @@ export class StockPostingService {
         const existingBatchResult = await batchStock?.findAll({
           page: 1,
           pageSize: 1,
-          search: batchNo,
+          filters: [
+            { field: 'batchNo', operator: 'eq', value: batchNo },
+            { field: 'itemId', operator: 'eq', value: item.itemId },
+          ],
         });
         const existingBatches = existingBatchResult?.data || [];
         const existingBatch = existingBatches.find(
@@ -113,18 +179,24 @@ export class StockPostingService {
           });
         }
 
-        // Warehouse stock update
+        // Warehouse stock update (m3 — beforeQty = existing qty)
         const existingStockResult = await this.database.warehouseStock?.findAll({
           page: 1,
-          pageSize: 100,
+          pageSize: 1,
+          filters: [
+            { field: 'warehouseId', operator: 'eq', value: warehouseId },
+            { field: 'itemId', operator: 'eq', value: item.itemId },
+          ],
         });
         const existingStocks = existingStockResult?.data || [];
         const existingStock = existingStocks.find(
           (s: any) => s.warehouseId === warehouseId && s.itemId === item.itemId,
         );
+        const beforeQty = existingStock ? Number(existingStock.quantity) || 0 : 0;
+        const afterQty = beforeQty + acceptedQty;
         if (existingStock) {
           await this.database.warehouseStock?.update(existingStock.id, {
-            quantity: (existingStock.quantity || 0) + acceptedQty,
+            quantity: afterQty,
           });
         } else {
           await this.database.warehouseStock?.create({
@@ -136,7 +208,7 @@ export class StockPostingService {
           });
         }
 
-        // Stock ledger
+        // Stock ledger (m3 — real before/after qty)
         await this.database.stockLedger?.create({
           itemId: item.itemId,
           batchNo,
@@ -145,8 +217,8 @@ export class StockPostingService {
           documentRef: grn.grnNumber,
           documentType: 'grn',
           quantity: acceptedQty,
-          beforeQty: 0,
-          afterQty: acceptedQty,
+          beforeQty,
+          afterQty,
           rate: item.rate || 0,
           amount: (item.rate || 0) * acceptedQty,
           createdBy: userId,
@@ -205,15 +277,21 @@ export class StockPostingService {
 
         const existingStockResult = await this.database.warehouseStock?.findAll({
           page: 1,
-          pageSize: 100,
+          pageSize: 1,
+          filters: [
+            { field: 'warehouseId', operator: 'eq', value: item.warehouseId },
+            { field: 'itemId', operator: 'eq', value: item.itemId },
+          ],
         });
         const existingStocks = existingStockResult?.data || [];
         const existingStock = existingStocks.find(
           (s: any) => s.warehouseId === item.warehouseId && s.itemId === item.itemId,
         );
+        const beforeQty = existingStock ? Number(existingStock.quantity) || 0 : 0;
+        const afterQty = Math.max(0, beforeQty - qty);
         if (existingStock) {
           await this.database.warehouseStock?.update(existingStock.id, {
-            quantity: Math.max(0, (existingStock.quantity || 0) - qty),
+            quantity: afterQty,
           });
         }
 
@@ -225,8 +303,8 @@ export class StockPostingService {
           documentRef: returnRecord.returnNumber,
           documentType: 'purchase_return',
           quantity: -qty,
-          beforeQty: 0,
-          afterQty: -qty,
+          beforeQty,
+          afterQty,
           rate: item.rate || 0,
           amount: -(item.rate || 0) * qty,
           createdBy: userId,
@@ -247,12 +325,24 @@ export class GrnService extends BaseMasterService {
     audit: AuditService,
     private readonly db: DatabaseService,
     private readonly stockPostingService?: StockPostingService,
+    private readonly numbering?: PurchaseNumberingService,
   ) {
     super(database.grn, 'GRN', audit, 'grnNumber');
   }
 
+  /** Preview the next auto GRN number (e.g. GRN-0001). */
+  async getNextNumber(): Promise<{ nextNumber: string }> {
+    const settings = await this.numbering?.loadSettings();
+    return { nextNumber: await this.numbering!.nextGrnNumber(settings) };
+  }
+
   async create(data: any, userId?: string) {
     const { items, ...header } = data;
+    // Auto-number when missing (auto-GRN from approved PO, conversion flows).
+    if (!header.grnNumber && this.numbering) {
+      const settings = await this.numbering.loadSettings();
+      header.grnNumber = await this.numbering.nextGrnNumber(settings);
+    }
 
     // Business rule: Check GRN does not exceed ordered quantity
     if (header.poId && items && Array.isArray(items)) {
@@ -351,7 +441,52 @@ export class GrnService extends BaseMasterService {
       await this.stockPostingService.postFromGrn(grn, userId);
     }
 
+    // M4 — PO status auto-advance: received vs ordered totals se PO header
+    // `partially_received` / `received` par update karo
+    if (grn.poId) {
+      await this.recomputePoStatus(grn.poId).catch((e) => {
+        this.logger.warn(`PO status recompute failed for ${grn.poId}: ${(e as Error).message}`);
+      });
+    }
+
     return this.findById(id);
+  }
+
+  /** PO items ke received/ordered totals se PO header status recompute. */
+  private async recomputePoStatus(poId: string): Promise<void> {
+    const poItemsQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 500,
+      fields: ['id', 'poId', 'quantity', 'receivedQuantity'],
+      filters: [{ field: 'poId', operator: 'eq', value: poId }],
+    };
+    const itemsResult = await this.db.poItems.findAll(poItemsQuery);
+    const items = itemsResult.data || [];
+    if (items.length === 0) {
+      return;
+    }
+    let totalOrdered = 0;
+    let totalReceived = 0;
+    for (const item of items) {
+      totalOrdered += Number(item.quantity) || 0;
+      totalReceived += Number(item.receivedQuantity) || 0;
+    }
+    let status: string | null = null;
+    if (totalOrdered > 0 && totalReceived >= totalOrdered - 0.005) {
+      status = 'received';
+    } else if (totalReceived > 0) {
+      status = 'partially_received';
+    }
+    if (status) {
+      const po = await this.db.purchaseOrders.findById(poId);
+      if (po && !['received', 'closed', 'cancelled'].includes(String(po.status))) {
+        await this.db.purchaseOrders.update(poId, {
+          status,
+          updatedAt: new Date().toISOString(),
+        });
+        this.logger.log(`PO ${po.poNumber} status → ${status} (auto from GRN posting)`);
+      }
+    }
   }
 }
 
@@ -365,6 +500,7 @@ export class PurchaseOrdersService extends BaseMasterService {
     database: DatabaseService,
     audit: AuditService,
     private readonly db: DatabaseService,
+    private readonly numbering: PurchaseNumberingService,
     @Optional()
     @Inject(forwardRef(() => GrnService))
     private readonly grnService?: GrnService,
@@ -379,8 +515,30 @@ export class PurchaseOrdersService extends BaseMasterService {
   }
 
   override async create(data: any, userId?: string) {
+    // Race-safety: numbering max-seq scan is read-then-write. Two concurrent
+    // creates can still allocate the same number → UNIQUE error. Retry with a
+    // fresh number (same pattern as sales order numbering).
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        return await this.createOnce(data, userId);
+      } catch (err: any) {
+        const isDuplicate = /UNIQUE|already exists|po_number|poNumber/i.test(
+          String(err?.message || ''),
+        );
+        if (!isDuplicate || attempts >= 4) {
+          throw err;
+        }
+        attempts += 1;
+      }
+    }
+    throw new BadRequestException('Could not allocate a unique purchase order number');
+  }
+
+  private async createOnce(data: any, userId?: string) {
     const settings = await this.loadSettings();
-    const enriched = { ...data };
+    const { items, ...header } = data || {};
+    const enriched = { ...header };
     // Business rule — blocked supplier cannot create a Purchase Order
     if (enriched.supplierId) {
       try {
@@ -405,14 +563,115 @@ export class PurchaseOrdersService extends BaseMasterService {
     if (!enriched.paymentTerms && settings?.defaultPaymentTerms) {
       enriched.paymentTerms = settings.defaultPaymentTerms;
     }
-    return super.create(enriched, userId);
+    // Auto-number when missing (conversion flows have no user-typed number).
+    if (!enriched.poNumber) {
+      enriched.poNumber = await this.numbering.nextPoNumber(settings);
+    }
+    const po = await super.create(enriched, userId);
+
+    // Persist line items (G1 — poItems were previously never saved)
+    if (items && Array.isArray(items) && this.db.poItems) {
+      for (const item of items) {
+        try {
+          const line = computePurchaseLine(item);
+          await this.db.poItems.create({
+            poId: po.id,
+            itemId: line.itemId,
+            variantId: line.variantId || null,
+            description: line.description || null,
+            quantity: line.quantity,
+            receivedQuantity: 0,
+            damagedQuantity: 0,
+            unitId: line.unitId || null,
+            rate: line.rate,
+            discountPercent: line.discountPercent,
+            discountAmount: line.discountAmount,
+            taxableValue: line.taxableValue,
+            gstRate: line.gstRate,
+            igst: line.igst,
+            cgst: line.cgst,
+            sgst: line.sgst,
+            cess: line.cess || 0,
+            totalAmount: line.totalAmount,
+          });
+        } catch {
+          /* best-effort: continue with remaining items */
+        }
+      }
+    }
+
+    return po;
+  }
+
+  /** Preview the next auto PO number (e.g. PO-0001). */
+  async getNextNumber(): Promise<{ nextNumber: string }> {
+    const settings = await this.loadSettings();
+    return { nextNumber: await this.numbering.nextPoNumber(settings) };
   }
 
   override async update(id: string, data: any, userId?: string) {
     const existing = await this.repository.findById(id);
-    const updated = await super.update(id, data, userId);
+    const { items, ...header } = data || {};
+    const updated = await super.update(id, header, userId);
+
+    // Line-item replacement (G1) — blocked once a GRN exists (data integrity)
+    if (items && Array.isArray(items) && this.db.poItems) {
+      const grnsRes = await this.db.grn
+        .findAll({
+          page: 1,
+          pageSize: 50,
+          filters: [{ field: 'poId', operator: 'eq', value: id }],
+        } as any)
+        .catch(() => ({ data: [] }));
+      const hasGrn = (grnsRes.data || []).some((g: any) => !g.isDeleted);
+      if (hasGrn) {
+        throw new BadRequestException(
+          'Line items cannot be edited once a GRN has been created for this order',
+        );
+      }
+      const existingItems = await this.db.poItems.findAll({
+        page: 1,
+        pageSize: 500,
+        filters: [{ field: 'poId', operator: 'eq', value: id }],
+      } as any);
+      for (const old of existingItems.data || []) {
+        try {
+          await this.db.poItems.softDelete(old.id);
+        } catch {
+          /* best-effort */
+        }
+      }
+      for (const item of items) {
+        try {
+          const line = computePurchaseLine(item);
+          await this.db.poItems.create({
+            poId: id,
+            itemId: line.itemId,
+            variantId: line.variantId || null,
+            description: line.description || null,
+            quantity: line.quantity,
+            receivedQuantity: 0,
+            damagedQuantity: 0,
+            unitId: line.unitId || null,
+            rate: line.rate,
+            discountPercent: line.discountPercent,
+            discountAmount: line.discountAmount,
+            taxableValue: line.taxableValue,
+            gstRate: line.gstRate,
+            igst: line.igst,
+            cgst: line.cgst,
+            sgst: line.sgst,
+            cess: line.cess || 0,
+            totalAmount: line.totalAmount,
+          });
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+
     // Auto GRN — PO approved hote hi GRN auto-create (settings.autoGrn) kar do
-    if (data?.status === 'approved' && existing?.status !== 'approved' && this.grnService) {
+    if (header?.status === 'approved' && existing?.status !== 'approved' && this.grnService) {
       try {
         const settings = await this.loadSettings();
         if (settings?.autoGrn) {
@@ -498,12 +757,33 @@ export class PurchaseInvoicesService extends BaseMasterService {
     database: DatabaseService,
     audit: AuditService,
     private readonly db: DatabaseService,
+    private readonly numbering: PurchaseNumberingService,
   ) {
     super(database.purchaseInvoices, 'PurchaseInvoice', audit, 'invoiceNumber');
   }
 
   override async create(data: any, userId?: string) {
-    const enriched = { ...data };
+    // Race-safety — same retry pattern as PO / sales
+    let attempts = 0;
+    while (attempts < 5) {
+      try {
+        return await this.createOnce(data, userId);
+      } catch (err: any) {
+        const isDuplicate = /UNIQUE|already exists|invoice_number|invoiceNumber/i.test(
+          String(err?.message || ''),
+        );
+        if (!isDuplicate || attempts >= 4) {
+          throw err;
+        }
+        attempts += 1;
+      }
+    }
+    throw new BadRequestException('Could not allocate a unique purchase invoice number');
+  }
+
+  private async createOnce(data: any, userId?: string) {
+    const { items, ...header } = data || {};
+    const enriched = { ...header };
     // Business rule — inactive (or blocked) supplier cannot create a Purchase Invoice
     if (enriched.supplierId) {
       try {
@@ -526,7 +806,7 @@ export class PurchaseInvoicesService extends BaseMasterService {
       }
     }
     // Product Master business rules — blocked/discontinued products cannot be purchased
-    const itemRows = Array.isArray(data?.items) ? data.items : [];
+    const itemRows = Array.isArray(items) ? items : [];
     if (itemRows.length > 0) {
       const itemIds = [...new Set(itemRows.map((i: any) => i?.itemId).filter(Boolean))] as string[];
       for (const pid of itemIds) {
@@ -550,7 +830,165 @@ export class PurchaseInvoicesService extends BaseMasterService {
         }
       }
     }
-    return super.create(enriched, userId);
+
+    // Auto-number when missing
+    if (!enriched.invoiceNumber) {
+      const settings = await this.numbering.loadSettings();
+      enriched.invoiceNumber = await this.numbering.nextInvoiceNumber(settings);
+    }
+
+    // Compute header totals from line items when not explicitly provided (G2)
+    if (itemRows.length > 0) {
+      const lines = itemRows.map(computePurchaseLine);
+      const subTotal =
+        Math.round(lines.reduce((s: number, l: any) => s + (l.taxableValue ?? 0), 0) * 100) / 100;
+      const taxAmount =
+        Math.round(
+          lines.reduce((s: number, l: any) => s + (l.igst + l.cgst + l.sgst + (l.cess || 0)), 0) *
+            100,
+        ) / 100;
+      const grandTotal =
+        Math.round(lines.reduce((s: number, l: any) => s + l.totalAmount, 0) * 100) / 100;
+      if (enriched.subTotal === undefined || enriched.subTotal === null) {
+        enriched.subTotal = subTotal;
+      }
+      if (enriched.taxAmount === undefined || enriched.taxAmount === null) {
+        enriched.taxAmount = taxAmount;
+      }
+      if (enriched.grandTotal === undefined || enriched.grandTotal === null) {
+        enriched.grandTotal = grandTotal;
+      }
+    }
+
+    // Outstanding init — balanceAmount must equal grandTotal on create (fixes
+    // supplier payable/outstanding always showing ₹0)
+    const total = Math.round((Number(enriched.grandTotal) || 0) * 100) / 100;
+    if (enriched.paymentStatus === undefined || enriched.paymentStatus === null) {
+      enriched.paymentStatus = 'unpaid';
+    }
+    if (enriched.paidAmount === undefined || enriched.paidAmount === null) {
+      enriched.paidAmount = 0;
+    }
+    if (enriched.balanceAmount === undefined || enriched.balanceAmount === null) {
+      enriched.balanceAmount = total;
+    }
+
+    const inv = await super.create(enriched, userId);
+
+    // Persist line items (G2 — invoice items were previously never saved)
+    if (itemRows.length > 0 && this.db.purchaseInvoiceItems) {
+      for (const item of itemRows) {
+        try {
+          const line = computePurchaseLine(item);
+          await this.db.purchaseInvoiceItems.create({
+            invoiceId: inv.id,
+            poItemId: line.poItemId || null,
+            grnItemId: line.grnItemId || null,
+            itemId: line.itemId,
+            variantId: line.variantId || null,
+            batchNo: line.batchNo || null,
+            mfgDate: line.mfgDate || null,
+            expDate: line.expDate || null,
+            quantity: line.quantity,
+            unitId: line.unitId || null,
+            rate: line.rate,
+            discountPercent: line.discountPercent,
+            discountAmount: line.discountAmount,
+            taxableValue: line.taxableValue,
+            gstRate: line.gstRate,
+            igst: line.igst,
+            cgst: line.cgst,
+            sgst: line.sgst,
+            cess: line.cess || 0,
+            totalAmount: line.totalAmount,
+            warehouseId: line.warehouseId || null,
+            remarks: line.remarks || null,
+          });
+        } catch {
+          /* best-effort: continue with remaining items */
+        }
+      }
+    }
+
+    return inv;
+  }
+
+  override async update(id: string, data: any, userId?: string) {
+    const existing = await this.repository.findById(id);
+    const { items, ...header } = data || {};
+    const updated = await super.update(id, header, userId);
+
+    // Line-item replacement (G2) — blocked once the invoice is posted/paid
+    if (items && Array.isArray(items) && this.db.purchaseInvoiceItems) {
+      if (['posted', 'paid'].includes(String(existing?.status))) {
+        throw new BadRequestException('Line items cannot be edited on a posted invoice');
+      }
+      const existingItems = await this.db.purchaseInvoiceItems.findAll({
+        page: 1,
+        pageSize: 500,
+        filters: [{ field: 'invoiceId', operator: 'eq', value: id }],
+      } as any);
+      for (const old of existingItems.data || []) {
+        try {
+          await this.db.purchaseInvoiceItems.softDelete(old.id);
+        } catch {
+          /* best-effort */
+        }
+      }
+      for (const item of items) {
+        try {
+          const line = computePurchaseLine(item);
+          await this.db.purchaseInvoiceItems.create({
+            invoiceId: id,
+            poItemId: line.poItemId || null,
+            grnItemId: line.grnItemId || null,
+            itemId: line.itemId,
+            variantId: line.variantId || null,
+            batchNo: line.batchNo || null,
+            mfgDate: line.mfgDate || null,
+            expDate: line.expDate || null,
+            quantity: line.quantity,
+            unitId: line.unitId || null,
+            rate: line.rate,
+            discountPercent: line.discountPercent,
+            discountAmount: line.discountAmount,
+            taxableValue: line.taxableValue,
+            gstRate: line.gstRate,
+            igst: line.igst,
+            cgst: line.cgst,
+            sgst: line.sgst,
+            cess: line.cess || 0,
+            totalAmount: line.totalAmount,
+            warehouseId: line.warehouseId || null,
+            remarks: line.remarks || null,
+          });
+        } catch {
+          /* best-effort */
+        }
+      }
+      // Recompute totals from items when the caller did not provide them
+      if (header.subTotal === undefined && header.grandTotal === undefined) {
+        const lines = items.map(computePurchaseLine);
+        const subTotal =
+          Math.round(lines.reduce((s: number, l: any) => s + (l.taxableValue ?? 0), 0) * 100) / 100;
+        const taxAmount =
+          Math.round(
+            lines.reduce((s: number, l: any) => s + (l.igst + l.cgst + l.sgst + (l.cess || 0)), 0) *
+              100,
+          ) / 100;
+        const grandTotal =
+          Math.round(lines.reduce((s: number, l: any) => s + l.totalAmount, 0) * 100) / 100;
+        await this.repository.update(id, { subTotal, taxAmount, grandTotal });
+      }
+    }
+
+    return updated;
+  }
+
+  /** Preview the next auto invoice number (e.g. PI-0001). */
+  async getNextNumber(): Promise<{ nextNumber: string }> {
+    const settings = await this.numbering.loadSettings();
+    return { nextNumber: await this.numbering.nextInvoiceNumber(settings) };
   }
 }
 
@@ -563,12 +1001,36 @@ export class PurchaseReturnsService extends BaseMasterService {
     private readonly stockPostingService?: StockPostingService,
     @Inject(forwardRef(() => PurchaseDebitNoteService))
     private readonly debitNoteService?: PurchaseDebitNoteService,
+    private readonly numbering?: PurchaseNumberingService,
   ) {
     super(database.purchaseReturns, 'PurchaseReturn', audit, 'returnNumber');
   }
 
+  /** Preview the next auto return number (e.g. PR-0001). */
+  async getNextNumber(): Promise<{ nextNumber: string }> {
+    const settings = await this.numbering?.loadSettings();
+    return { nextNumber: await this.numbering!.nextReturnNumber(settings) };
+  }
+
   async create(data: any, userId?: string) {
     const { items, ...header } = data;
+    // Auto-number when missing
+    if (!header.returnNumber && this.numbering) {
+      const settings = await this.numbering.loadSettings();
+      header.returnNumber = await this.numbering.nextReturnNumber(settings);
+    }
+
+    // M6 — return quantity > purchased/invoiced quantity not allowed.
+    // Linked invoice astil tar invoice items + already-returned quantities ke
+    // against validate (traceability). GRN-only returns skip (no invoice link).
+    if (header.invoiceId && items && Array.isArray(items) && items.length > 0) {
+      await this.validateReturnQuantities(header.invoiceId, items).catch((e) => {
+        if (e instanceof BadRequestException) {
+          throw e;
+        }
+      });
+    }
+
     const ret = await super.create(header, userId);
 
     // Save return items
@@ -594,6 +1056,78 @@ export class PurchaseReturnsService extends BaseMasterService {
     }
 
     return ret;
+  }
+
+  /**
+   * M6 — return items vs invoice items + prior returns. Har line ki qty
+   * (invoice qty - pehle se returned qty) se zyada asta tar throw karo.
+   */
+  private async validateReturnQuantities(invoiceId: string, items: any[]): Promise<void> {
+    const invItemsQuery: EnterpriseQuery = {
+      page: 1,
+      pageSize: 500,
+      fields: ['id', 'itemId', 'quantity'],
+      filters: [{ field: 'invoiceId', operator: 'eq', value: invoiceId }],
+    };
+    const invItemsRes = await this.db.purchaseInvoiceItems
+      .findAll(invItemsQuery)
+      .catch(() => ({ data: [] }));
+    const invItems = (invItemsRes as any)?.data || [];
+    if (invItems.length === 0) {
+      // Invoice bina line items (legacy) → header grandTotal-based check skip
+      return;
+    }
+
+    // Already-returned quantities (same invoice, non-cancelled returns)
+    const prevReturnsRes = await this.db.purchaseReturns.findAll({
+      page: 1,
+      pageSize: 500,
+      fields: ['id'],
+      filters: [{ field: 'invoiceId', operator: 'eq', value: invoiceId }],
+    } as any);
+    const prevReturnIds = ((prevReturnsRes as any)?.data || [])
+      .map((r: any) => r.id)
+      .filter(Boolean);
+    const returnedMap = new Map<string, number>();
+    if (prevReturnIds.length > 0) {
+      const prevItemsRes = await this.db.purchaseReturnItems.findAll({
+        page: 1,
+        pageSize: 500,
+        fields: ['itemId', 'quantity'],
+        filters: [{ field: 'returnId', operator: 'in', value: prevReturnIds }],
+      } as any);
+      for (const ri of (prevItemsRes as any)?.data || []) {
+        returnedMap.set(ri.itemId, (returnedMap.get(ri.itemId) || 0) + (Number(ri.quantity) || 0));
+      }
+    }
+
+    const qtyById = new Map<string, number>();
+    for (const invItem of invItems) {
+      qtyById.set(
+        invItem.itemId,
+        (qtyById.get(invItem.itemId) || 0) + (Number(invItem.quantity) || 0),
+      );
+    }
+
+    for (const item of items) {
+      const itemId = item.itemId;
+      if (!itemId) {
+        continue;
+      }
+      const invoiced = qtyById.get(itemId) || 0;
+      if (invoiced <= 0) {
+        // Item invoice mein nahi → likely GRN/legacy item, allow (non-blocking)
+        continue;
+      }
+      const alreadyReturned = returnedMap.get(itemId) || 0;
+      const available = Math.round((invoiced - alreadyReturned) * 100) / 100;
+      const qty = Number(item.quantity) || 0;
+      if (qty > available + 0.005) {
+        throw new BadRequestException(
+          `Return quantity ${qty} exceeds available quantity ${available} for item ${itemId} (invoiced ${invoiced}, already returned ${alreadyReturned})`,
+        );
+      }
+    }
   }
 
   async approve(id: string, userId?: string) {
@@ -787,12 +1321,36 @@ export class PurchaseDashboardService {
       status: po.status,
     }));
 
+    // ── Supplier Outstanding (M2) — unpaid purchase-invoice balances ──
+    let supplierOutstanding = 0;
+    let pendingPayments = 0;
+    try {
+      const invoicesRes = await this.database.purchaseInvoices.findAll({
+        page: 1,
+        pageSize: 10000,
+        fields: ['id', 'status', 'balanceAmount', 'dueDate', 'invoiceNumber'],
+      } as any);
+      for (const inv of invoicesRes.data || []) {
+        if (['draft', 'cancelled'].includes(String(inv.status))) {
+          continue;
+        }
+        const bal = Math.round((Number(inv.balanceAmount) || 0) * 100) / 100;
+        if (bal > 0) {
+          supplierOutstanding += bal;
+          pendingPayments += 1;
+        }
+      }
+    } catch {
+      /* best-effort: outstanding stays 0 */
+    }
+
     return {
       pendingPos,
       pendingGrns,
       todayReceipts,
       purchaseValue: monthValue,
-      supplierOutstanding: 0,
+      supplierOutstanding: Math.round(supplierOutstanding * 100) / 100,
+      pendingPayments,
       topSuppliers,
       recentPurchases,
     };
@@ -851,7 +1409,15 @@ export class PurchaseReportsService {
   }
 
   async getGstPurchaseReport(page = 1, pageSize = 50) {
-    return this.database.purchaseOrders
+    // m5 — GST report reads invoice GST breakdown (not POs)
+    return this.database.purchaseInvoices
+      .findAll({ page, pageSize })
+      .catch(() => ({ data: [], total: 0, totalPages: 0 }));
+  }
+
+  /** m6 — Purchase payment report (invoice-wise + summary). */
+  async getPaymentReport(page = 1, pageSize = 50) {
+    return this.database.purchasePayments
       .findAll({ page, pageSize })
       .catch(() => ({ data: [], total: 0, totalPages: 0 }));
   }

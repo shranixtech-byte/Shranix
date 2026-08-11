@@ -201,81 +201,96 @@ export class PurchaseDebitNoteService {
         throw new ConflictException(`Reversal journal unbalanced`);
       }
 
-      let journalCount = 0;
-      for (const entry of journalEntries) {
-        try {
+      try {
+        const accountsRes = await db.chartOfAccounts.findAll({ page: 1, pageSize: 500 } as any);
+        const accounts = accountsRes?.data || [];
+        const creditor = accounts.find(
+          (a: any) =>
+            (a.accountName || '').toLowerCase().includes('sundry creditor') ||
+            (a.accountName || '').toLowerCase().includes('supplier') ||
+            a.isControlAccount === true ||
+            a.isControlAccount === 1,
+        );
+        if (creditor) {
+          const totalDebit = journalEntries
+            .filter((e) => e.accountType === 'debit')
+            .reduce((s, e) => s + e.amount, 0);
+          const totalCredit = journalEntries
+            .filter((e) => e.accountType === 'credit')
+            .reduce((s, e) => s + e.amount, 0);
           await db.glEntries.create({
-            entryNumber: `${entryNumber}-${String(journalCount + 1).padStart(3, '0')}`,
+            entryNumber: `${entryNumber}-001`,
             entryDate: returnRecord.returnDate,
-            accountName: entry.accountName,
+            accountId: creditor.id,
+            voucherId: debitNote.id,
             voucherType: 'debit_note',
             voucherNumber: dnNumber,
-            debit: entry.accountType === 'debit' ? Math.round(entry.amount * 100) / 100 : 0,
-            credit: entry.accountType === 'credit' ? Math.round(entry.amount * 100) / 100 : 0,
-            narration: entry.narration,
+            debit: Math.round(totalDebit * 100) / 100,
+            credit: Math.round(totalCredit * 100) / 100,
+            balance: Math.round((totalDebit - totalCredit) * 100) / 100,
+            narration: journalEntries.map((e) => e.narration).join(' | '),
             partyId: returnRecord.supplierId,
             createdBy: userId,
             createdAt: now,
           });
-          journalCount++;
-        } catch (e: any) {
-          errors.push(`Journal entry failed: ${e.message}`);
-          throw new ConflictException(`Journal entry failed: ${e.message}`);
+          this.logger.log(`3/7 ✓ Reversal GL entry created for ${dnNumber}`);
+        } else {
+          this.logger.warn(`3/7 ⚠ No Sundry Creditor account — GL entry skipped`);
         }
+      } catch (e: any) {
+        this.logger.warn(`3/7 ⚠ Reversal GL entry skipped: ${e.message}`);
       }
-      this.logger.log(`3/7 ✓ ${journalCount} reversal journal entries created`);
 
-      // ── 4. GST LEDGER REVERSAL ────────────────────────
+      // ── 4. GST LEDGER REVERSAL (one row — gst_voucher_idx unique) ─
       try {
-        await db.gstLedger.create({
-          voucherId: debitNote.id,
-          voucherType: 'debit_note',
-          voucherNumber: dnNumber,
-          voucherDate: returnRecord.returnDate,
-          accountName: 'CGST Input Account',
-          taxableAmount: purchaseAmount,
-          taxAmount: cgstAmount,
-          taxRate: 0,
-          transactionType: 'INPUT_REVERSAL',
-          partyId: returnRecord.supplierId,
-          createdAt: now,
-        });
-        if (sgstAmount > 0) {
+        const gstTotal = Math.round((cgstAmount + sgstAmount) * 100) / 100;
+        if (gstTotal > 0) {
           await db.gstLedger.create({
             voucherId: debitNote.id,
             voucherType: 'debit_note',
             voucherNumber: dnNumber,
             voucherDate: returnRecord.returnDate,
-            accountName: 'SGST Input Account',
-            taxableAmount: purchaseAmount,
-            taxAmount: sgstAmount,
-            taxRate: 0,
-            transactionType: 'INPUT_REVERSAL',
-            partyId: returnRecord.supplierId,
+            gstType: 'input',
+            gstRate: 0,
+            taxableValue: purchaseAmount,
+            gstAmount: gstTotal,
+            cessAmount: 0,
+            inputOutput: 'input',
+            reverseCharge: 'no',
+            createdBy: userId,
             createdAt: now,
           });
+          this.logger.log(`4/7 ✓ GST ledger reversal created (₹${gstTotal})`);
+        } else {
+          this.logger.warn('4/7 ⚠ No GST amount — GST reversal skipped');
         }
-        this.logger.log('4/7 ✓ GST ledger reversal created');
       } catch (e: any) {
         errors.push(`GST ledger reversal failed: ${e.message}`);
         throw new ConflictException(`GST ledger reversal failed: ${e.message}`);
       }
 
-      // ── 5. SUPPLIER LEDGER ADJUSTMENT ─────────────────
+      // ── 5. SUPPLIER LEDGER ADJUSTMENT (reduce payable) ─
+      // Debit note = payable kamm; ledger_master currentBalance update karo
+      // (mirror of the payment-collection reduceSupplierBalance).
       try {
-        await db.ledgerMaster.create({
-          customerId: returnRecord.supplierId,
-          customerName: supplier.name || 'Supplier',
-          transactionType: 'debit_note',
-          transactionNo: dnNumber,
-          transactionDate: returnRecord.returnDate,
-          debit: totalAmount,
-          credit: 0,
-          runningBalance: totalAmount,
-          financialYear: (returnRecord.returnDate || now).slice(0, 7),
-          createdAt: now,
-        });
-        this.logger.log('5/7 ✓ Supplier ledger adjusted');
+        const supplierLedger = await db.ledgerMaster
+          .findById(returnRecord.supplierId)
+          .catch(() => null);
+        if (supplierLedger) {
+          const newBalance =
+            Math.round(
+              Math.max(0, Number(supplierLedger.currentBalance || 0) - totalAmount) * 100,
+            ) / 100;
+          await db.ledgerMaster.update(supplierLedger.id, {
+            currentBalance: newBalance,
+            updatedAt: now,
+          });
+          this.logger.log(
+            `5/7 ✓ Supplier ledger payable reduced (₹${totalAmount} → balance ₹${newBalance})`,
+          );
+        } else {
+          this.logger.warn('5/7 ⚠ Supplier ledger row missing — balance update skipped');
+        }
       } catch (e: any) {
         errors.push(`Supplier ledger adjustment failed: ${e.message}`);
         throw new ConflictException(`Supplier ledger adjustment failed: ${e.message}`);

@@ -12,9 +12,12 @@ import {
   Package,
   Plus,
   Printer,
+  Receipt,
   Search,
   Send,
+  Sparkles,
   Trash2,
+  UserCheck,
   X,
   ZoomIn,
   ZoomOut,
@@ -50,12 +53,11 @@ function todayISO(): string {
   return `${y}-${m}-${day}`;
 }
 
-// Date string → DD/MM/YYYY (invoice date + batch expiry dono handle karta hai)
-// ISO date (2026-08-01) ya full timestamp (2027-07-30T00:00:00.000Z) dono chalte hain
+// Date string → DD/MM/YYYY
 function formatDateDDMMYYYY(iso: string): string {
-  const [y, m, d] = iso.split('T')[0].split('-');
+  const [y, m, d] = (iso || '').split('T')[0].split('-');
   if (!y || !m || !d) {
-    return iso;
+    return iso || '--/--/----';
   }
   return `${d}/${m}/${y}`;
 }
@@ -78,14 +80,14 @@ function SummaryRow({
   bold?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="text-slate-600 dark:text-slate-300">{label}</span>
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="font-medium text-slate-500 dark:text-slate-400">{label}</span>
       <span
         className={cn(
-          'tabular-nums',
+          'font-poppins tabular-nums',
           bold
-            ? 'text-base font-bold text-slate-900 dark:text-slate-100'
-            : 'font-semibold text-slate-800 dark:text-slate-200',
+            ? 'text-xs font-extrabold text-slate-900 dark:text-slate-100'
+            : 'font-bold text-slate-800 dark:text-slate-200',
           className,
         )}
       >
@@ -95,12 +97,12 @@ function SummaryRow({
   );
 }
 
-// Keyboard key chip — shortcut hints ke liye (F2, F3, ...)
+// Keyboard key chip — shortcut hints (F2, F3, ...)
 function Kbd({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <kbd
       className={cn(
-        'inline-flex h-5 min-w-[22px] shrink-0 items-center justify-center rounded border border-slate-300 bg-slate-100 px-1 font-mono text-[10px] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300',
+        'shadow-2xs inline-flex h-4 min-w-[18px] shrink-0 items-center justify-center rounded border border-slate-200/80 bg-slate-100 px-1 font-mono text-[9px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
         className,
       )}
     >
@@ -109,33 +111,36 @@ function Kbd({ children, className }: { children: React.ReactNode; className?: s
   );
 }
 
-// Shortcut list — fixed left rail aur mobile strip dono me reuse
+// Shortcut list — left rail
 function ShortcutItems({ className }: { className?: string }) {
   return (
     <ul className={className}>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>F2</Kbd> Customer
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>New Inv</span> <Kbd>F12</Kbd>
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>F3</Kbd> Product
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Customer</span> <Kbd>F2</Kbd>
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>F4</Kbd> Payment
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Product</span> <Kbd>F3</Kbd>
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>F5</Kbd> Save
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Payment</span> <Kbd>F4</Kbd>
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>F6</Kbd> Save &amp; Print
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Save Post</span> <Kbd>F5</Kbd>
       </li>
-      <li className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-        <Kbd>Esc</Kbd> Cancel
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Save Print</span> <Kbd>F6</Kbd>
+      </li>
+      <li className="flex items-center justify-between text-[11px] font-medium text-slate-500 dark:text-slate-400">
+        <span>Cancel</span> <Kbd>Esc</Kbd>
       </li>
     </ul>
   );
 }
 
-// Indian financial year in SHORT format (backend ke format se match): e.g. 2026-27
+// Indian financial year SHORT — e.g. 2026-27
 export function shortFinancialYear(date: Date): string {
   const year = date.getFullYear();
   const month = date.getMonth() + 1;
@@ -144,22 +149,16 @@ export function shortFinancialYear(date: Date): string {
 }
 
 // ═════════════════════════════════════════════════════════
-// SIMPLE INVOICE PAGE — STEP BY STEP BUILD
-// (User guide kar raha hai — ek-ek cheez manually add hoga.
-//  Sab kuch EK BOX mein — Payment Mode, Invoice No, Date,
-//  aur aage aane wale customer/items bhi isi box mein add honge)
+// SIMPLE INVOICE PAGE (DENSITY OPTIMIZED FOR 100% ZOOM)
 // ═════════════════════════════════════════════════════════
 
 export type PaymentMode = 'cash' | 'credit' | 'upi';
-// Counter payment — bill ready hone par, print se pehle customer se poochhte hain: UPI ya Hard Cash
 type CounterPayment = 'upi' | 'cash';
 
 export function SimpleInvoicePage() {
   const navigate = useNavigate();
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('cash');
-  // Counter payment — default Hard Cash; bill ready hone par print ke paas UPI/Hard Cash select hota hai
   const [counterPayment, setCounterPayment] = useState<CounterPayment>('cash');
-  // Effective mode — upar Cash/Credit (sale type), niche counter par UPI/Hard Cash (sirf Cash sale mein)
   const effectivePaymentMode: PaymentMode = paymentMode === 'credit' ? 'credit' : counterPayment;
   const [invoiceDate, setInvoiceDate] = useState(todayISO);
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -167,7 +166,7 @@ export function SimpleInvoicePage() {
   const datePickerRef = useRef<HTMLInputElement>(null);
   const paidAmountRef = useRef<HTMLInputElement>(null);
 
-  // ── Customer selection ──────────────────────────────
+  // Customer selection
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
@@ -194,14 +193,14 @@ export function SimpleInvoicePage() {
   const [quickSubmitting, setQuickSubmitting] = useState(false);
   const [quickError, setQuickError] = useState<string | null>(null);
 
-  // ── Customer credit profile ────────────────────────────
+  // Customer credit profile
   const [creditProfile, setCreditProfile] = useState<CustomerCreditProfile | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
 
-  // ── Address (billing) ────────────────────────────────
+  // Address (billing)
   const [billingAddress, setBillingAddress] = useState('');
 
-  // ── Items ──────────────────────────────────────────
+  // Items
   const [itemSearch, setItemSearch] = useState('');
   const [itemOpen, setItemOpen] = useState(false);
   const [productResults, setProductResults] = useState<ProductRecord[]>([]);
@@ -210,34 +209,31 @@ export function SimpleInvoicePage() {
   const itemInputRef = useRef<HTMLInputElement>(null);
   const itemBlurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Barcode / QR scan (scanner gun) ────────────────
+  // Barcode / QR scan
   const [scanOpen, setScanOpen] = useState(false);
 
-  // ── Pending item entry (select + qty/rate/discount) ──
+  // Pending item entry
   const [pendingProduct, setPendingProduct] = useState<ProductRecord | null>(null);
   const [pendingQty, setPendingQty] = useState('1');
   const [pendingRate, setPendingRate] = useState('');
   const [pendingDiscPct, setPendingDiscPct] = useState('0');
   const [pendingDiscAmt, setPendingDiscAmt] = useState('0');
 
-  // ── Summary (freight + paid amount) ───────────────────
+  // Summary (freight + paid amount)
   const [freight, setFreight] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
 
-  // ── UPI payment (dukandar ka UPI ID settings se) ──────
+  // UPI payment
   const [upiId, setUpiId] = useState('');
 
-  // ── Print preview modal ─────────────────────────────────
+  // Print preview modal
   const [printOpen, setPrintOpen] = useState(false);
   const [printZoom, setPrintZoom] = useState(80);
   const [printInvoiceNumber, setPrintInvoiceNumber] = useState('');
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
-  // ── Save (Done button) ────────────────────────────────
+  // Save state
   const [saving, setSaving] = useState(false);
-  // Double-click / F5+F6 ek saath — do save requests same invoice number se na jayein.
-  // useState async hota hai, isliye ref guard zaroori hai (button disabled hone se pehle
-  // hi second click aa sakta hai).
   const savingRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -245,8 +241,54 @@ export function SimpleInvoicePage() {
   const [hasSaved, setHasSaved] = useState(false);
   const [lastSaveMode, setLastSaveMode] = useState<'draft' | 'posted'>('draft');
 
-  // UPI ID load karo (bill ke QR ke liye) — pehle Banking Settings (default bank account),
-  // nahi mila to purana /sales/settings/upi fallback.
+  // Confirmation modal for unsaved changes before starting a new invoice
+  const [confirmNewOpen, setConfirmNewOpen] = useState(false);
+
+  const resetInvoiceForm = async () => {
+    setCustomerId('');
+    setCustomerName('');
+    setCustomerMobile('');
+    setCustomerEmail('');
+    setCustomerGstin('');
+    setCustomerCity('');
+    setCustomerState('');
+    setBillingAddress('');
+    setCreditProfile(null);
+    setItems([]);
+    setItemSearch('');
+    setItemOpen(false);
+    setPendingProduct(null);
+    setPendingQty('1');
+    setPendingRate('');
+    setPendingDiscPct('0');
+    setPendingDiscAmt('0');
+    setFreight('');
+    setPaidAmount('');
+    setSaveError(null);
+    setSaveSuccess(false);
+    setHasSaved(false);
+    setLastSavedNumber('');
+    setInvoiceDate(todayISO());
+    await advanceInvoiceNumber();
+  };
+
+  const handleNewInvoiceTrigger = () => {
+    const isDirty =
+      (items.length > 0 || Boolean(customerId) || Boolean(freight) || Boolean(paidAmount)) &&
+      !hasSaved;
+    if (isDirty) {
+      setConfirmNewOpen(true);
+    } else {
+      void resetInvoiceForm();
+    }
+  };
+
+  const handleConfirmNewInvoice = () => {
+    setConfirmNewOpen(false);
+    void resetInvoiceForm();
+  };
+
+  // Load UPI ID
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -264,7 +306,7 @@ export function SimpleInvoicePage() {
           return;
         }
       } catch {
-        // Banking settings unavailable → fallback
+        // Fallback
       }
       try {
         const r = await apiRequest<{ upiId?: string }>('/sales/settings/upi');
@@ -282,7 +324,7 @@ export function SimpleInvoicePage() {
     };
   }, []);
 
-  // Cleanup pending blur timers on unmount
+  // Cleanup timers
   useEffect(() => {
     return () => {
       if (itemBlurTimer.current) {
@@ -291,8 +333,7 @@ export function SimpleInvoicePage() {
     };
   }, []);
 
-  // Auto-generate invoice number — selected date + payment mode ke hisab se
-  // (cash → SLCA26-001, credit → SLCR26-001)
+  // Auto-generate invoice number
   useEffect(() => {
     if (!invoiceDate) {
       return;
@@ -315,14 +356,12 @@ export function SimpleInvoicePage() {
     };
   }, [invoiceDate, paymentMode]);
 
-  // Customer list load — popup kholne par (ps=1000, client-side filter ke liye)
-  // NOTE: backend controller reads @Query('ps') not 'pageSize' — isliye ps use karo
+  // Load customers
   const loadCustomers = async () => {
     setCustomerLoading(true);
     try {
       const res = await apiRequest<{ data: CustomerOption[] }>(`/customers?page=1&ps=1000`);
       const list = Array.isArray(res) ? res : (res?.data ?? []);
-      // Alphabetical sort — naam A→Z (case-insensitive), popup me aasani se dhundhne ke liye
       list.sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
       setCustomers(list);
     } catch {
@@ -332,7 +371,7 @@ export function SimpleInvoicePage() {
     }
   };
 
-  // Fetch products when item search changes (debounced)
+  // Fetch products
   useEffect(() => {
     if (!itemOpen) {
       return;
@@ -346,7 +385,6 @@ export function SimpleInvoicePage() {
         }
         const res = await apiRequest<{ data: ProductRecord[] }>(`/inventory/products?${params}`);
         const list = Array.isArray(res) ? res : (res?.data ?? []);
-        // Alphabetical sort — naam A→Z (case-insensitive)
         list.sort((a, b) =>
           (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()),
         );
@@ -366,7 +404,6 @@ export function SimpleInvoicePage() {
     void loadCustomers();
   };
 
-  // Item search kholo + input focus karo (click aur F3 dono ke liye)
   const openItemSearch = () => {
     if (itemBlurTimer.current) {
       clearTimeout(itemBlurTimer.current);
@@ -377,11 +414,10 @@ export function SimpleInvoicePage() {
     requestAnimationFrame(() => itemInputRef.current?.focus());
   };
 
-  // Popup mein naam ya mobile number se search (client-side — mobile JSON notes mein hai)
+  // Filtered customer list
   const filteredCustomers = useMemo(() => {
     const q = customerModalQuery.trim().toLowerCase();
     const digits = q.replace(/\D/g, '');
-    // Hamesha nayi sorted list — state ko mutate nahi karte
     const filtered = customers.filter((c) => {
       if (!q) {
         return true;
@@ -397,13 +433,85 @@ export function SimpleInvoicePage() {
         mobileRaw.includes(q)
       );
     });
-    // Alphabetical sort — naam A→Z (case-insensitive)
     return filtered.sort((a, b) =>
       (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()),
     );
   }, [customers, customerModalQuery]);
 
-  // ── Items: select product → fill boxes → Add ─────────
+  // Select customer
+  const selectCustomer = async (c: CustomerOption) => {
+    setCustomerId(c.id);
+    setCustomerName(c.name);
+    setCustomerMobile(c.mobile || '');
+    setCustomerEmail(c.email || '');
+    setCustomerGstin(c.gstin || '');
+    setCustomerCity(c.city || '');
+    setCustomerState(c.state || '');
+    setBillingAddress([c.address, c.city, c.state, c.pin].filter(Boolean).join(', '));
+    setCustomerModalOpen(false);
+    setSaveSuccess(false);
+    setHasSaved(false);
+    setSaveError(null);
+
+    // Fetch credit profile
+    setCreditLoading(true);
+    try {
+      const prof = await getCreditCustomer(c.id);
+      setCreditProfile(prof);
+    } catch {
+      setCreditProfile(null);
+    } finally {
+      setCreditLoading(false);
+    }
+  };
+
+  // Quick-create submit
+  const handleQuickCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickForm.name.trim()) {
+      setQuickError('Customer name is required');
+      return;
+    }
+    setQuickSubmitting(true);
+    setQuickError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: quickForm.name.trim(),
+        mobile: quickForm.mobile.trim() || undefined,
+        email: quickForm.email.trim() || undefined,
+        gstin: quickForm.gstin.trim() || undefined,
+        city: quickForm.city.trim() || undefined,
+        creditLimit: quickForm.creditLimit ? parseFloat(quickForm.creditLimit) : 0,
+        creditDays: quickForm.creditDays ? parseInt(quickForm.creditDays, 10) : 0,
+      };
+      const created = await apiRequest<CustomerOption>('/customers', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (created?.id) {
+        await selectCustomer(created);
+        setQuickForm({
+          name: '',
+          mobile: '',
+          email: '',
+          gstin: '',
+          city: '',
+          creditLimit: '',
+          creditDays: '',
+        });
+        setQuickOpen(false);
+      } else {
+        setQuickError('Customer created, but response was incomplete.');
+      }
+    } catch (err) {
+      setQuickError((err as Error).message || 'Failed to create customer');
+    } finally {
+      setQuickSubmitting(false);
+    }
+  };
+
+  // Product selection
   const selectProduct = (p: ProductRecord) => {
     setPendingProduct(p);
     setPendingQty('1');
@@ -417,7 +525,6 @@ export function SimpleInvoicePage() {
     setSaveError(null);
   };
 
-  // Product + qty/rate/discount → InvoiceLineItem (search aur gun-scan dono reuse karte hain)
   const buildInvoiceLine = (
     product: ProductRecord,
     qty: number,
@@ -425,11 +532,9 @@ export function SimpleInvoicePage() {
     discPct: number,
     discAmt: number,
   ): InvoiceLineItem => {
-    // Discount: % + ₹ dono combine karke ek flat value banate hain (recomputeLine ke liye)
     const gross = qty * rate;
     const pctDisc = gross * (discPct / 100);
     const totalDisc = pctDisc + discAmt;
-    // First available batch → batch no + expiry auto-fill (agar product ke batches hon)
     const firstBatch = product.batches?.find((b) => b.availableQty > 0) ?? product.batches?.[0];
     return recomputeLine({
       productId: product.id,
@@ -460,14 +565,12 @@ export function SimpleInvoicePage() {
     const discPct = Math.min(100, Math.max(0, parseFloat(pendingDiscPct) || 0));
     const discAmt = Math.max(0, parseFloat(pendingDiscAmt) || 0);
     if (qty <= 0 || rate <= 0) {
-      setSaveError('Qty aur Rate dono 0 se bade hone chahiye');
+      setSaveError('Qty and Rate must be greater than zero');
       return;
     }
-    // First available batch → merge key ke liye
     const firstBatch =
       pendingProduct.batches?.find((b) => b.availableQty > 0) ?? pendingProduct.batches?.[0];
     const line = buildInvoiceLine(pendingProduct, qty, rate, discPct, discAmt);
-    // Same product + same batch dobara add kiya → qty merge karke ek hi line (nayi line nahi)
     setItems((prev) => {
       const existing = prev.find(
         (i) => i.productId === pendingProduct.id && i.batchNo === (firstBatch?.batchNo ?? ''),
@@ -479,7 +582,6 @@ export function SimpleInvoicePage() {
       }
       return [...prev, line];
     });
-    // Reset pending entry
     setPendingProduct(null);
     setPendingQty('1');
     setPendingRate('');
@@ -490,7 +592,6 @@ export function SimpleInvoicePage() {
     setSaveError(null);
   };
 
-  // Gun-scan se mila product → qty 1 ke saath turant add (pehle se hai to qty +1)
   const handleScannedProduct = (product: ProductRecord) => {
     const qty = 1;
     const rate = Number(product.salesRate) || 0;
@@ -502,7 +603,7 @@ export function SimpleInvoicePage() {
       );
       if (existing) {
         return prev.map((i) =>
-          i.id === existing.id ? recomputeLine({ ...i, quantity: i.quantity + qty }) : i,
+          i.id === existing.id ? recomputeLine({ ...i, quantity: i.quantity + 1 }) : i,
         );
       }
       return [...prev, line];
@@ -537,134 +638,58 @@ export function SimpleInvoicePage() {
     setSaveError(null);
   };
 
+  // Computations & Totals
   const totals = useMemo(() => {
-    const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-    const itemTotal = items.reduce((s, i) => s + i.quantity * i.rate, 0);
-    const subTotal = items.reduce((s, i) => s + i.taxableAmount, 0);
-    const discountAmount = items.reduce((s, i) => s + i.discountValue, 0);
-    // Weighted avg discount % (itemTotal se)
-    const discountPercent =
-      itemTotal > 0 ? Math.round((discountAmount / itemTotal) * 10000) / 100 : 0;
-    const taxAmount = items.reduce((s, i) => s + i.gstAmount, 0);
-    const grandTotal = items.reduce((s, i) => s + i.amount, 0);
-    const cgstTotal = items.reduce((s, i) => s + i.cgstAmount, 0);
-    const sgstTotal = items.reduce((s, i) => s + i.sgstAmount, 0);
-    const igstTotal = items.reduce((s, i) => s + i.igstAmount, 0);
-    const cessTotal = items.reduce((s, i) => s + i.cessAmount, 0);
+    const totalQty = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    const itemTotal = items.reduce(
+      (s, i) => s + (Number(i.quantity) || 0) * (Number(i.rate) || 0),
+      0,
+    );
+    const discountAmount = items.reduce((s, i) => s + (Number(i.discountValue) || 0), 0);
+    const subTotal = itemTotal - discountAmount;
+    const discountPercent = itemTotal > 0 ? (discountAmount / itemTotal) * 100 : 0;
+    const taxAmount = items.reduce((s, i) => s + (Number(i.gstAmount) || 0), 0);
+    const cgstTotal = items.reduce((s, i) => s + (Number(i.cgstAmount) || 0), 0);
+    const sgstTotal = items.reduce((s, i) => s + (Number(i.sgstAmount) || 0), 0);
+    const igstTotal = items.reduce((s, i) => s + (Number(i.igstAmount) || 0), 0);
+    const cessTotal = items.reduce((s, i) => s + (Number(i.cessAmount) || 0), 0);
+    const grandTotal = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+
     return {
       totalQty,
       itemTotal,
-      subTotal,
       discountAmount,
-      discountPercent,
+      discountPercent: Math.round(discountPercent * 100) / 100,
+      subTotal,
       taxAmount,
-      grandTotal,
       cgstTotal,
       sgstTotal,
       igstTotal,
       cessTotal,
+      grandTotal,
     };
   }, [items]);
 
-  // Summary — freight + round off + paid/balance/change-return
-  // Cash bill: customer zyada paise de toh Change Return (e.g. ₹485 bill, ₹500 diye → ₹15 wapas)
   const summary = useMemo(() => {
     const freightVal = Math.max(0, parseFloat(freight) || 0);
-    const paidVal = Math.max(0, parseFloat(paidAmount) || 0);
     const netBillTotal = totals.grandTotal + freightVal;
-    const netBillAmt = Math.round(netBillTotal * 100) / 100;
-    const roundOff = Math.round(netBillAmt) - netBillAmt;
-    const finalAmt = Math.round(netBillAmt);
-    const balance = Math.max(0, Math.round((finalAmt - paidVal) * 100) / 100); // kam paise diye → baki
-    const changeReturn = paidVal > finalAmt ? Math.round((paidVal - finalAmt) * 100) / 100 : 0; // zyada diye → wapas
+    const finalAmt = Math.round(netBillTotal);
+    const roundOff = Math.round((finalAmt - netBillTotal) * 100) / 100;
+    const paidVal = Math.max(0, parseFloat(paidAmount) || 0);
+    const balance = Math.max(0, finalAmt - paidVal);
+    const changeReturn = Math.max(0, paidVal - finalAmt);
+
     return {
       freightVal,
-      paidVal,
       netBillTotal,
-      netBillAmt,
       roundOff,
       finalAmt,
+      paidVal,
       balance,
       changeReturn,
     };
   }, [totals.grandTotal, freight, paidAmount]);
 
-  const selectCustomer = (c: CustomerOption) => {
-    setCustomerId(c.id);
-    setCustomerName(c.name);
-    setCustomerMobile(c.mobile ?? '');
-    setCustomerEmail(c.email ?? '');
-    setCustomerGstin(c.gstin ?? '');
-    setCustomerCity(c.city ?? '');
-    setCustomerState(c.state ?? '');
-    // Address auto-fill — customer ki saved address/city/state/pin se (bina dobara type kiye)
-    const addrParts = [c.address, [c.city, c.state, c.pin].filter(Boolean).join(', ')].filter(
-      Boolean,
-    );
-    setBillingAddress(addrParts.join(', '));
-    setCustomerModalOpen(false);
-    setSaveSuccess(false);
-    setHasSaved(false);
-    setSaveError(null);
-    // Credit limit + bacha hua amount fetch karo
-    setCreditProfile(null);
-    setCreditLoading(true);
-    getCreditCustomer(c.id)
-      .then((profile) => setCreditProfile(profile as CustomerCreditProfile))
-      .catch(() => setCreditProfile(null))
-      .finally(() => setCreditLoading(false));
-  };
-
-  const handleQuickCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!quickForm.name.trim()) {
-      return;
-    }
-    setQuickSubmitting(true);
-    setQuickError(null);
-    try {
-      const payload: Record<string, unknown> = Object.fromEntries(
-        Object.entries(quickForm).filter(([, v]) => v !== ''),
-      );
-      if (payload.creditLimit) {
-        payload.creditLimit = Number(payload.creditLimit);
-      }
-      if (payload.creditDays) {
-        payload.creditDays = Number(payload.creditDays);
-      }
-      const result = await apiRequest<Record<string, unknown>>('/customers', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      const customer = ((result as { data?: CustomerOption } | null)?.data ??
-        result) as CustomerOption | null;
-      if (customer?.id) {
-        selectCustomer(customer);
-        setQuickForm({
-          name: '',
-          mobile: '',
-          email: '',
-          gstin: '',
-          city: '',
-          creditLimit: '',
-          creditDays: '',
-        });
-        setQuickOpen(false);
-      } else {
-        setQuickError('Customer created, but response was incomplete.');
-      }
-    } catch (err) {
-      setQuickError((err as Error).message || 'Failed to create customer');
-    } finally {
-      setQuickSubmitting(false);
-    }
-  };
-
-  // ── Save: invoice ko backend mein save karo (draft) / save + post (final) ──
-  // mode 'draft' = sirf draft save · mode 'posted' = draft create karke posting engine chalao (stock deduct)
-  // Returns: saved invoice number (success) ya null (failure — error message set ho jati hai)
-  // Next number nikal lo — taaki agla invoice naye number se bane (409 na aaye)
   const advanceInvoiceNumber = async () => {
     const next = await fetchNextInvoiceNumber(invoiceDate, paymentMode).catch(() => '');
     if (next) {
@@ -676,20 +701,19 @@ export function SimpleInvoicePage() {
     setSaveError(null);
     setSaveSuccess(false);
     setHasSaved(false);
-    // Double-submit guard — pehla save chal raha ho to second call turant ignore karo
     if (savingRef.current) {
       return null;
     }
     if (!customerId) {
-      setSaveError('Pehle customer select karo');
+      setSaveError('Please select a customer first');
       return null;
     }
     if (items.length === 0) {
-      setSaveError('Pehle kam se kam ek item add karo');
+      setSaveError('Please add at least one line item');
       return null;
     }
     if (!invoiceNumber) {
-      setSaveError('Invoice number abhi generate nahi hua — thodi der ruko');
+      setSaveError('Generating invoice number, please wait...');
       return null;
     }
     setSaving(true);
@@ -717,14 +741,10 @@ export function SimpleInvoicePage() {
         sgstTotal: totals.sgstTotal,
         igstTotal: totals.igstTotal,
         cessTotal: totals.cessTotal,
-        // 0-qty rows ko save mat karo (khali line backend mein na jaye)
         items: items.filter((i) => i.quantity > 0).map(mapLineItemToPayload),
       });
-      // Backend retry par fresh invoiceNumber assign ho sakta hai (UNIQUE conflict) —
-      // isliye print/WhatsApp/email mein response ka REAL number use karo, request wala nahi.
       const savedNumber = created?.invoiceNumber || invoiceNumber;
 
-      // Final save (posted) → backend posting engine chalao (stock deduct + status posted)
       if (mode === 'posted') {
         const postRes = await apiRequest<{ success: boolean; message?: string; errors?: string[] }>(
           `/sales/invoices/${created.id}/post`,
@@ -734,24 +754,20 @@ export function SimpleInvoicePage() {
           },
         );
         if (!postRes || postRes.success === false) {
-          setSaveError(postRes?.message || 'Invoice post nahi hua — details check karo');
-          // Draft to create ho chuka hai — next number nikal lo taaki dobara save par 409 na aaye
+          setSaveError(postRes?.message || 'Failed to post invoice');
           await advanceInvoiceNumber();
           return null;
         }
-        // Email/WhatsApp sirf posted save ke baad unlock (Save Draft se nahi)
         setHasSaved(true);
       }
       setLastSavedNumber(savedNumber);
       setLastSaveMode(mode);
       setSaveSuccess(true);
-      // Next number nikal lo — taaki agla invoice naye number se bane (409 na aaye)
       await advanceInvoiceNumber();
       return savedNumber;
     } catch (err) {
-      // Create/post bich mein fail ho jaye toh draft 409 na de — number advance kar do
       await advanceInvoiceNumber();
-      setSaveError((err as Error).message || 'Invoice save nahi hua — dobara try karo');
+      setSaveError((err as Error).message || 'Failed to save invoice');
       return null;
     } finally {
       setSaving(false);
@@ -759,19 +775,16 @@ export function SimpleInvoicePage() {
     }
   };
 
-  // ── Save (F5) — final: save + post · Save Draft — sirf draft ──
   const handleSave = (): Promise<string | null> => saveInvoice('posted');
   const handleSaveDraft = (): Promise<string | null> => saveInvoice('draft');
 
-  // ── Actions: Print / WhatsApp / Email (sab pehle save/post karte hain) ──
-  // Print → pehle bill save + post hota hai, phir A4 invoice preview modal khulta hai
   const handlePrint = async () => {
     if (!customerId) {
-      setSaveError('Pehle customer select karo');
+      setSaveError('Please select a customer first');
       return;
     }
     if (items.length === 0) {
-      setSaveError('Pehle kam se kam ek item add karo');
+      setSaveError('Please add at least one line item');
       return;
     }
     const saved = await saveInvoice('posted');
@@ -783,11 +796,9 @@ export function SimpleInvoicePage() {
     setPrintOpen(true);
   };
 
-  // Real server-side PDF (Puppeteer + embedded Devanagari font) — wahi #invoice-preview
-  // HTML backend ko bhejta hai jo print modal mein dikhta hai.
   const handleDownloadPdf = async () => {
     if (!printInvoiceNumber) {
-      setSaveError('Pehle invoice save karo — phir PDF download karo');
+      setSaveError('Please save invoice first before downloading PDF');
       return;
     }
     setPdfGenerating(true);
@@ -796,13 +807,12 @@ export function SimpleInvoicePage() {
       downloadPdfBlob(blob, `${printInvoiceNumber}.pdf`);
     } catch (err) {
       console.error('[PDF] generation failed:', err);
-      setSaveError(`PDF generate nahi hua: ${(err as Error).message || 'unknown error'}`);
+      setSaveError(`PDF error: ${(err as Error).message || 'unknown error'}`);
     } finally {
       setPdfGenerating(false);
     }
   };
 
-  // Escape se print modal band
   useEffect(() => {
     if (!printOpen) {
       return;
@@ -818,11 +828,11 @@ export function SimpleInvoicePage() {
 
   const handleWhatsApp = async () => {
     if (!hasSaved || !lastSavedNumber) {
-      setSaveError('Pehle invoice Save karo — phir WhatsApp bhej sakte ho');
+      setSaveError('Please save invoice first before sharing via WhatsApp');
       return;
     }
     if (!customerMobile) {
-      setSaveError('Customer ka mobile number nahi hai — WhatsApp bhej nahi sakte');
+      setSaveError('Customer mobile number is missing');
       return;
     }
     const saved = lastSavedNumber;
@@ -836,11 +846,11 @@ export function SimpleInvoicePage() {
 
   const handleEmail = async () => {
     if (!hasSaved || !lastSavedNumber) {
-      setSaveError('Pehle invoice Save karo — phir email bhej sakte ho');
+      setSaveError('Please save invoice first before emailing');
       return;
     }
     if (!customerEmail) {
-      setSaveError('Customer ka email nahi hai — email bhej nahi sakte');
+      setSaveError('Customer email address is missing');
       return;
     }
     const saved = lastSavedNumber;
@@ -851,29 +861,31 @@ export function SimpleInvoicePage() {
     window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
   };
 
-  // Keyboard handler hamesha latest functions dekhe — stale closure se bachne ke liye
   const kbRef = useRef({
     openCustomerSearch,
     openItemSearch,
     handleSave,
     handlePrint,
     navigate,
+    handleNewInvoiceTrigger,
   });
-  kbRef.current = { openCustomerSearch, openItemSearch, handleSave, handlePrint, navigate };
+  kbRef.current = {
+    openCustomerSearch,
+    openItemSearch,
+    handleSave,
+    handlePrint,
+    navigate,
+    handleNewInvoiceTrigger,
+  };
 
-  // ── Keyboard shortcuts: mouse ke bina pura billing flow ──────────
-  // F2 = Customer · F3 = Product · F4 = Payment · F5 = Save · F6 = Save & Print · Esc = Cancel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Modal khula ho toh shortcuts page ke peeche na chalein — modal khud handle karta hai (Escape bhi).
-      // F5/F6 ke browser defaults (refresh / address-bar) phir bhi roko.
-      if (printOpen || customerModalOpen || quickOpen || scanOpen) {
-        if (e.key === 'F5' || e.key === 'F6') {
+      if (printOpen || customerModalOpen || quickOpen || scanOpen || confirmNewOpen) {
+        if (e.key === 'F5' || e.key === 'F6' || e.key === 'F12') {
           e.preventDefault();
         }
         return;
       }
-      // Esc — pehle khula item dropdown band, warna invoice cancel karke list par jao
       if (e.key === 'Escape') {
         if (itemOpen) {
           setItemOpen(false);
@@ -908,293 +920,331 @@ export function SimpleInvoicePage() {
             void kbRef.current.handlePrint();
           }
           break;
+        case 'F12':
+          e.preventDefault();
+          kbRef.current.handleNewInvoiceTrigger();
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [printOpen, customerModalOpen, quickOpen, itemOpen, saving, scanOpen]);
+  }, [printOpen, customerModalOpen, quickOpen, itemOpen, saving, scanOpen, confirmNewOpen]);
 
   return (
-    <div className="animate-in fade-in duration-300 lg:flex lg:items-start lg:gap-5">
-      {/* Left sticky rail — content area ke left edge par (desktop), sidebar ke baad */}
-      <aside className="hidden shrink-0 lg:sticky lg:top-4 lg:block lg:w-40">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800/50">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Shortcuts
-          </p>
-          <ShortcutItems className="flex flex-col gap-y-2.5" />
-        </div>
-      </aside>
-
-      {/* Content — centered remaining space */}
-      <div className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-6xl px-4 lg:px-0">
-          {/* Mobile shortcuts strip (rail sirf desktop par) */}
-          <div className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 lg:hidden dark:border-slate-700 dark:bg-slate-800/50">
-            <ShortcutItems className="flex flex-wrap gap-x-4 gap-y-1.5" />
+    <div className="animate-in fade-in relative pb-16 duration-300">
+      {/* PAGE HEADER & BREADCRUMB */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2.5 dark:border-slate-800">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('/sales/invoices')}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/50 hover:text-emerald-700 active:scale-95 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-emerald-500/40 dark:hover:bg-slate-800 dark:hover:text-emerald-400"
+            aria-label="Back to sales invoices"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+          <div>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-400">
+              <span>Sales</span>
+              <span>/</span>
+              <span>Invoices</span>
+              <span>/</span>
+              <span className="text-emerald-600 dark:text-emerald-400">Create Invoice</span>
+            </div>
+            <h1 className="font-poppins mt-0.5 flex items-center gap-2 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+              🧾 नवीन विक्री इनव्हॉइस | Create Sales Invoice
+            </h1>
           </div>
+        </div>
 
-          {/* Header */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/sales/invoices')}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
-              aria-label="Back to sales invoices"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                Create Sales Invoice
-              </h1>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Sab kuch ek hi box mein
+        {/* Header Action & Status Pills */}
+        <div className="flex items-center gap-2.5">
+          <Button
+            type="button"
+            onClick={handleNewInvoiceTrigger}
+            className="shadow-2xs h-8 gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <span>New Invoice</span>
+            <Kbd className="ml-0.5 border-emerald-400/40 bg-emerald-700/50 text-emerald-100 dark:border-emerald-400/40 dark:bg-emerald-800/80 dark:text-emerald-100">
+              F12
+            </Kbd>
+          </Button>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500" />
+            New Invoice
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            FY {invoiceDate ? shortFinancialYear(new Date(invoiceDate)) : ''}
+          </span>
+        </div>
+      </div>
+
+      <div className="lg:flex lg:items-start lg:gap-4">
+        {/* SHORTCUTS STICKY RAIL (DESKTOP) */}
+        <aside className="hidden shrink-0 lg:sticky lg:top-3 lg:block lg:w-36">
+          <div className="shadow-2xs rounded-xl border border-slate-200/80 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-2 flex items-center gap-1 border-b border-slate-100 pb-1.5 dark:border-slate-800">
+              <Sparkles className="h-3 w-3 text-emerald-500" />
+              <p className="font-poppins text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Shortcuts
               </p>
             </div>
+            <ShortcutItems className="flex flex-col gap-y-2" />
+          </div>
+        </aside>
+
+        {/* MAIN FORM CONTAINER */}
+        <div className="min-w-0 flex-1 space-y-3">
+          {/* Mobile shortcut strip */}
+          <div className="shadow-2xs rounded-lg border border-slate-200/80 bg-white px-3 py-2 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+            <ShortcutItems className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" />
           </div>
 
-          {/* Ek hi box — Payment mode + Invoice no + Date (aage items bhi yahin) */}
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {/* Payment Mode — Cash / Credit (uppar, sale ka type) */}
+          {/* DOCUMENT HEADER CARD */}
+          <div className="shadow-2xs rounded-xl border border-slate-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-2.5 flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <Receipt
+                  className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                  strokeWidth={1.75}
+                />
+                <h2 className="font-poppins text-xs font-bold text-slate-900 dark:text-white">
+                  Document & Payment Mode
+                </h2>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5">
+              {/* Payment Mode Selector */}
+              <div className="flex items-center gap-2">
+                <span className="font-poppins text-xs font-bold text-slate-700 dark:text-slate-300">
                   Payment Mode:
                 </span>
-                {(['cash', 'credit'] as const).map((mode) => (
-                  <label
-                    key={mode}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
-                  >
-                    <input
-                      type="radio"
-                      name="paymentMode"
-                      checked={paymentMode === mode}
-                      onChange={() => {
+                <div className="inline-flex rounded-lg border border-slate-200/60 bg-slate-100 p-0.5 dark:border-slate-700/60 dark:bg-slate-800">
+                  {(['cash', 'credit'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
                         setPaymentMode(mode);
                         setSaveSuccess(false);
                         setHasSaved(false);
                         setSaveError(null);
                       }}
-                      className="h-4 w-4 accent-emerald-600"
-                    />
-                    {mode === 'cash' ? 'Cash' : 'Credit'}
-                  </label>
-                ))}
+                      className={cn(
+                        'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold transition-all duration-150',
+                        paymentMode === mode
+                          ? 'shadow-2xs bg-white text-emerald-700 dark:bg-slate-700 dark:text-emerald-400'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200',
+                      )}
+                    >
+                      {mode === 'cash' ? '💵 Cash Sale' : '💳 Credit Sale'}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Invoice number — auto (financial year ke hisab se, 001 se) */}
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-6 dark:border-slate-700">
-                <Hash className="h-4 w-4 text-slate-400" />
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Invoice No:
-                </span>
-                {numberLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
-                ) : (
-                  <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-sm font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                    {invoiceNumber}
+              {/* Invoice Number */}
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                  <Hash className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                    Invoice No
+                  </p>
+                  {numberLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" />
+                  ) : (
+                    <span className="font-mono text-xs font-extrabold text-slate-900 dark:text-white">
+                      {invoiceNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Invoice Date */}
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
+                  <Calendar className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </div>
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                    Invoice Date
+                  </p>
+                  <input
+                    ref={datePickerRef}
+                    type="date"
+                    value={invoiceDate}
+                    onChange={(e) => {
+                      setInvoiceDate(e.target.value);
+                      setSaveSuccess(false);
+                      setHasSaved(false);
+                      setSaveError(null);
+                    }}
+                    className="sr-only"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        datePickerRef.current?.showPicker();
+                      } catch {
+                        datePickerRef.current?.focus();
+                      }
+                    }}
+                    className="flex items-center gap-1 font-mono text-xs font-bold text-slate-900 hover:text-emerald-600 focus:outline-none dark:text-white dark:hover:text-emerald-400"
+                  >
+                    {invoiceDate ? formatDateDDMMYYYY(invoiceDate) : '--/--/----'}
+                    <ChevronDown className="h-3 w-3 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* CUSTOMER SECTION */}
+            <div className="mt-3 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <UserCheck
+                    className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                    strokeWidth={1.75}
+                  />
+                  <span className="font-poppins text-xs font-bold text-slate-900 dark:text-white">
+                    Customer Details:
                   </span>
-                )}
-                <span className="text-[11px] text-slate-400">
-                  FY {invoiceDate ? shortFinancialYear(new Date(invoiceDate)) : ''}
-                </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openCustomerSearch}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline dark:text-emerald-400"
+                  >
+                    <Search className="h-3 w-3" /> Search Customer <Kbd>F2</Kbd>
+                  </button>
+                  <span className="text-[10px] text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickError(null);
+                      setQuickOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:underline dark:text-emerald-400"
+                  >
+                    <Plus className="h-3 w-3" /> Add Customer
+                  </button>
+                </div>
               </div>
 
-              {/* Invoice date — default aaj, DD/MM/YYYY mein dikhega, koi bhi date select kar sakte ho */}
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-6 dark:border-slate-700">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Date:
-                </span>
-                {/* Hidden native picker — value ISO (YYYY-MM-DD) mein save hota hai */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={openCustomerSearch}
+                  className={cn(
+                    'flex h-9 min-w-[220px] flex-1 items-center justify-between rounded-lg border bg-slate-50/50 px-3 text-xs font-semibold transition-all duration-150 dark:bg-slate-800/40',
+                    customerName
+                      ? 'border-emerald-500/50 text-slate-900 dark:border-emerald-500/50 dark:text-white'
+                      : 'border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500',
+                  )}
+                >
+                  <span className="truncate">
+                    {customerName || 'Select customer (Press F2)...'}
+                  </span>
+                  <Search className="ml-2 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                </button>
+
                 <input
-                  ref={datePickerRef}
-                  type="date"
-                  value={invoiceDate}
+                  type="text"
+                  value={billingAddress}
                   onChange={(e) => {
-                    setInvoiceDate(e.target.value);
+                    setBillingAddress(e.target.value);
                     setSaveSuccess(false);
                     setHasSaved(false);
                     setSaveError(null);
                   }}
-                  className="sr-only"
-                  tabIndex={-1}
-                  aria-hidden="true"
+                  placeholder="Billing / Shipping Address (Optional)"
+                  className="h-9 min-w-[200px] flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
                 />
-                {/* Display button — DD/MM/YYYY, click karne par native date picker khulta hai */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      datePickerRef.current?.showPicker();
-                    } catch {
-                      datePickerRef.current?.focus();
-                    }
-                  }}
-                  className="flex h-[34px] min-w-[110px] cursor-pointer items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-sm font-medium text-slate-800 transition-colors hover:border-emerald-500 hover:ring-2 hover:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-emerald-400"
-                  title="Date change karo"
-                >
-                  {invoiceDate ? formatDateDDMMYYYY(invoiceDate) : '--/--/----'}
-                  <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                </button>
               </div>
+
+              {/* Customer details pill row */}
+              {customerId && (customerMobile || customerEmail || customerGstin || customerCity) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                  {customerMobile && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      📞 {customerMobile}
+                    </span>
+                  )}
+                  {customerEmail && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      ✉️ {customerEmail}
+                    </span>
+                  )}
+                  {customerGstin && (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 font-bold text-sky-700 dark:text-sky-300">
+                      🏛️ GST: {customerGstin}
+                    </span>
+                  )}
+                  {customerCity && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      🏙️ {[customerCity, customerState].filter(Boolean).join(', ')}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Credit Limit Badge Bar */}
+              {customerId && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 text-[11px] dark:border-slate-800">
+                  {creditLoading ? (
+                    <span className="flex items-center gap-1 font-medium text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading credit profile...
+                    </span>
+                  ) : creditProfile ? (
+                    <>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Credit Limit:{' '}
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          ₹{(Number(creditProfile.creditLimit) || 0).toLocaleString('en-IN')}
+                        </span>
+                      </span>
+                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        Outstanding:{' '}
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          ₹{(Number(creditProfile.outstanding) || 0).toLocaleString('en-IN')}
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          'rounded-md border px-2 py-0.5 font-bold',
+                          (Number(creditProfile.availableCredit) || 0) <= 0
+                            ? 'border-red-200 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                            : (Number(creditProfile.availableCredit) || 0) <=
+                                (Number(creditProfile.creditLimit) || 0) * 0.2
+                              ? 'border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                        )}
+                      >
+                        Available Credit: ₹
+                        {(Number(creditProfile.availableCredit) || 0).toLocaleString('en-IN')}
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
 
-            {/* Line — teeno items ke baad (box ke width mein fit) */}
-            <hr className="my-4 border-t border-slate-200 dark:border-slate-700" />
-
-            {/* Customer box (chhota) + Address box (aage) */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Customer:
-              </span>
-
-              {/* Customer display box — click karne par popup khulta hai */}
-              <button
-                type="button"
-                onClick={openCustomerSearch}
-                className={cn(
-                  'flex h-[38px] w-56 items-center rounded-lg border bg-white px-3 text-sm transition-colors dark:border-slate-600 dark:bg-slate-800',
-                  customerName
-                    ? 'border-emerald-300 text-slate-900 dark:border-emerald-500/60 dark:text-slate-100'
-                    : 'border-slate-200 text-slate-400 dark:text-slate-500',
-                )}
-                title="Customer search karo (naam ya mobile) — F2"
-              >
-                <span className="flex-1 truncate text-left">
-                  {customerName || 'Customer search karo...'}
-                </span>
-                <Kbd className="ml-1.5">F2</Kbd>
-                <Search className="ml-2 h-4 w-4 shrink-0 text-slate-400" />
-              </button>
-
-              {/* Find customer button */}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={openCustomerSearch}
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-all hover:border-sky-400 hover:bg-sky-50 hover:text-sky-600 active:scale-[0.96] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-sky-500 dark:hover:bg-sky-900/20 dark:hover:text-sky-400"
-                title="Find customer"
-                aria-label="Find customer"
-              >
-                <Search className="h-4 w-4" />
-              </button>
-
-              {/* Add customer button */}
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setQuickError(null);
-                  setQuickOpen(true);
-                }}
-                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-600 active:scale-[0.96] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
-                title="Add new customer"
-                aria-label="Add new customer"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-
-              {/* Address box — aage */}
-              <span className="ml-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Address:
-              </span>
-              <input
-                type="text"
-                value={billingAddress}
-                onChange={(e) => {
-                  setBillingAddress(e.target.value);
-                  setSaveSuccess(false);
-                  setHasSaved(false);
-                  setSaveError(null);
-                }}
-                placeholder="Billing address (optional)"
-                className="h-[38px] min-w-[200px] flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
-              />
-            </div>
-
-            {/* Customer saved details — select karne par pehle se bhare huye dikhte hain (mobile/GST/email/city) */}
-            {customerId && (customerMobile || customerEmail || customerGstin || customerCity) && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                {customerMobile && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    📞 {customerMobile}
-                  </span>
-                )}
-                {customerEmail && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    ✉️ {customerEmail}
-                  </span>
-                )}
-                {customerGstin && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-sky-50 px-2 py-1 font-semibold text-sky-700 ring-1 ring-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:ring-sky-800">
-                    GST: {customerGstin}
-                  </span>
-                )}
-                {customerCity && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    🏙️ {[customerCity, customerState].filter(Boolean).join(', ')}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Credit limit info — customer select hone par */}
-            {customerId && (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                {creditLoading ? (
-                  <span className="flex items-center gap-1.5 text-slate-400">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Credit info load ho raha hai...
-                  </span>
-                ) : creditProfile ? (
-                  <>
-                    <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      Credit Limit:{' '}
-                      <span className="font-bold">
-                        ₹{(Number(creditProfile.creditLimit) || 0).toLocaleString('en-IN')}
-                      </span>
-                    </span>
-                    <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                      Used:{' '}
-                      <span className="font-bold">
-                        ₹{(Number(creditProfile.outstanding) || 0).toLocaleString('en-IN')}
-                      </span>
-                    </span>
-                    <span
-                      className={cn(
-                        'rounded-md px-2 py-1 font-medium',
-                        (Number(creditProfile.availableCredit) || 0) <= 0
-                          ? 'bg-red-50 text-red-600 ring-1 ring-red-200 dark:bg-red-950 dark:text-red-400 dark:ring-red-800'
-                          : (Number(creditProfile.availableCredit) || 0) <=
-                              (Number(creditProfile.creditLimit) || 0) * 0.2
-                            ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:ring-amber-800'
-                            : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:ring-emerald-800',
-                      )}
-                    >
-                      Bacha:{' '}
-                      <span className="font-bold">
-                        ₹{(Number(creditProfile.availableCredit) || 0).toLocaleString('en-IN')}
-                      </span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-slate-400">
-                    Credit profile nahi mila — limit 0 maan li gayi
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Quick-create customer modal (portal → document.body, form kabhi nested nahi) */}
+            {/* Quick-create customer modal */}
             <QuickCreateModal
               open={quickOpen}
               onClose={() => setQuickOpen(false)}
               title="Add New Customer"
               size="sm"
             >
-              <form onSubmit={handleQuickCreate} className="space-y-4" noValidate>
+              <form onSubmit={handleQuickCreate} className="space-y-3" noValidate>
                 {quickError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400">
                     {quickError}
@@ -1232,9 +1282,9 @@ export function SimpleInvoicePage() {
                   onChange={(e) => setQuickForm((f) => ({ ...f, gstin: e.target.value }))}
                   placeholder="GSTIN (optional)"
                 />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5">
                   <FormInput
-                    label="Udhar Limit (₹)"
+                    label="Credit Limit (₹)"
                     type="number"
                     min={0}
                     value={quickForm.creditLimit}
@@ -1242,7 +1292,7 @@ export function SimpleInvoicePage() {
                     placeholder="e.g. 50000"
                   />
                   <FormInput
-                    label="Udhar Days"
+                    label="Credit Days"
                     type="number"
                     min={0}
                     value={quickForm.creditDays}
@@ -1261,7 +1311,7 @@ export function SimpleInvoicePage() {
               </form>
             </QuickCreateModal>
 
-            {/* Customer search popup — naam ya mobile se search (Add Customer jaisa modal) */}
+            {/* Customer search modal */}
             <QuickCreateModal
               open={customerModalOpen}
               onClose={() => setCustomerModalOpen(false)}
@@ -1269,29 +1319,27 @@ export function SimpleInvoicePage() {
               size="md"
             >
               <div className="space-y-3">
-                {/* Search input — naam ya mobile */}
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={customerModalQuery}
                     onChange={(e) => setCustomerModalQuery(e.target.value)}
-                    placeholder="Naam ya mobile number se search karo..."
+                    placeholder="Search by customer name or mobile number..."
                     autoFocus
-                    className="h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+                    className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
                   />
                 </div>
 
-                {/* Customer list */}
-                <div className="max-h-72 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600">
+                <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600">
                   {customerLoading && customers.length === 0 && (
-                    <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-slate-400">
-                      <Loader2 className="h-4 w-4 animate-spin" /> Loading customers...
+                    <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-slate-400">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading customers...
                     </div>
                   )}
                   {!customerLoading && filteredCustomers.length === 0 && (
-                    <div className="px-3 py-8 text-center text-sm text-slate-400">
-                      Koi customer nahi mila — naam ya mobile number check karo
+                    <div className="px-3 py-6 text-center text-xs text-slate-400">
+                      No matching customer found
                     </div>
                   )}
                   {filteredCustomers.map((c) => {
@@ -1302,24 +1350,22 @@ export function SimpleInvoicePage() {
                         type="button"
                         onClick={() => selectCustomer(c)}
                         className={cn(
-                          'flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors',
+                          'flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors',
                           isSelected
                             ? 'bg-emerald-50 dark:bg-emerald-900/20'
                             : 'hover:bg-slate-50 dark:hover:bg-slate-700/50',
                         )}
                       >
-                        {/* Sirf naam — list chhoti rahe; select karne ke baad baaki details neeche dikhti hain */}
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
                           {c.name}
                         </span>
-                        {isSelected && <Check className="h-4 w-4 shrink-0 text-emerald-500" />}
+                        {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
                       </button>
                     );
                   })}
                 </div>
 
-                {/* Footer — naya customer yahin se add karo */}
-                <div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-700">
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-slate-700">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -1330,7 +1376,7 @@ export function SimpleInvoicePage() {
                     }}
                     className="flex items-center gap-1"
                   >
-                    <Plus className="h-4 w-4" /> New Customer
+                    <Plus className="h-3.5 w-3.5" /> New Customer
                   </Button>
                   <Button variant="primary" size="sm" onClick={() => setCustomerModalOpen(false)}>
                     Close
@@ -1338,685 +1384,523 @@ export function SimpleInvoicePage() {
                 </div>
               </div>
             </QuickCreateModal>
+          </div>
 
-            {/* ── Items: search + entry boxes + add + table + totals ──────── */}
-            <div className="mt-4">
-              {/* Item entry row — search (chhota) + Qty + Rate + Disc % + Disc ₹ + Add */}
-              <div className="flex flex-wrap items-end gap-2">
-                <span className="flex items-center gap-1.5 pb-[13px] text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Items: <Kbd>F3</Kbd>
-                </span>
-
-                {/* Item search box — baaki inputs jaisa h-11, available jagah bharti hai */}
-                <div className="relative min-w-[200px] flex-1">
-                  <div
-                    className={cn(
-                      'flex h-11 w-full cursor-pointer items-center rounded-lg border bg-white px-2.5 text-sm transition-colors dark:border-slate-600 dark:bg-slate-800',
-                      itemOpen
-                        ? 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-400'
-                        : 'border-slate-200',
-                    )}
-                    onClick={openItemSearch}
-                  >
-                    <Package className="mr-1.5 h-4 w-4 shrink-0 text-slate-400" />
-                    {itemOpen ? (
-                      <input
-                        ref={itemInputRef}
-                        type="text"
-                        value={itemSearch}
-                        onChange={(e) => setItemSearch(e.target.value)}
-                        onBlur={() => {
-                          if (itemBlurTimer.current) {
-                            clearTimeout(itemBlurTimer.current);
-                          }
-                          itemBlurTimer.current = setTimeout(() => setItemOpen(false), 200);
-                        }}
-                        placeholder="Product search..."
-                        className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        autoComplete="off"
-                      />
-                    ) : (
-                      <span className="flex-1 truncate text-slate-400 dark:text-slate-500">
-                        {pendingProduct ? pendingProduct.name : 'Product search...'}
-                      </span>
-                    )}
-                    {productLoading ? (
-                      <Loader2 className="ml-1.5 h-4 w-4 shrink-0 animate-spin text-emerald-500" />
-                    ) : (
-                      <Search className="ml-1.5 h-4 w-4 shrink-0 text-slate-400" />
-                    )}
-                  </div>
-
-                  {/* Item dropdown */}
-                  {itemOpen && (
-                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
-                      {productLoading && productResults.length === 0 && (
-                        <div className="flex items-center justify-center gap-2 px-3 py-5 text-sm text-slate-400">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Searching...
-                        </div>
-                      )}
-                      {!productLoading && productResults.length === 0 && (
-                        <div className="px-3 py-5 text-center text-sm text-slate-400">
-                          No products found
-                        </div>
-                      )}
-                      {productResults.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            selectProduct(p);
-                          }}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
-                            'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700',
-                          )}
-                        >
-                          {/* Compact row — sirf naam (chhota dikhe, list me jaldi scan ho) */}
-                          <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-                          {p.currentStock <= 0 && (
-                            <span className="shrink-0 text-[10px] font-semibold text-red-500">
-                              Out of stock
-                            </span>
-                          )}
-                          <Plus className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Barcode / QR scan button — scanner gun se dono scan hote hain */}
-                <button
-                  type="button"
-                  onClick={() => setScanOpen(true)}
-                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 active:scale-[0.96] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-500 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
-                  title="Barcode/QR scan karo (scanner gun se)"
-                >
-                  <Barcode className="h-4 w-4" />
-                  Scan
-                </button>
-
-                {/* Qty */}
-                <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Qty
-                  </span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={pendingQty}
-                    onChange={(e) => setPendingQty(e.target.value)}
-                    className="h-11 w-20 rounded-lg border border-slate-200 bg-white px-2 text-center text-sm font-medium text-slate-800 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                    aria-label="Quantity"
-                  />
-                </label>
-
-                {/* Rate */}
-                <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Rate ₹
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={pendingRate}
-                    onChange={(e) => setPendingRate(e.target.value)}
-                    placeholder="0.00"
-                    className="h-11 w-20 rounded-lg border border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:placeholder:text-slate-500"
-                    aria-label="Rate"
-                  />
-                </label>
-
-                {/* Disc % */}
-                <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Disc %
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.01}
-                    value={pendingDiscPct}
-                    onChange={(e) => setPendingDiscPct(e.target.value)}
-                    className="h-11 w-20 rounded-lg border border-slate-200 bg-white px-2 text-center text-sm font-medium text-slate-800 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                    aria-label="Discount percentage"
-                  />
-                </label>
-
-                {/* Disc ₹ */}
-                <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Disc ₹
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={pendingDiscAmt}
-                    onChange={(e) => setPendingDiscAmt(e.target.value)}
-                    className="h-11 w-20 rounded-lg border border-slate-200 bg-white px-2 text-right text-sm font-medium text-slate-800 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                    aria-label="Discount amount"
-                  />
-                </label>
-
-                {/* Add button */}
-                <button
-                  type="button"
-                  onClick={addPendingItem}
-                  disabled={!pendingProduct}
-                  className="flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-5 text-sm font-medium text-white transition-all hover:bg-emerald-700 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                  title="Item add karo"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add
-                </button>
+          {/* ITEM ENTRY & PRODUCT SELECTION SECTION */}
+          <div className="shadow-2xs rounded-xl border border-slate-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
+              <div className="flex items-center gap-1.5">
+                <Package
+                  className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+                  strokeWidth={1.75}
+                />
+                <h2 className="font-poppins text-xs font-bold text-slate-900 dark:text-white">
+                  Line Items & Product Selection
+                </h2>
               </div>
-
-              {/* Pending item hint */}
-              {pendingProduct && (
-                <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-                  <b className="text-slate-600 dark:text-slate-300">{pendingProduct.name}</b>{' '}
-                  selected — qty/rate/discount set karke{' '}
-                  <b className="text-emerald-600 dark:text-emerald-400">Add</b> dabao
-                </p>
-              )}
-
-              {/* Items table + Summary side-by-side */}
-              <div className="mt-3 flex flex-col gap-3 lg:flex-row">
-                {/* Items table — vertically thoda bada, hamesha dikhta hai */}
-                <div className="min-h-[340px] flex-1 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-                  <table className="w-full min-w-[920px] text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
-                        <th className="px-3 py-3 font-semibold">#</th>
-                        <th className="px-3 py-3 font-semibold">Item</th>
-                        <th className="px-3 py-3 font-semibold">Company</th>
-                        <th className="px-3 py-3 font-semibold">HSN</th>
-                        <th className="px-3 py-3 font-semibold">Batch No</th>
-                        <th className="px-3 py-3 font-semibold">Expiry</th>
-                        <th className="px-3 py-3 text-center font-semibold">Qty</th>
-                        <th className="px-3 py-3 text-right font-semibold">Rate ₹</th>
-                        <th className="px-3 py-3 text-right font-semibold">Disc ₹</th>
-                        <th className="px-3 py-3 text-center font-semibold">GST %</th>
-                        <th className="px-3 py-3 text-right font-semibold">Amount</th>
-                        <th className="px-3 py-3 text-center font-semibold" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                      {items.length === 0 && (
-                        <tr>
-                          <td colSpan={12} className="px-3 py-8 text-center">
-                            <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-slate-500">
-                              <Package className="h-7 w-7" />
-                              <p className="text-sm">
-                                Abhi koi item nahi — upar search karke product add karo
-                              </p>
-                              <p className="text-xs">Add hone par items yahin dikhte rahenge</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      {items.map((item, idx) => (
-                        <tr
-                          key={item.id}
-                          className={cn(
-                            'transition-colors duration-150',
-                            idx % 2 === 1 && 'bg-slate-50/70 dark:bg-slate-800/30',
-                            'hover:bg-slate-100/80 dark:hover:bg-slate-800/50',
-                          )}
-                        >
-                          <td className="px-3 py-3 text-sm text-slate-400">{idx + 1}</td>
-                          <td className="px-3 py-3">
-                            <p className="font-medium text-slate-900 dark:text-slate-100">
-                              {item.productName}
-                            </p>
-                            <p className="text-xs text-slate-400">{item.sku}</p>
-                          </td>
-                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400">
-                            {item.company || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400">
-                            {item.hsn || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400">
-                            {item.batchNo || '—'}
-                          </td>
-                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400">
-                            {item.expiryDate ? formatDateDDMMYYYY(item.expiryDate) : '—'}
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <div className="flex flex-col items-center gap-0.5">
-                              <input
-                                type="number"
-                                value={item.quantity || ''}
-                                min={1}
-                                onChange={(e) =>
-                                  updateItemQty(item.id, parseFloat(e.target.value) || 0)
-                                }
-                                className={cn(
-                                  'h-9 w-20 rounded-md border bg-white px-1.5 text-center text-sm font-medium text-slate-800 outline-none focus:ring-2 dark:bg-slate-800 dark:text-slate-200',
-                                  item.quantity > item.availableStock
-                                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500'
-                                    : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-slate-600',
-                                )}
-                                aria-label="Quantity"
-                              />
-                              {item.quantity > item.availableStock && (
-                                <span className="text-[11px] font-medium text-red-500">
-                                  Stock: {item.availableStock}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <input
-                              type="number"
-                              value={item.rate}
-                              min={0}
-                              step={0.01}
-                              onChange={(e) =>
-                                updateItemRate(item.id, parseFloat(e.target.value) || 0)
-                              }
-                              className="h-9 w-24 rounded-md border border-slate-200 bg-white px-1.5 text-right text-sm font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                              aria-label="Rate"
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            {item.discountValue > 0 ? (
-                              <span className="text-sm font-semibold text-red-500 dark:text-red-400">
-                                -{formatINR(item.discountValue)}
-                              </span>
-                            ) : (
-                              <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center text-sm text-slate-600 dark:text-slate-400">
-                            {item.gstPercent}%
-                          </td>
-                          <td className="px-3 py-3 text-right text-[15px] font-semibold text-slate-900 dark:text-slate-100">
-                            {formatINR(item.amount)}
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <button
-                              type="button"
-                              onClick={() => removeItem(item.id)}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
-                              aria-label={`Remove ${item.productName}`}
-                            >
-                              <Trash2 className="h-[18px] w-[18px]" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Summary box — side wala vertical box */}
-                <div className="w-full shrink-0 space-y-2.5 rounded-lg border border-slate-200 bg-slate-50/60 p-5 lg:w-80 dark:border-slate-700 dark:bg-slate-800/40">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    Bill Summary
-                  </p>
-
-                  <SummaryRow label="Total Qty" value={String(totals.totalQty)} />
-                  <SummaryRow label="Item Total" value={formatINR(totals.itemTotal)} />
-                  <SummaryRow
-                    label="Disc (% ₹)"
-                    value={
-                      totals.discountAmount > 0
-                        ? `-${totals.discountPercent}% (${formatINR(totals.discountAmount)})`
-                        : `${totals.discountPercent}% (${formatINR(0)})`
-                    }
-                    className={
-                      totals.discountAmount > 0
-                        ? 'text-red-500 dark:text-red-400'
-                        : 'text-slate-500 dark:text-slate-400'
-                    }
-                  />
-                  <SummaryRow label="Taxable Amt" value={formatINR(totals.subTotal)} />
-                  <SummaryRow label="Total Amt" value={formatINR(totals.grandTotal)} />
-
-                  {/* Freight & postage — editable */}
-                  <label className="flex items-center justify-between gap-2 text-sm">
-                    <span className="text-slate-600 dark:text-slate-300">Freight & Postage</span>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={freight}
-                        onChange={(e) => {
-                          setFreight(e.target.value);
-                          setSaveSuccess(false);
-                          setHasSaved(false);
-                          setSaveError(null);
-                        }}
-                        placeholder="0"
-                        className="h-8 w-24 rounded-md border border-slate-200 bg-white pl-5 pr-2 text-right text-sm font-medium text-slate-800 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                        aria-label="Freight and postage"
-                      />
-                    </div>
-                  </label>
-
-                  <SummaryRow label="Net Bill Total" value={formatINR(summary.netBillTotal)} />
-                  <SummaryRow label="Round Off" value={formatINR(summary.roundOff)} />
-
-                  <div className="border-t border-slate-200 pt-2 dark:border-slate-700">
-                    <SummaryRow label="Net Bill Amt" value={formatINR(summary.finalAmt)} bold />
-                  </div>
-
-                  {/* Paid amount — editable */}
-                  <label className="flex items-center justify-between gap-2 text-sm">
-                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                      Paid Amount <Kbd>F4</Kbd>
-                    </span>
-                    <div className="relative">
-                      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={paidAmount}
-                        ref={paidAmountRef}
-                        onChange={(e) => {
-                          setPaidAmount(e.target.value);
-                          setSaveSuccess(false);
-                          setHasSaved(false);
-                          setSaveError(null);
-                        }}
-                        placeholder="0"
-                        className="h-8 w-24 rounded-md border border-slate-200 bg-white pl-5 pr-2 text-right text-sm font-medium text-slate-800 outline-none transition-colors focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                        aria-label="Paid amount"
-                      />
-                    </div>
-                  </label>
-
-                  {/* Balance / Change Return — sirf cash me Change Return (zyada paise diye toh wapas), credit me hamesha Balance */}
-                  {paymentMode === 'cash' && summary.changeReturn > 0 ? (
-                    <div className="rounded-md bg-emerald-50 px-2.5 py-1.5 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:ring-emerald-800">
-                      <SummaryRow
-                        label="Change Return"
-                        value={formatINR(summary.changeReturn)}
-                        className="text-emerald-700 dark:text-emerald-400"
-                        bold
-                      />
-                    </div>
-                  ) : (
-                    <div className="rounded-md bg-emerald-50 px-2.5 py-1.5 dark:bg-emerald-900/20">
-                      <SummaryRow
-                        label="Balance"
-                        value={formatINR(summary.balance)}
-                        className={
-                          summary.balance > 0
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-slate-500 dark:text-slate-400'
-                        }
-                        bold
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setScanOpen(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/50 px-2.5 py-1 text-[11px] font-bold text-slate-700 transition-all hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-500"
+              >
+                <Barcode className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Scan
+                Barcode
+              </button>
             </div>
 
-            {/* Line + Action buttons (Print / WhatsApp / Email — sab pehle auto-save) */}
-            <hr className="my-4 border-t border-slate-200 dark:border-slate-700" />
-            {saveError && (
-              <div
-                className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-                role="alert"
+            {/* Item entry row */}
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="relative min-w-[200px] flex-1">
+                <label className="mb-0.5 block text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Select Product <Kbd>F3</Kbd>
+                </label>
+                <div
+                  className={cn(
+                    'flex h-9 w-full cursor-pointer items-center rounded-lg border bg-slate-50/50 px-2.5 text-xs font-semibold transition-all dark:bg-slate-800/40',
+                    itemOpen
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/20 dark:border-emerald-400'
+                      : 'border-slate-200/80 dark:border-slate-700',
+                  )}
+                  onClick={openItemSearch}
+                >
+                  <Package className="mr-1.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  {itemOpen ? (
+                    <input
+                      ref={itemInputRef}
+                      type="text"
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      onBlur={() => {
+                        if (itemBlurTimer.current) {
+                          clearTimeout(itemBlurTimer.current);
+                        }
+                        itemBlurTimer.current = setTimeout(() => setItemOpen(false), 200);
+                      }}
+                      placeholder="Search product name or SKU..."
+                      className="w-full bg-transparent text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
+                      autoComplete="off"
+                    />
+                  ) : (
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-300">
+                      {pendingProduct ? pendingProduct.name : 'Click to search product (F3)...'}
+                    </span>
+                  )}
+                  {productLoading ? (
+                    <Loader2 className="ml-1.5 h-3.5 w-3.5 shrink-0 animate-spin text-emerald-500" />
+                  ) : (
+                    <Search className="ml-1.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  )}
+                </div>
+
+                {/* Dropdown list */}
+                {itemOpen && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-auto rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                    {productLoading && productResults.length === 0 && (
+                      <div className="flex items-center justify-center gap-2 px-3 py-4 text-xs text-slate-400">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching product
+                        inventory...
+                      </div>
+                    )}
+                    {!productLoading && productResults.length === 0 && (
+                      <div className="px-3 py-4 text-center text-xs text-slate-400">
+                        No products found matching query
+                      </div>
+                    )}
+                    {productResults.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectProduct(p);
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold text-slate-800 dark:text-slate-200">
+                            {p.name}
+                          </p>
+                          <p className="text-[9px] text-slate-400">
+                            Rate: ₹{p.salesRate} · Stock: {p.currentStock}
+                          </p>
+                        </div>
+                        <Plus className="ml-2 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Qty */}
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Qty
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  value={pendingQty}
+                  onChange={(e) => setPendingQty(e.target.value)}
+                  className="h-9 w-16 rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 text-center text-xs font-bold text-slate-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+
+              {/* Rate */}
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Rate ₹
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={pendingRate}
+                  onChange={(e) => setPendingRate(e.target.value)}
+                  placeholder="0.00"
+                  className="h-9 w-20 rounded-lg border border-slate-200/80 bg-slate-50/50 px-2.5 text-right text-xs font-bold text-slate-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+
+              {/* Disc % */}
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Disc %
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={pendingDiscPct}
+                  onChange={(e) => setPendingDiscPct(e.target.value)}
+                  className="h-9 w-16 rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 text-center text-xs font-bold text-slate-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+
+              {/* Disc ₹ */}
+              <label className="flex flex-col gap-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  Disc ₹
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={pendingDiscAmt}
+                  onChange={(e) => setPendingDiscAmt(e.target.value)}
+                  className="h-9 w-20 rounded-lg border border-slate-200/80 bg-slate-50/50 px-2.5 text-right text-xs font-bold text-slate-800 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                />
+              </label>
+
+              {/* Add Button */}
+              <Button
+                variant="primary"
+                type="button"
+                onClick={addPendingItem}
+                disabled={!pendingProduct}
+                className="flex h-9 items-center gap-1 rounded-lg px-4 text-xs font-bold"
               >
+                <Plus className="h-3.5 w-3.5" /> Add Item
+              </Button>
+            </div>
+
+            {/* Item Table & Summary Section */}
+            <div className="mt-3 flex flex-col gap-3 lg:flex-row">
+              {/* High Density Table */}
+              <div className="min-h-[220px] flex-1 overflow-x-auto rounded-xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-400 dark:border-slate-800 dark:bg-slate-800/40">
+                      <th className="w-7 px-2.5 py-2 font-semibold">#</th>
+                      <th className="px-2.5 py-2 font-semibold">Product</th>
+                      <th className="px-2.5 py-2 font-semibold">HSN</th>
+                      <th className="px-2.5 py-2 font-semibold">Batch / Exp</th>
+                      <th className="px-2.5 py-2 text-center font-semibold">Qty</th>
+                      <th className="px-2.5 py-2 text-right font-semibold">Rate ₹</th>
+                      <th className="px-2.5 py-2 text-right font-semibold">Disc</th>
+                      <th className="px-2.5 py-2 text-center font-semibold">GST</th>
+                      <th className="px-2.5 py-2 text-right font-semibold">Amount</th>
+                      <th className="w-8 px-2.5 py-2 text-center font-semibold" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={10} className="py-6 text-center text-slate-400">
+                          <Package className="mx-auto mb-1 h-6 w-6 text-slate-300 dark:text-slate-600" />
+                          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                            No line items added
+                          </p>
+                          <p className="text-[10px]">
+                            Select a product above or press F3 to add items to invoice
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                    {items.map((item, idx) => (
+                      <tr
+                        key={item.id}
+                        className="group transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+                      >
+                        <td className="px-2.5 py-1.5 font-medium text-slate-400">{idx + 1}</td>
+                        <td className="px-2.5 py-1.5">
+                          <p className="font-bold text-slate-900 dark:text-white">
+                            {item.productName}
+                          </p>
+                          <p className="text-[9px] text-slate-400">{item.sku}</p>
+                        </td>
+                        <td className="px-2.5 py-1.5 font-medium text-slate-500">
+                          {item.hsn || '—'}
+                        </td>
+                        <td className="px-2.5 py-1.5 font-medium text-slate-500">
+                          {item.batchNo
+                            ? `${item.batchNo} (${formatDateDDMMYYYY(item.expiryDate)})`
+                            : '—'}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-center">
+                          <input
+                            type="number"
+                            value={item.quantity || ''}
+                            min={1}
+                            onChange={(e) =>
+                              updateItemQty(item.id, parseFloat(e.target.value) || 0)
+                            }
+                            className={cn(
+                              'h-7 w-14 rounded-md border text-center text-xs font-bold outline-none dark:bg-slate-800 dark:text-white',
+                              item.quantity > item.availableStock
+                                ? 'border-red-400 text-red-600 dark:border-red-500'
+                                : 'border-slate-200 dark:border-slate-700',
+                            )}
+                          />
+                        </td>
+                        <td className="px-2.5 py-1.5 text-right">
+                          <input
+                            type="number"
+                            value={item.rate}
+                            min={0}
+                            step={0.01}
+                            onChange={(e) =>
+                              updateItemRate(item.id, parseFloat(e.target.value) || 0)
+                            }
+                            className="h-7 w-16 rounded-md border border-slate-200 px-1.5 text-right text-xs font-bold outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                          />
+                        </td>
+                        <td className="px-2.5 py-1.5 text-right font-semibold text-red-600 dark:text-red-400">
+                          {item.discountValue > 0 ? `-${formatINR(item.discountValue)}` : '—'}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-center font-medium text-slate-500">
+                          {item.gstPercent}%
+                        </td>
+                        <td className="font-poppins px-2.5 py-1.5 text-right font-bold text-slate-900 dark:text-white">
+                          {formatINR(item.amount)}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="p-0.5 text-slate-400 transition-colors hover:text-red-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary Card */}
+              <div className="w-full shrink-0 space-y-2 rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5 lg:w-72 dark:border-slate-800 dark:bg-slate-900/60">
+                <p className="font-poppins border-b border-slate-200 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 dark:border-slate-800 dark:text-slate-300">
+                  Bill Summary
+                </p>
+
+                <SummaryRow label="Total Quantity" value={String(totals.totalQty)} />
+                <SummaryRow label="Item Gross Total" value={formatINR(totals.itemTotal)} />
+                <SummaryRow
+                  label="Total Discount"
+                  value={
+                    totals.discountAmount > 0
+                      ? `-${totals.discountPercent}% (${formatINR(totals.discountAmount)})`
+                      : '₹0.00'
+                  }
+                  className={
+                    totals.discountAmount > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'
+                  }
+                />
+                <SummaryRow label="Taxable Amount" value={formatINR(totals.subTotal)} />
+                <SummaryRow label="Tax Amount (GST)" value={formatINR(totals.taxAmount)} />
+
+                <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                  <span>Freight & Postage</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={freight}
+                    onChange={(e) => setFreight(e.target.value)}
+                    placeholder="0.00"
+                    className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-right text-xs font-bold text-slate-800 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </label>
+
+                <SummaryRow label="Round Off" value={formatINR(summary.roundOff)} />
+
+                <div className="border-t border-slate-200/80 pt-2 dark:border-slate-800">
+                  <SummaryRow label="Net Payable Amount" value={formatINR(summary.finalAmt)} bold />
+                </div>
+
+                <label className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <span>
+                    Paid Amount <Kbd>F4</Kbd>
+                  </span>
+                  <input
+                    ref={paidAmountRef}
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="h-7 w-20 rounded-md border border-slate-200 bg-white px-2 text-right text-xs font-bold text-slate-800 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </label>
+
+                {paymentMode === 'cash' && summary.changeReturn > 0 ? (
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2 dark:border-emerald-900/30 dark:bg-emerald-950/30">
+                    <SummaryRow
+                      label="Change Return"
+                      value={formatINR(summary.changeReturn)}
+                      className="text-emerald-700 dark:text-emerald-400"
+                      bold
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/80 p-2 dark:border-emerald-900/30 dark:bg-emerald-950/30">
+                    <SummaryRow
+                      label="Balance Due"
+                      value={formatINR(summary.balance)}
+                      className={
+                        summary.balance > 0
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-slate-500'
+                      }
+                      bold
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* PERSISTENT STICKY VIEWPORT ACTION BAR */}
+          <div className="sticky bottom-3 z-30 rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-lg shadow-slate-950/10 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+            {saveError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-600 dark:border-red-900/30 dark:bg-red-950/40 dark:text-red-400">
                 {saveError}
               </div>
             )}
             {saveSuccess && (
-              <div
-                className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400"
-                role="status"
-              >
+              <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-bold text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/40 dark:text-emerald-300">
                 {lastSaveMode === 'posted'
-                  ? `✅ Invoice post ho gaya! (${lastSavedNumber})`
-                  : `📝 Draft save ho gaya! (${lastSavedNumber})`}
+                  ? `✅ Invoice Posted Successfully! (${lastSavedNumber})`
+                  : `📝 Draft Invoice Saved! (${lastSavedNumber})`}
               </div>
             )}
-            {/* Counter payment — bill ready, print se pehle customer se poochho: UPI ya Hard Cash (sirf Cash sale par) */}
-            {paymentMode === 'cash' && (
-              <div className="mb-3 flex flex-wrap items-center justify-end gap-x-6 gap-y-3">
-                {(['upi', 'cash'] as const).map((cp) => (
-                  <label
-                    key={cp}
-                    className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
-                  >
-                    <input
-                      type="radio"
-                      name="counterPayment"
-                      checked={counterPayment === cp}
-                      onChange={() => {
-                        setCounterPayment(cp);
-                        setSaveSuccess(false);
-                        setHasSaved(false);
-                        setSaveError(null);
-                      }}
-                      className="h-4 w-4 accent-emerald-600"
-                    />
-                    {cp === 'upi' ? 'UPI' : 'Hard Cash'}
-                  </label>
-                ))}
 
-                {/* UPI QR — counterPayment upi par, upiId settings se (customer ko scan karne ke liye) */}
-                {counterPayment === 'upi' && (
-                  <div className="flex items-center gap-3">
-                    {upiId ? (
-                      <>
-                        <UpiQrCode
-                          upiId={upiId}
-                          name="Shranix Krushi ERP"
-                          amount={summary.finalAmt}
-                          note={`Invoice ${invoiceNumber || ''}`}
-                          size={120}
-                        />
-                        <div className="text-[11px] leading-snug text-slate-500 dark:text-slate-400">
-                          <p className="font-semibold text-emerald-600 dark:text-emerald-400">
-                            Scan to Pay — {formatINR(summary.finalAmt)}
-                          </p>
-                          <p>Customer UPI se bill ka amount scan karke pay karega</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-400">
-                        ⚠️ UPI ID set nahi hai — <b>Sales Settings</b> &gt; UPI Payment mein apna
-                        UPI ID daalo
-                      </div>
-                    )}
+            {/* Counter payment UPI option */}
+            {paymentMode === 'cash' && (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Counter Settlement:
+                  </span>
+                  {(['cash', 'upi'] as const).map((cp) => (
+                    <label
+                      key={cp}
+                      className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300"
+                    >
+                      <input
+                        type="radio"
+                        name="counterPayment"
+                        checked={counterPayment === cp}
+                        onChange={() => setCounterPayment(cp)}
+                        className="h-3.5 w-3.5 accent-emerald-600"
+                      />
+                      {cp === 'upi' ? 'UPI QR Code' : 'Hard Cash'}
+                    </label>
+                  ))}
+                </div>
+
+                {counterPayment === 'upi' && upiId && (
+                  <div className="flex items-center gap-2">
+                    <UpiQrCode
+                      upiId={upiId}
+                      name="Shranix Krushi ERP"
+                      amount={summary.finalAmt}
+                      note={invoiceNumber}
+                      size={90}
+                    />
+                    <span className="text-xs font-bold text-emerald-600">
+                      Scan to Pay ₹{summary.finalAmt}
+                    </span>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Bottom Action Bar */}
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {/* Cancel — bina save kiye list par wapas (Esc) */}
               <Button
                 variant="outline"
                 onClick={() => navigate('/sales/invoices')}
-                className="flex min-w-[110px] items-center justify-center gap-1.5 border-slate-300 bg-white text-slate-600 hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                title="Invoice cancel karke list par jao (Esc)"
+                className="h-9 rounded-lg border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
               >
-                <X className="h-4 w-4" />
-                Cancel
-                <Kbd>Esc</Kbd>
+                <X className="mr-1 h-3.5 w-3.5" /> Cancel <Kbd>Esc</Kbd>
               </Button>
 
-              {/* Save Draft — sirf draft save (post nahi) */}
               <Button
                 variant="secondary"
                 onClick={() => void handleSaveDraft()}
                 disabled={saving}
-                className="flex min-w-[130px] items-center justify-center gap-1.5 border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-300 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:border-amber-700 dark:hover:bg-amber-900/50 dark:hover:text-amber-200"
-                title="Draft save karo (post nahi hota)"
+                className="h-9 rounded-lg border border-amber-500/20 bg-amber-500/10 text-xs font-bold text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
               >
-                <FileText className="h-4 w-4" />
-                Save Draft
+                <FileText className="mr-1 h-3.5 w-3.5" /> Save Draft
               </Button>
 
-              {/* Save — final: save + post (F5) */}
               <Button
-                variant="secondary"
+                variant="primary"
                 onClick={() => void handleSave()}
                 disabled={saving}
-                className="flex min-w-[130px] items-center justify-center gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100 hover:text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/50 dark:hover:text-emerald-200"
-                title="Invoice save + post karo (F5)"
+                className="shadow-2xs h-9 rounded-lg px-5 text-xs font-bold shadow-emerald-600/30"
               >
-                <Check className="h-4 w-4" />
-                Save
-                <Kbd>F5</Kbd>
+                <Check className="mr-1 h-3.5 w-3.5" /> Save & Post <Kbd>F5</Kbd>
               </Button>
 
-              {/* Save & Print — pehle save+post, phir A4 preview (F6) */}
               <Button
                 variant="secondary"
                 onClick={handlePrint}
                 disabled={saving}
-                className="flex min-w-[150px] items-center justify-center gap-1.5 border-indigo-200 bg-indigo-50 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-100 hover:text-indigo-800 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/50 dark:hover:text-indigo-200"
-                title="Invoice save + print karo (F6)"
+                className="h-9 rounded-lg border border-indigo-500/20 bg-indigo-500/10 text-xs font-bold text-indigo-700 hover:bg-indigo-500/20 dark:text-indigo-300"
               >
-                <Printer className="h-4 w-4" />
-                Save & Print
-                <Kbd>F6</Kbd>
+                <Printer className="mr-1 h-3.5 w-3.5" /> Save & Print <Kbd>F6</Kbd>
               </Button>
 
-              {/* Email — save/post hone ke baad hi enable */}
               <Button
                 variant="secondary"
                 onClick={handleEmail}
                 disabled={!hasSaved || saving}
-                className="flex min-w-[130px] items-center justify-center gap-1.5 border-sky-200 bg-sky-50 text-sky-700 hover:border-sky-300 hover:bg-sky-100 hover:text-sky-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-300 dark:hover:border-sky-700 dark:hover:bg-sky-900/50 dark:hover:text-sky-200"
-                title={
-                  hasSaved
-                    ? 'Email se invoice bhejo'
-                    : 'Pehle invoice Save karo — phir email bhej sakte ho'
-                }
+                className="h-9 rounded-lg border border-sky-500/20 bg-sky-500/10 text-xs font-bold text-sky-700 hover:bg-sky-500/20 dark:text-sky-300"
               >
-                <Mail className="h-4 w-4" />
-                Email
+                <Mail className="mr-1 h-3.5 w-3.5" /> Email
               </Button>
 
-              {/* WhatsApp — save/post hone ke baad hi enable */}
               <Button
                 variant="secondary"
                 onClick={handleWhatsApp}
                 disabled={!hasSaved || saving}
-                className="flex min-w-[130px] items-center justify-center gap-1.5 border-green-200 bg-green-50 text-green-700 hover:border-green-300 hover:bg-green-100 hover:text-green-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-green-800 dark:bg-green-900/30 dark:text-green-300 dark:hover:border-green-700 dark:hover:bg-green-900/50 dark:hover:text-green-200"
-                title={
-                  hasSaved
-                    ? 'WhatsApp par invoice bhejo'
-                    : 'Pehle invoice Save karo — phir WhatsApp bhej sakte ho'
-                }
+                className="h-9 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-xs font-bold text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
               >
-                <Send className="h-4 w-4" />
-                WhatsApp
+                <Send className="mr-1 h-3.5 w-3.5" /> WhatsApp
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Print modal — A4 invoice preview (Print button par khulta hai) */}
+      {/* Print preview modal */}
       {printOpen && (
-        <div className="print-modal-overlay fixed inset-0 z-50 flex flex-col bg-slate-900/60 backdrop-blur-sm">
-          <style>{`
-            @media print {
-              /* A4 + zero browser margins (invoice apna padding khud rakhta hai) */
-              @page { size: A4 portrait; margin: 0; }
-              /* h-screen / overflow-hidden app wrapper print mein clip na kare */
-              html, body { height: auto !important; overflow: visible !important; }
-              #root { height: auto !important; overflow: visible !important; }
-              body * { visibility: hidden; }
-              #print-area, #print-area * { visibility: visible; }
-              /* overlay: backdrop-filter containing-block bug + fixed positioning hataya */
-              .print-modal-overlay {
-                position: static !important;
-                inset: auto !important;
-                display: block !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: visible !important;
-                background: #fff !important;
-                backdrop-filter: none !important;
-                -webkit-backdrop-filter: none !important;
-                filter: none !important;
-                transform: none !important;
-              }
-              .print-modal-overlay .print-modal-toolbar,
-              .print-modal-scroll { overflow: visible !important; height: auto !important; }
-              .print-modal-toolbar { display: none !important; }
-              .print-modal-scroll { padding: 0 !important; margin: 0 !important; }
-              #print-area {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              #invoice-preview {
-                transform: none !important;
-                width: 100% !important;
-                overflow: visible !important;
-                box-shadow: none !important;
-                border: none !important;
-                border-radius: 0 !important;
-              }
-            }
-          `}</style>
-
-          {/* Toolbar — zoom + close + print */}
-          <div className="print-modal-toolbar flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div className="flex min-w-0 items-center gap-2">
-              <Printer className="h-4 w-4 shrink-0 text-emerald-500" />
-              <h2 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
-                Invoice Preview — {printInvoiceNumber}
+        <div className="print-modal-overlay fixed inset-0 z-50 flex flex-col bg-slate-950/70 backdrop-blur-sm">
+          <div className="print-modal-toolbar flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-2.5 text-white">
+            <div className="flex items-center gap-2">
+              <Printer className="h-4 w-4 text-emerald-400" />
+              <h2 className="font-poppins text-xs font-bold">
+                Invoice Print Preview — {printInvoiceNumber}
               </h2>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {/* Zoom controls */}
-              <div className="flex items-center gap-1 rounded-lg border border-slate-200 px-1.5 py-1 dark:border-slate-600">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-lg border border-slate-700 px-1.5 py-1">
                 <button
                   type="button"
                   onClick={() => setPrintZoom((z) => Math.max(40, z - 10))}
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                  className="flex h-5 w-5 items-center justify-center text-slate-400 hover:text-white"
                   aria-label="Zoom out"
                 >
-                  <ZoomOut className="h-3.5 w-3.5" />
+                  <ZoomOut className="h-3 w-3" />
                 </button>
-                <span className="min-w-[38px] text-center text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                <span className="min-w-[32px] text-center text-[10px] font-bold text-slate-300">
                   {printZoom}%
                 </span>
                 <button
                   type="button"
                   onClick={() => setPrintZoom((z) => Math.min(150, z + 10))}
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                  className="flex h-5 w-5 items-center justify-center text-slate-400 hover:text-white"
                   aria-label="Zoom in"
                 >
-                  <ZoomIn className="h-3.5 w-3.5" />
+                  <ZoomIn className="h-3 w-3" />
                 </button>
               </div>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setPrintOpen(false)}
-                className="flex items-center gap-1"
-              >
-                <X className="h-4 w-4" />
+              <Button variant="secondary" size="sm" onClick={() => setPrintOpen(false)}>
                 Close
               </Button>
               <Button
@@ -2024,30 +1908,20 @@ export function SimpleInvoicePage() {
                 size="sm"
                 onClick={() => void handleDownloadPdf()}
                 disabled={pdfGenerating}
-                className="flex items-center gap-1"
-                title="Real server-side PDF download"
               >
                 {pdfGenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 ) : (
-                  <Download className="h-4 w-4" />
+                  <Download className="mr-1 h-3 w-3" />
                 )}
                 {pdfGenerating ? 'Generating...' : 'Download PDF'}
               </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => window.print()}
-                className="flex items-center gap-1"
-              >
-                <Printer className="h-4 w-4" />
+              <Button variant="primary" size="sm" onClick={() => window.print()}>
                 Print
               </Button>
             </div>
           </div>
-
-          {/* Scrollable preview area */}
-          <div className="print-modal-scroll min-h-0 flex-1 overflow-auto bg-slate-200/70 p-6 dark:bg-slate-900/50">
+          <div className="print-modal-scroll flex-1 overflow-auto bg-slate-900/40 p-5">
             <div id="print-area" className="mx-auto w-fit">
               <InvoicePreview
                 template="classic"
@@ -2099,12 +1973,53 @@ export function SimpleInvoicePage() {
         </div>
       )}
 
-      {/* Barcode / QR scan modal (scanner gun) */}
+      {/* Barcode scan modal */}
       <BarcodeScanModal
         open={scanOpen}
         onClose={() => setScanOpen(false)}
         onFound={handleScannedProduct}
       />
+
+      {/* UNSAVED CHANGES CONFIRMATION DIALOG */}
+      {confirmNewOpen && (
+        <div className="backdrop-blur-xs fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="animate-in fade-in zoom-in-95 w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl duration-150 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-poppins text-sm font-bold text-slate-900 dark:text-white">
+                  Unsaved Changes
+                </h3>
+                <p className="mt-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  Unsaved changes आहेत.
+                  <br />
+                  नवीन Invoice सुरू करायचे आहे का?
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmNewOpen(false)}
+                className="h-8.5 text-xs font-semibold"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmNewInvoice}
+                className="h-8.5 gap-1.5 bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Invoice
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

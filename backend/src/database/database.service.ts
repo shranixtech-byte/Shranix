@@ -46,6 +46,73 @@ import {
   InvStockLedgerRepository,
   InvStockBalanceRepository,
   InvStockReservationRepository,
+  LeadsRepository,
+  OpportunitiesRepository,
+  FollowUpsRepository,
+  CrmTasksRepository,
+  CallLogsRepository,
+  MeetingsRepository,
+  CrmNotesRepository,
+  LeadActivitiesRepository,
+  LeadConversionsRepository,
+  CommunicationTemplatesRepository,
+  DepartmentsRepository,
+  DesignationsRepository,
+  EmployeesRepository,
+  ShiftsRepository,
+  AttendanceRepository,
+  HolidaysRepository,
+  LeaveRequestsRepository,
+  LeaveBalancesRepository,
+  SalaryStructuresRepository,
+  PayrollRunsRepository,
+  PayrollLinesRepository,
+  EmployeeAdvancesRepository,
+  EmployeeExpensesRepository,
+  PerformanceReviewsRepository,
+  EmployeeTimelineRepository,
+  AssetCategoriesRepository,
+  AssetsRepository,
+  AssetAllocationsRepository,
+  AssetTransfersRepository,
+  AssetMaintenanceRepository,
+  AssetDepreciationRepository,
+  AssetConditionHistoryRepository,
+  AssetDisposalsRepository,
+  ExpenseCategoriesRepository,
+  ExpensesRepository,
+  RecurringExpensesRepository,
+  BusinessRulesRepository,
+  CustomFieldsRepository,
+  CustomFieldValuesRepository,
+  TagsRepository,
+  RecordTagsRepository,
+  PortalUsersRepository,
+  PortalResetTokensRepository,
+  PortalTicketsRepository,
+  PortalTicketMessagesRepository,
+  PortalPaymentsRepository,
+  PortalNotificationsRepository,
+  PlansRepository,
+  PlanVersionsRepository,
+  SubscriptionsRepository,
+  SubscriptionEventsRepository,
+  BillingInvoicesRepository,
+  BillingPaymentsRepository,
+  CouponsRepository,
+  CouponRedemptionsRepository,
+  UsageRecordsRepository,
+  CommercialRemindersRepository,
+  LicensesRepository,
+  LicenseDevicesRepository,
+  LicenseInstallationsRepository,
+  LicenseActivationsRepository,
+  LicenseEventsRepository,
+  LicenseTransfersRepository,
+  LicenseTokensRepository,
+  CommunicationsRepository,
+  CommunicationPreferencesRepository,
+  CommunicationCampaignsRepository,
   StockTransfersRepository,
   TransferItemsRepository,
   StockAdjustmentsRepository,
@@ -63,6 +130,8 @@ import {
   SupplierPriceListRepository,
   PurchaseApprovalsRepository,
   PurchaseSettingsRepository,
+  PurchaseInvoiceItemsRepository,
+  PurchasePaymentsRepository,
   SuppliersRepository,
   SupplierAddressesRepository,
   SupplierContactsRepository,
@@ -314,16 +383,75 @@ export class DatabaseService implements OnApplicationShutdown {
 
   // PRM-013: Multi-Company
   public readonly businessUnits: any;
-  public readonly departments: any;
-  public readonly leads: any;
-  public readonly opportunities: any;
-  public readonly assetCategories: any;
-  public readonly fixedAssets: any;
-  public readonly assetDepreciation: any;
-  public readonly employees: any;
+  public readonly departments: DepartmentsRepository;
+  public readonly designations: DesignationsRepository;
+  public readonly employees: EmployeesRepository;
+  public readonly shifts: ShiftsRepository;
+  public readonly attendance: AttendanceRepository;
+  public readonly holidays: HolidaysRepository;
+  public readonly leaveRequests: LeaveRequestsRepository;
+  public readonly leaveBalances: LeaveBalancesRepository;
+  public readonly salaryStructures: SalaryStructuresRepository;
+  public readonly payrollRuns: PayrollRunsRepository;
+  public readonly payrollLines: PayrollLinesRepository;
+  public readonly employeeAdvances: EmployeeAdvancesRepository;
+  public readonly employeeExpenses: EmployeeExpensesRepository;
+  public readonly performanceReviews: PerformanceReviewsRepository;
+  public readonly employeeTimeline: EmployeeTimelineRepository;
+  public readonly leads: LeadsRepository;
+  public readonly opportunities: OpportunitiesRepository;
+  public readonly followUps: FollowUpsRepository;
+  public readonly crmTasks: CrmTasksRepository;
+  public readonly callLogs: CallLogsRepository;
+  public readonly meetings: MeetingsRepository;
+  public readonly crmNotes: CrmNotesRepository;
+  public readonly leadActivities: LeadActivitiesRepository;
+  public readonly leadConversions: LeadConversionsRepository;
+  public readonly communicationTemplates: CommunicationTemplatesRepository;
+  public readonly communications: CommunicationsRepository;
+  public readonly communicationPreferences: CommunicationPreferencesRepository;
+  public readonly communicationCampaigns: CommunicationCampaignsRepository;
+  public readonly assetCategories: AssetCategoriesRepository;
+  public readonly assets: AssetsRepository;
+  public readonly assetAllocations: AssetAllocationsRepository;
+  public readonly assetTransfers: AssetTransfersRepository;
+  public readonly assetMaintenance: AssetMaintenanceRepository;
+  public readonly assetDepreciation: AssetDepreciationRepository;
+  public readonly assetConditionHistory: AssetConditionHistoryRepository;
+  public readonly assetDisposals: AssetDisposalsRepository;
+  public readonly expenseCategories: ExpenseCategoriesRepository;
+  public readonly expenses: ExpensesRepository;
+  public readonly recurringExpenses: RecurringExpensesRepository;
+  public readonly businessRules: BusinessRulesRepository;
+  public readonly customFields: CustomFieldsRepository;
+  public readonly customFieldValues: CustomFieldValuesRepository;
+  public readonly tags: TagsRepository;
+  public readonly recordTags: RecordTagsRepository;
+  public readonly portalUsers: PortalUsersRepository;
+  public readonly portalResetTokens: PortalResetTokensRepository;
+  public readonly portalTickets: PortalTicketsRepository;
+  public readonly portalTicketMessages: PortalTicketMessagesRepository;
+  public readonly portalPayments: PortalPaymentsRepository;
+  public readonly portalNotifications: PortalNotificationsRepository;
+  public readonly plans: PlansRepository;
+  public readonly planVersions: PlanVersionsRepository;
+  public readonly subscriptions: SubscriptionsRepository;
+  public readonly subscriptionEvents: SubscriptionEventsRepository;
+  public readonly billingInvoices: BillingInvoicesRepository;
+  public readonly billingPayments: BillingPaymentsRepository;
+  public readonly coupons: CouponsRepository;
+  public readonly couponRedemptions: CouponRedemptionsRepository;
+  public readonly usageRecords: UsageRecordsRepository;
+  public readonly commercialReminders: CommercialRemindersRepository;
+  public readonly licenses: LicensesRepository;
+  public readonly licenseDevices: LicenseDevicesRepository;
+  public readonly licenseInstallations: LicenseInstallationsRepository;
+  public readonly licenseActivations: LicenseActivationsRepository;
+  public readonly licenseEvents: LicenseEventsRepository;
+  public readonly licenseTransfers: LicenseTransfersRepository;
+  public readonly licenseTokens: LicenseTokensRepository;
   public readonly employeeDesignations: any;
   public readonly leaveTypes: any;
-  public readonly leaveRequests: any;
   public readonly budgets: any;
   public readonly webhooks: any;
   public readonly apiKeys: any;
@@ -342,6 +470,8 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly suppliers: SuppliersRepository;
   public readonly purchaseRequisitions: PurchaseRequisitionsRepository;
   public readonly purchaseRequisitionItems: PurchaseRequisitionItemsRepository;
+  public readonly purchaseInvoiceItems: PurchaseInvoiceItemsRepository;
+  public readonly purchasePayments: PurchasePaymentsRepository;
   public readonly stockLedger: StockLedgerRepository;
   public readonly warehouseStock: WarehouseStockRepository;
   public readonly purchaseReturnItems: PurchaseReturnItemsRepository;
@@ -436,6 +566,8 @@ export class DatabaseService implements OnApplicationShutdown {
     this.suppliers = new SuppliersRepository(db as any, isPostgres);
     this.purchaseRequisitions = new PurchaseRequisitionsRepository(db as any, isPostgres);
     this.purchaseRequisitionItems = new PurchaseRequisitionItemsRepository(db as any, isPostgres);
+    this.purchaseInvoiceItems = new PurchaseInvoiceItemsRepository(db as any, isPostgres);
+    this.purchasePayments = new PurchasePaymentsRepository(db as any, isPostgres);
     this.stockLedger = new StockLedgerRepository(db as any, isPostgres);
     this.warehouseStock = new WarehouseStockRepository(db as any, isPostgres);
 
@@ -598,17 +730,76 @@ export class DatabaseService implements OnApplicationShutdown {
       };
     };
 
-    this.leads = createGenericRepo('leads');
-    this.opportunities = createGenericRepo('opportunities');
+    this.leads = new LeadsRepository(db as any, isPostgres);
+    this.opportunities = new OpportunitiesRepository(db as any, isPostgres);
+    this.followUps = new FollowUpsRepository(db as any, isPostgres);
+    this.crmTasks = new CrmTasksRepository(db as any, isPostgres);
+    this.callLogs = new CallLogsRepository(db as any, isPostgres);
+    this.meetings = new MeetingsRepository(db as any, isPostgres);
+    this.crmNotes = new CrmNotesRepository(db as any, isPostgres);
+    this.leadActivities = new LeadActivitiesRepository(db as any, isPostgres);
+    this.leadConversions = new LeadConversionsRepository(db as any, isPostgres);
+    this.communicationTemplates = new CommunicationTemplatesRepository(db as any, isPostgres);
+    this.communications = new CommunicationsRepository(db as any, isPostgres);
+    this.communicationPreferences = new CommunicationPreferencesRepository(db as any, isPostgres);
+    this.communicationCampaigns = new CommunicationCampaignsRepository(db as any, isPostgres);
     this.businessUnits = createGenericRepo('businessUnits');
-    this.departments = createGenericRepo('departments');
-    this.assetCategories = createGenericRepo('assetCategories');
-    this.fixedAssets = createGenericRepo('fixedAssets');
-    this.assetDepreciation = createGenericRepo('assetDepreciation');
-    this.employees = createGenericRepo('employees');
+    this.departments = new DepartmentsRepository(db as any, isPostgres);
+    this.designations = new DesignationsRepository(db as any, isPostgres);
+    this.employees = new EmployeesRepository(db as any, isPostgres);
+    this.shifts = new ShiftsRepository(db as any, isPostgres);
+    this.attendance = new AttendanceRepository(db as any, isPostgres);
+    this.holidays = new HolidaysRepository(db as any, isPostgres);
+    this.leaveRequests = new LeaveRequestsRepository(db as any, isPostgres);
+    this.leaveBalances = new LeaveBalancesRepository(db as any, isPostgres);
+    this.salaryStructures = new SalaryStructuresRepository(db as any, isPostgres);
+    this.payrollRuns = new PayrollRunsRepository(db as any, isPostgres);
+    this.payrollLines = new PayrollLinesRepository(db as any, isPostgres);
+    this.employeeAdvances = new EmployeeAdvancesRepository(db as any, isPostgres);
+    this.employeeExpenses = new EmployeeExpensesRepository(db as any, isPostgres);
+    this.performanceReviews = new PerformanceReviewsRepository(db as any, isPostgres);
+    this.employeeTimeline = new EmployeeTimelineRepository(db as any, isPostgres);
+    this.assetCategories = new AssetCategoriesRepository(db as any, isPostgres);
+    this.assets = new AssetsRepository(db as any, isPostgres);
+    this.assetAllocations = new AssetAllocationsRepository(db as any, isPostgres);
+    this.assetTransfers = new AssetTransfersRepository(db as any, isPostgres);
+    this.assetMaintenance = new AssetMaintenanceRepository(db as any, isPostgres);
+    this.assetDepreciation = new AssetDepreciationRepository(db as any, isPostgres);
+    this.assetConditionHistory = new AssetConditionHistoryRepository(db as any, isPostgres);
+    this.assetDisposals = new AssetDisposalsRepository(db as any, isPostgres);
+    this.expenseCategories = new ExpenseCategoriesRepository(db as any, isPostgres);
+    this.expenses = new ExpensesRepository(db as any, isPostgres);
+    this.recurringExpenses = new RecurringExpensesRepository(db as any, isPostgres);
+    this.businessRules = new BusinessRulesRepository(db as any, isPostgres);
+    this.customFields = new CustomFieldsRepository(db as any, isPostgres);
+    this.customFieldValues = new CustomFieldValuesRepository(db as any, isPostgres);
+    this.tags = new TagsRepository(db as any, isPostgres);
+    this.recordTags = new RecordTagsRepository(db as any, isPostgres);
+    this.portalUsers = new PortalUsersRepository(db as any, isPostgres);
+    this.portalResetTokens = new PortalResetTokensRepository(db as any, isPostgres);
+    this.portalTickets = new PortalTicketsRepository(db as any, isPostgres);
+    this.portalTicketMessages = new PortalTicketMessagesRepository(db as any, isPostgres);
+    this.portalPayments = new PortalPaymentsRepository(db as any, isPostgres);
+    this.portalNotifications = new PortalNotificationsRepository(db as any, isPostgres);
+    this.plans = new PlansRepository(db as any, isPostgres);
+    this.planVersions = new PlanVersionsRepository(db as any, isPostgres);
+    this.subscriptions = new SubscriptionsRepository(db as any, isPostgres);
+    this.subscriptionEvents = new SubscriptionEventsRepository(db as any, isPostgres);
+    this.billingInvoices = new BillingInvoicesRepository(db as any, isPostgres);
+    this.billingPayments = new BillingPaymentsRepository(db as any, isPostgres);
+    this.coupons = new CouponsRepository(db as any, isPostgres);
+    this.couponRedemptions = new CouponRedemptionsRepository(db as any, isPostgres);
+    this.usageRecords = new UsageRecordsRepository(db as any, isPostgres);
+    this.commercialReminders = new CommercialRemindersRepository(db as any, isPostgres);
+    this.licenses = new LicensesRepository(db as any, isPostgres);
+    this.licenseDevices = new LicenseDevicesRepository(db as any, isPostgres);
+    this.licenseInstallations = new LicenseInstallationsRepository(db as any, isPostgres);
+    this.licenseActivations = new LicenseActivationsRepository(db as any, isPostgres);
+    this.licenseEvents = new LicenseEventsRepository(db as any, isPostgres);
+    this.licenseTransfers = new LicenseTransfersRepository(db as any, isPostgres);
+    this.licenseTokens = new LicenseTokensRepository(db as any, isPostgres);
     this.employeeDesignations = createGenericRepo('employeeDesignations');
     this.leaveTypes = createGenericRepo('leaveTypes');
-    this.leaveRequests = createGenericRepo('leaveRequests');
     this.budgets = createGenericRepo('budgets');
     this.webhooks = createGenericRepo('webhooks');
     this.apiKeys = createGenericRepo('apiKeys');

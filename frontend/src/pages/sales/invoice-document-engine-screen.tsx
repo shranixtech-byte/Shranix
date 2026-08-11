@@ -20,7 +20,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { buildUpiPayload } from '@/components/ui/UpiQrCode';
@@ -602,60 +602,6 @@ export const InvoicePreview = memo(function InvoicePreview(props: InvoicePreview
     dcNo || (invoiceNumber ? `DC${invoiceNumber.replace(/^[A-Z]+/i, '')}` : '—');
   const effectiveDcDate = dcDate || invoiceDate || '—';
 
-  // ── AUTO-FIT: 2 copies + CUT HERE hamesha EXACTLY 1 A4 page par fit hon
-  // Natural height measure karke scale nikalo: chhota bill (2 items) → scale > 1 →
-  // font bada + page pura bhara (photo jaisa). Bada bill (3+ items) → scale < 1 →
-  // dono copies 1 page par hi rahenge (2 pages kabhi nahi).
-  const fitRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(1);
-
-  useLayoutEffect(() => {
-    const el = fitRef.current;
-    if (!el) {
-      return;
-    }
-    // NOTE: zoom ki jagah transform:scale — zoom Chrome mein layout reflow karta hai
-    // (Marathi/Devanagari text narrow width par zyada wrap → measurement se alag render
-    //  → 2 pages ho jata tha, real 3-item test mein confirm hua). transform offsetHeight
-    // ko affect NAHI karta, isliye natural height exact measure hota hai.
-    const naturalPx = el.offsetHeight;
-    if (naturalPx <= 0) {
-      return;
-    }
-    const mmToPx = (mm: number) => (mm / 25.4) * 96;
-    // 2mm safety buffer: zoom/epsilon round-off (±0.57mm) aur print-engine variance
-    // se CUSTOMER COPY ka bottom kabhi clip na ho (3-item bill test mein +0.8mm overflow mila tha)
-    const innerHmm = 297 - 2 * pageMargins - 2; // A4 height - margins - safety buffer
-    const innerPx = mmToPx(innerHmm);
-    const s = Math.min(1.25, Math.max(0.5, innerPx / naturalPx));
-    // Convergence: width = 100/fitScale% se text-wrap badalta hai, isliye 1-2 baar
-    // dobara measure karke exact settle karo (epsilon guard loop se bachata hai)
-    setFitScale((prev) => (Math.abs(prev - s) < 0.002 ? prev : s));
-  }, [
-    items,
-    pageMargins,
-    effShowGst,
-    showSignature,
-    customerName,
-    billingAddress,
-    customerGstin,
-    customerMobile,
-    placeOfSupply,
-    grandTotal,
-    itemDiscountTotal,
-    taxableAfterDiscount,
-    cgstTotal,
-    sgstTotal,
-    roundOff,
-    fitScale,
-    shop,
-    shopAddress,
-    shopMobile,
-    effectiveUpiId,
-    upiQrDataUrl,
-    settings,
-  ]);
-
   // ── Shopkeeper-approved bill template — exact HTML render ──
   // UPI QR box abhi intentionally nahi hai (shopkeeper ne bola baad mein
   // wapas add karenge). Layout/CSS `krushi-bill-template.ts` se aata hai.
@@ -731,22 +677,12 @@ export const InvoicePreview = memo(function InvoicePreview(props: InvoicePreview
       >
         {/* Bill CSS + HTML — PDF capture mein bhi saath jaye, isliye style andar rakha hai */}
         <style>{KRUSHI_BILL_CSS}</style>
-        {/* A4 PAGE — thin outer border (photo) · OFFICE COPY upar + CUSTOMER COPY niche
-            Auto-fit: andar ka content transform:scale se exactly page ke size par fit hota hai */}
+        {/* A4 PAGE CONTAINER — Fixed 210mm A4 width, natural vertical growth */}
         <div
-          className="mx-auto min-h-[297mm] w-[210mm] overflow-hidden rounded-sm border border-black bg-white text-slate-900 print:shadow-none"
+          className="mx-auto w-[210mm] max-w-[210mm] rounded-sm border border-black bg-white text-slate-900 print:border-none print:shadow-none"
           style={{ padding: `${pageMargins}mm` }}
         >
-          <div
-            ref={fitRef}
-            style={{
-              transform: `scale(${fitScale})`,
-              transformOrigin: 'top left',
-              width: `${100 / fitScale}%`,
-            }}
-          >
-            <div dangerouslySetInnerHTML={{ __html: billHtml }} />
-          </div>
+          <div dangerouslySetInnerHTML={{ __html: billHtml }} />
         </div>
       </div>
     </>

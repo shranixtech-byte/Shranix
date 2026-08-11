@@ -71,6 +71,8 @@ export {
   PurchaseInvoicesRepository,
   PurchaseReturnsRepository,
   PurchaseReturnItemsRepository,
+  PurchaseInvoiceItemsRepository,
+  PurchasePaymentsRepository,
   SupplierPriceListRepository,
   PurchaseApprovalsRepository,
   PurchaseSettingsRepository,
@@ -178,3 +180,94 @@ export {
   OcrResultsRepository,
   DocumentAccessLogsRepository,
 } from './dms.repository';
+
+export {
+  LeadsRepository,
+  OpportunitiesRepository,
+  FollowUpsRepository,
+  CrmTasksRepository,
+  CallLogsRepository,
+  MeetingsRepository,
+  CrmNotesRepository,
+  LeadActivitiesRepository,
+  LeadConversionsRepository,
+} from './crm.repository';
+
+export {
+  CommunicationTemplatesRepository,
+  CommunicationsRepository,
+  CommunicationPreferencesRepository,
+  CommunicationCampaignsRepository,
+} from './communication.repository';
+
+export {
+  DepartmentsRepository,
+  DesignationsRepository,
+  EmployeesRepository,
+  ShiftsRepository,
+  AttendanceRepository,
+  HolidaysRepository,
+  LeaveRequestsRepository,
+  LeaveBalancesRepository,
+  SalaryStructuresRepository,
+  PayrollRunsRepository,
+  PayrollLinesRepository,
+  EmployeeAdvancesRepository,
+  EmployeeExpensesRepository,
+  PerformanceReviewsRepository,
+  EmployeeTimelineRepository,
+} from './hr.repository';
+
+export {
+  AssetCategoriesRepository,
+  AssetsRepository,
+  AssetAllocationsRepository,
+  AssetTransfersRepository,
+  AssetMaintenanceRepository,
+  AssetDepreciationRepository,
+  AssetConditionHistoryRepository,
+  AssetDisposalsRepository,
+  ExpenseCategoriesRepository,
+  ExpensesRepository,
+  RecurringExpensesRepository,
+} from './assets.repository';
+
+export {
+  BusinessRulesRepository,
+  CustomFieldsRepository,
+  CustomFieldValuesRepository,
+  TagsRepository,
+  RecordTagsRepository,
+} from './control.repository';
+
+export {
+  PortalUsersRepository,
+  PortalResetTokensRepository,
+  PortalTicketsRepository,
+  PortalTicketMessagesRepository,
+  PortalPaymentsRepository,
+  PortalNotificationsRepository,
+} from './portal.repository';
+
+export {
+  PlansRepository,
+  PlanVersionsRepository,
+  SubscriptionsRepository,
+  SubscriptionEventsRepository,
+  BillingInvoicesRepository,
+  BillingPaymentsRepository,
+  CouponsRepository,
+  CouponRedemptionsRepository,
+  UsageRecordsRepository,
+  CommercialRemindersRepository,
+} from './commercial.repository';
+
+export {
+  LicensesRepository,
+  LicenseDevicesRepository,
+  LicenseInstallationsRepository,
+  LicenseActivationsRepository,
+  LicenseEventsRepository,
+  LicenseTransfersRepository,
+  LicenseTokensRepository,
+} from './license.repository';

@@ -183,6 +183,7 @@ interface DashboardData {
   todayReceipts: number;
   purchaseValue: number;
   supplierOutstanding: number;
+  pendingPayments: number;
   topSuppliers: Array<{ id: string; name: string; count: number; amount: number }>;
   recentPurchases: Array<{
     id: string;
@@ -249,6 +250,20 @@ export function PurchaseDashboardPage() {
       value: data?.purchaseValue ? `₹${data.purchaseValue.toLocaleString('en-IN')}` : '₹0',
       color: 'border-l-purple-500',
       bg: 'bg-purple-50 dark:bg-purple-900/10',
+    },
+    {
+      label: 'Supplier Outstanding',
+      value: data?.supplierOutstanding
+        ? `₹${Number(data.supplierOutstanding).toLocaleString('en-IN')}`
+        : '₹0',
+      color: 'border-l-red-500',
+      bg: 'bg-red-50 dark:bg-red-900/10',
+    },
+    {
+      label: 'Pending Payments',
+      value: data?.pendingPayments ?? '—',
+      color: 'border-l-orange-500',
+      bg: 'bg-orange-50 dark:bg-orange-900/10',
     },
   ];
 

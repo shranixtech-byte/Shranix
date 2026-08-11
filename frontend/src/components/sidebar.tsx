@@ -29,6 +29,14 @@ import {
   Undo2,
   FileEdit,
   FileSearch,
+  Wrench,
+  ShieldAlert,
+  Tag,
+  Search,
+  Globe,
+  CreditCard,
+  Ticket,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -105,6 +113,7 @@ const sections: SectionGroup[] = [
       { label: 'खरेदी नोंद', icon: 'FileEdit', path: '/purchase/invoices' },
       { label: 'खरेदी ऑर्डर', icon: 'FileText', path: '/purchase/orders' },
       { label: 'खरेदी परत', icon: 'Undo2', path: '/purchase/returns' },
+      { label: 'पेमेंट (देयके)', icon: 'Wallet', path: '/purchase/payments' },
       { label: 'डेबिट नोट', icon: 'FileSpreadsheet', path: '/sales/returns/debit-notes' },
     ],
   },
@@ -175,6 +184,36 @@ const sections: SectionGroup[] = [
     ],
   },
   {
+    label: 'विश्लेषण',
+    icon: 'BarChart3',
+    module: 'reports',
+    items: [
+      { label: 'मुख्य विश्लेषण', icon: 'LayoutDashboard', path: '/analytics/overview' },
+      { label: 'विक्री विश्लेषण', icon: 'Activity', path: '/analytics/sales' },
+      { label: 'खरेदी विश्लेषण', icon: 'ShoppingCart', path: '/analytics/purchase' },
+      { label: 'स्टॉक विश्लेषण', icon: 'Boxes', path: '/analytics/inventory' },
+      { label: 'आर्थिक विश्लेषण', icon: 'Wallet', path: '/analytics/finance' },
+      { label: 'GST विश्लेषण', icon: 'FileSpreadsheet', path: '/analytics/gst' },
+      { label: 'ग्राहक विश्लेषण', icon: 'Users', path: '/analytics/customers' },
+      { label: 'पुरवठादार विश्लेषण', icon: 'Truck', path: '/analytics/suppliers' },
+      { label: 'नफा विश्लेषण', icon: 'BarChart3', path: '/analytics/profitability' },
+      { label: 'टॉप/बॉटम', icon: 'Star', path: '/analytics/top-bottom' },
+    ],
+  },
+  {
+    label: 'CRM',
+    icon: 'Users',
+    module: 'crm',
+    items: [
+      { label: 'CRM डॅशबोर्ड', icon: 'LayoutDashboard', path: '/crm/dashboard' },
+      { label: 'लीड्स', icon: 'ListTodo', path: '/crm/leads' },
+      { label: 'पाइपलाइन', icon: 'Activity', path: '/crm/pipeline' },
+      { label: 'फॉलो-अप', icon: 'ClipboardList', path: '/crm/follow-ups' },
+      { label: 'कार्ये', icon: 'FileEdit', path: '/crm/tasks' },
+      { label: 'CRM अहवाल', icon: 'BarChart3', path: '/crm/reports' },
+    ],
+  },
+  {
     label: 'खाते',
     icon: 'BookOpen',
     module: 'accounts',
@@ -185,10 +224,78 @@ const sections: SectionGroup[] = [
     ],
   },
   {
+    label: 'एचआर / कर्मचारी',
+    icon: 'Users',
+    module: 'hr',
+    items: [
+      { label: 'HR डॅशबोर्ड', icon: 'LayoutDashboard', path: '/hr/dashboard' },
+      { label: 'कर्मचारी', icon: 'Users', path: '/hr/employees' },
+      { label: 'उपस्थिती', icon: 'ClipboardList', path: '/hr/attendance' },
+      { label: 'रजा', icon: 'FileText', path: '/hr/leave' },
+      { label: 'पेरोल', icon: 'Wallet', path: '/hr/payroll' },
+    ],
+  },
+  {
+    label: 'मालमत्ता आणि खर्च',
+    icon: 'Boxes',
+    module: 'assets',
+    items: [
+      { label: 'डॅशबोर्ड', icon: 'LayoutDashboard', path: '/assets' },
+      { label: 'मालमत्ता', icon: 'Boxes', path: '/assets/list' },
+      { label: 'खर्च', icon: 'FileText', path: '/expenses' },
+      { label: 'सेवा वेळापत्रक', icon: 'Wrench', path: '/assets/maintenance' },
+    ],
+  },
+  {
+    label: 'व्यवसाय नियंत्रण',
+    icon: 'ShieldAlert',
+    module: 'workflow',
+    items: [
+      { label: 'बिझनेस कंट्रोल', icon: 'LayoutDashboard', path: '/workflow/control' },
+      { label: 'व्यवसाय नियम', icon: 'FileSearch', path: '/control/business-rules' },
+      { label: 'कस्टम फील्ड्स', icon: 'FileText', path: '/control/custom-fields' },
+      { label: 'टॅग्ज', icon: 'Tag', path: '/control/tags' },
+      { label: 'ग्लोबल शोध', icon: 'Search', path: '/control/global-search' },
+    ],
+  },
+  {
     label: 'एसएमएस / ईमेल',
     icon: 'MessageSquare',
     module: 'communication',
-    items: [{ label: 'एसएमएस / ईमेल', icon: 'MessageSquare', path: '/sms' }],
+    items: [
+      { label: 'नोटिफिकेशन केंद्र', icon: 'Bell', path: '/communications/center' },
+      { label: 'कम्युनिकेशन लॉग', icon: 'ClipboardList', path: '/communications/log' },
+      { label: 'टेम्पलेट्स', icon: 'FileText', path: '/communications/templates' },
+      { label: 'सेटिंग्ज', icon: 'Settings', path: '/communications/settings' },
+    ],
+  },
+  {
+    label: 'ग्राहक पोर्टल',
+    icon: 'Globe',
+    module: 'portal',
+    items: [{ label: 'पोर्टल व्यवस्थापन', icon: 'Globe', path: '/portal-admin' }],
+  },
+  {
+    label: 'कमर्शियल',
+    icon: 'CreditCard',
+    module: 'commercial',
+    items: [
+      { label: 'कमर्शियल डॅशबोर्ड', icon: 'LayoutDashboard', path: '/commercial/dashboard' },
+      { label: 'प्लॅन्स', icon: 'Package', path: '/commercial/plans' },
+      { label: 'सबस्क्रिप्शन्स', icon: 'ShoppingCart', path: '/commercial/subscriptions' },
+      { label: 'कूपन्स', icon: 'Ticket', path: '/commercial/coupons' },
+      { label: 'बिलिंग', icon: 'Wallet', path: '/commercial/billing' },
+      { label: 'अहवाल', icon: 'BarChart3', path: '/commercial/reports' },
+    ],
+  },
+  {
+    label: 'लायसन्स',
+    icon: 'KeyRound',
+    module: 'license',
+    items: [
+      { label: 'लायसन्स डॅशबोर्ड', icon: 'LayoutDashboard', path: '/license/dashboard' },
+      { label: 'लायसन्स', icon: 'KeyRound', path: '/license' },
+    ],
   },
   {
     label: 'ऑफर',
@@ -203,6 +310,7 @@ const sections: SectionGroup[] = [
 // ═══════════════════════════════════════════════════════════
 
 const iconMap: Record<string, LucideIcon> = {
+  KeyRound,
   LayoutDashboard,
   ShoppingCart,
   Receipt,
@@ -229,10 +337,38 @@ const iconMap: Record<string, LucideIcon> = {
   Undo2,
   FileEdit,
   FileSearch,
+  Wrench,
+  ShieldAlert,
+  Tag,
+  Search,
+  Globe,
+  CreditCard,
+  Ticket,
   Star,
   ChevronDown,
   ChevronRight,
   PanelRightClose,
+};
+
+const moduleIconColors: Record<string, string> = {
+  dashboard: 'text-emerald-400',
+  sales: 'text-sky-400',
+  purchase: 'text-amber-400',
+  inventory: 'text-teal-400',
+  customers: 'text-indigo-400',
+  suppliers: 'text-blue-400',
+  products: 'text-rose-400',
+  payments: 'text-emerald-400',
+  reports: 'text-violet-400',
+  accounts: 'text-blue-400',
+  assets: 'text-teal-400',
+  expenses: 'text-amber-400',
+  workflow: 'text-rose-400',
+  portal: 'text-sky-400',
+  commercial: 'text-violet-400',
+  business_rules: 'text-red-400',
+  communication: 'text-cyan-400',
+  offers: 'text-pink-400',
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -268,6 +404,22 @@ function flattenItems(items: NavItem[]): NavItem[] {
   return result;
 }
 
+function isRouteActive(itemPath: string | undefined, currentPath: string): boolean {
+  if (!itemPath) {
+    return false;
+  }
+  if (itemPath === '/') {
+    return currentPath === '/';
+  }
+  if (currentPath === itemPath) {
+    return true;
+  }
+  if (currentPath.startsWith(`${itemPath}/`)) {
+    return true;
+  }
+  return false;
+}
+
 // ═══════════════════════════════════════════════════════════
 // SUBMENU GROUP — expandable second-level
 // ═══════════════════════════════════════════════════════════
@@ -285,7 +437,7 @@ function SubMenuGroup({
   const [isOpen, setIsOpen] = useState(false);
 
   const isActive = useMemo(
-    () => item.children?.some((child) => child.path === locationPath) ?? false,
+    () => item.children?.some((child) => isRouteActive(child.path, locationPath)) ?? false,
     [item.children, locationPath],
   );
 
@@ -300,26 +452,24 @@ function SubMenuGroup({
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
-          'flex w-full items-center gap-3 rounded-xl transition-all duration-200',
-          'h-10 px-3',
-          'font-poppins text-sm font-medium',
-          isOpen || isActive
-            ? 'text-white'
-            : 'text-[#8899B0] hover:bg-[#163D63] hover:text-[#E0E6ED]',
+          'sidebar-menu-item w-full justify-between',
+          isOpen || isActive ? 'font-semibold text-white' : 'text-slate-300/80',
         )}
-        style={{ fontFamily: "'Poppins', sans-serif" }}
       >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Icon
+            className={cn('sidebar-menu-icon', (isOpen || isActive) && 'text-emerald-400')}
+            strokeWidth={1.75}
+          />
+          <span className="truncate text-left">{item.label}</span>
+        </div>
         <ChevronDown
           className={cn(
-            'h-3.5 w-3.5 shrink-0 transition-transform duration-200',
-            isOpen && 'rotate-180',
+            'h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200',
+            isOpen && 'rotate-180 text-emerald-400',
           )}
           strokeWidth={2}
         />
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-          <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        </span>
-        <span className="flex-1 truncate text-left">{item.label}</span>
       </button>
       <div
         className={cn(
@@ -327,9 +477,15 @@ function SubMenuGroup({
           isOpen ? 'max-h-[50vh]' : 'max-h-0',
         )}
       >
-        <div className="ml-3 space-y-1 border-l border-white/[0.06] py-1 pl-3">
+        <div className="ml-3.5 space-y-1 border-l-2 border-emerald-500/20 py-1.5 pl-2.5 dark:border-emerald-500/30">
           {item.children?.map((child) => (
-            <NavItemLink key={child.path} item={child} onNavigate={onNavigate} />
+            <NavItemLink
+              key={child.path}
+              item={child}
+              isSubmenu
+              locationPath={locationPath}
+              onNavigate={onNavigate}
+            />
           ))}
         </div>
       </div>
@@ -344,15 +500,19 @@ function SubMenuGroup({
 function NavItemLink({
   item,
   collapsed,
+  isSubmenu,
   showPin,
   isPinned,
+  locationPath,
   onTogglePin,
   onNavigate,
 }: {
   item: NavItem;
   collapsed?: boolean;
+  isSubmenu?: boolean;
   showPin?: boolean;
   isPinned?: boolean;
+  locationPath?: string;
   onTogglePin?: (e: React.MouseEvent) => void;
   onNavigate?: () => void;
 }) {
@@ -369,16 +529,18 @@ function NavItemLink({
         end={item.path === '/'}
         onClick={onNavigate}
         title={item.label}
-        className={({ isActive }) =>
-          cn(
+        className={({ isActive }) => {
+          const active =
+            isActive || (locationPath ? isRouteActive(item.path, locationPath) : false);
+          return cn(
             'mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
-            isActive
-              ? 'sidebar-premium-active sidebar-premium-text'
-              : 'text-[#A7B4C8] hover:bg-[#163D63] hover:text-white',
-          )
-        }
+            active
+              ? 'sidebar-premium-active text-white shadow-md shadow-emerald-900/40 ring-1 ring-emerald-400/40'
+              : 'text-slate-400 hover:border hover:border-emerald-500/20 hover:bg-[#0E2C48] hover:text-white',
+          );
+        }}
       >
-        <Icon className="h-5 w-5" strokeWidth={1.5} />
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
       </NavLink>
     );
   }
@@ -388,16 +550,13 @@ function NavItemLink({
       to={item.path}
       end={item.path === '/'}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        cn(
-          'sidebar-menu-item',
-          isActive && 'active',
-          !isActive && 'hover:bg-[#163D63] hover:text-white',
-        )
-      }
+      className={({ isActive }) => {
+        const active = isActive || (locationPath ? isRouteActive(item.path, locationPath) : false);
+        return cn(isSubmenu ? 'sidebar-submenu-item' : 'sidebar-menu-item', active && 'active');
+      }}
     >
-      <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
-      <span className="flex-1 truncate">{item.label}</span>
+      <Icon className={cn('sidebar-menu-icon', isSubmenu && 'h-4 w-4')} strokeWidth={1.75} />
+      <span className="flex-1 truncate text-left">{item.label}</span>
       {showPin && onTogglePin && (
         <button
           onClick={(e) => {
@@ -411,7 +570,7 @@ function NavItemLink({
           <Star
             className={cn(
               'h-3.5 w-3.5',
-              isPinned ? 'fill-amber-400 text-amber-400' : 'text-[#5A6B82]',
+              isPinned ? 'fill-amber-400 text-amber-400' : 'text-slate-500',
             )}
             strokeWidth={1.5}
           />
@@ -442,20 +601,20 @@ function NavSection({
 }) {
   const Icon = iconMap[section.icon] || LayoutDashboard;
 
-  // Check if any item (or its children) matches current path
   const isSectionActive = useMemo(() => {
     const allItems = flattenItems(section.items);
-    return allItems.some((i) => i.path === locationPath);
+    return allItems.some((i) => isRouteActive(i.path, locationPath));
   }, [section.items, locationPath]);
 
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center gap-0.5">
+      <div className="flex flex-col items-center gap-1">
         {flattenItems(section.items).map((item) => (
           <NavItemLink
             key={item.path || item.label}
             item={item}
             collapsed
+            locationPath={locationPath}
             onNavigate={onNavigate}
           />
         ))}
@@ -463,9 +622,10 @@ function NavSection({
     );
   }
 
-  // ── Single-item sections with direct path → render as NavLink (no accordion) ──
   const isDirectLink =
     section.items.length === 1 && !section.items[0].children && section.items[0].path;
+
+  const accentColor = moduleIconColors[section.module] || 'text-emerald-400';
 
   if (isDirectLink) {
     const directItem = section.items[0];
@@ -474,11 +634,12 @@ function NavSection({
         to={directItem.path!}
         end={directItem.path === '/'}
         onClick={onNavigate}
-        className={({ isActive }) =>
-          cn('sidebar-menu-item w-full', isActive && 'active', !isActive && 'text-[#A7B4C8]')
-        }
+        className={({ isActive }) => {
+          const active = isActive || isRouteActive(directItem.path, locationPath);
+          return cn('sidebar-menu-item w-full', active && 'active');
+        }}
       >
-        <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
+        <Icon className={cn('sidebar-menu-icon', accentColor)} strokeWidth={1.75} />
         <span className="flex-1 truncate text-left">{section.label}</span>
       </NavLink>
     );
@@ -486,35 +647,39 @@ function NavSection({
 
   return (
     <div className="flex flex-col">
-      {/* Section Button */}
       <button
         onClick={onToggle}
         className={cn(
-          'sidebar-menu-item w-full',
+          'sidebar-menu-item w-full justify-between',
           isSectionActive && !isOpen && 'active',
-          !isSectionActive && 'text-[#A7B4C8]',
         )}
-        style={{ fontFamily: "'Poppins', sans-serif" }}
       >
-        <Icon className="sidebar-menu-icon" strokeWidth={1.5} />
-        <span className="flex-1 truncate text-left">{section.label}</span>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Icon
+            className={cn(
+              'sidebar-menu-icon',
+              isSectionActive || isOpen ? 'text-white' : accentColor,
+            )}
+            strokeWidth={1.75}
+          />
+          <span className="flex-1 truncate text-left">{section.label}</span>
+        </div>
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 text-[#5A6B82] transition-transform duration-200',
-            isOpen && 'rotate-180',
+            'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200',
+            isOpen && 'rotate-180 text-emerald-400',
           )}
           strokeWidth={2}
         />
       </button>
 
-      {/* Sub-items accordion */}
       <div
         className={cn(
           'overflow-hidden transition-all duration-200 ease-out',
           isOpen ? 'max-h-[500px]' : 'max-h-0',
         )}
       >
-        <div className="ml-2 space-y-1 border-l border-white/[0.06] py-1 pl-2">
+        <div className="ml-3.5 space-y-1 border-l-2 border-emerald-500/20 py-1.5 pl-2.5 dark:border-emerald-500/30">
           {section.items.map((item) =>
             item.children ? (
               <SubMenuGroup
@@ -528,6 +693,7 @@ function NavSection({
                 key={item.path || item.label}
                 item={item}
                 showPin
+                locationPath={locationPath}
                 onNavigate={onNavigate}
               />
             ),
@@ -582,8 +748,7 @@ function HoverExpandPanel({
   return (
     <div
       ref={panelRef}
-      className="animate-in slide-in-from-left-1 fade-in fixed left-14 top-0 z-50 h-full w-64 rounded-r-xl border-r border-white/[0.06] shadow-2xl shadow-black/50 duration-200"
-      style={{ background: '#163D63' }}
+      className="animate-in slide-in-from-left-1 fade-in fixed left-16 top-0 z-50 h-full w-64 rounded-r-2xl border-r border-white/[0.1] bg-[#0B1A33] shadow-2xl shadow-black/70 duration-200"
     >
       <div className="sidebar-scrollbar-premium h-full overflow-y-auto px-3 py-4">{children}</div>
     </div>
@@ -601,110 +766,118 @@ function PremiumFooter({
   collapsed: boolean;
   onToggle?: () => void;
 }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
+
+  const userName = user
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'SHRANIX काऊंटर'
+    : 'SHRANIX काऊंटर';
+  const userRole = user?.role ? String(user.role).toUpperCase() : 'व्यवस्थापक';
+  const userInitial = userName.trim().charAt(0).toUpperCase() || 'S';
 
   if (collapsed) {
     return (
-      <div className="relative z-10 flex flex-col items-center border-t border-white/[0.06] pb-3 pt-2">
+      <div className="relative z-10 flex flex-col items-center space-y-2 border-t border-white/[0.08] bg-[#071A2F]/80 p-2.5">
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-xs font-extrabold text-emerald-400 shadow-sm"
+          title={userName}
+        >
+          {userInitial}
+        </div>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-[#A7B4C8] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
-          title="सहाय्य"
+          className="duration-180 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-emerald-500/10 hover:text-emerald-400"
+          title="SHRANIX काळजी / Support"
         >
-          <Headset className="h-5 w-5" strokeWidth={1.5} />
+          <Headset className="h-4 w-4" strokeWidth={1.75} />
         </button>
         {expanded && (
-          <div
-            className="absolute bottom-full left-0 right-0 mx-2 mb-2 rounded-xl border border-white/[0.06] p-3 shadow-xl"
-            style={{ background: '#0C2338' }}
-          >
+          <div className="absolute bottom-full left-2 mb-2 w-52 rounded-xl border border-emerald-500/20 bg-[#0B1A33] p-3 shadow-2xl backdrop-blur-md">
             <div className="mb-2 flex items-center gap-2">
-              <Headset className="h-4 w-4 text-[#1E88E5]" strokeWidth={1.5} />
-              <span
-                className="text-xs font-medium text-white"
-                style={{ fontFamily: "'Poppins', sans-serif" }}
-              >
-                SHRANIX काळजी
-              </span>
+              <Headset className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
+              <span className="font-poppins text-xs font-bold text-white">SHRANIX काळजी</span>
             </div>
-            <div className="space-y-1 text-[10px] text-[#8899B0]">
-              <p>+91-XXXXXXXXXX</p>
-              <p>support@shranix.com</p>
+            <div className="space-y-1 text-[11px] font-medium text-slate-300">
+              <p>📞 +91-9881292045</p>
+              <p>✉ support@shranix.com</p>
             </div>
-            <div className="mt-2 border-t border-white/[0.06] pt-2 text-[9px] text-[#5A6B82]">
-              v1.0.0
+            <div className="mt-2 border-t border-white/[0.08] pt-1.5 text-[10px] font-semibold text-emerald-400/80">
+              v1.0.0 Enterprise
             </div>
           </div>
         )}
-        <div className="mt-1 text-[8px] text-[#5A6B82]">v1.0.0</div>
+        <div className="text-[9px] font-bold text-slate-500">v1.0.0</div>
       </div>
     );
   }
 
   return (
-    <div className="relative z-10 border-t border-white/[0.06]">
-      {/* Agriculture-themed subtle background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234CAF50' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
+    <div className="relative z-10 border-t border-white/[0.08] bg-gradient-to-b from-[#071A2F]/90 to-[#0C2338]">
+      {/* Subtle agricultural grid pattern */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.03]">
+        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="footGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#10B981" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#footGrid)" />
+        </svg>
       </div>
 
-      <div className="relative px-3 py-3">
-        {/* Support Header */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-[#8899B0] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
-          style={{ fontFamily: "'Poppins', sans-serif" }}
-        >
-          <Headset className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-          <span className="truncate">SHRANIX काळजी</span>
-          <ChevronDown
-            className={cn(
-              'ml-auto h-3 w-3 transition-transform duration-200',
-              expanded && 'rotate-180',
-            )}
-            strokeWidth={2}
-          />
-        </button>
+      <div className="relative space-y-2 px-3 py-2.5">
+        {/* User / Account Card */}
+        <div className="duration-180 flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 transition-all hover:border-emerald-500/20 hover:bg-white/[0.05]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-xs font-extrabold text-emerald-400 shadow-sm">
+            {userInitial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-poppins truncate text-xs font-bold text-white">{userName}</p>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-emerald-400/90">
+              {userRole}
+            </p>
+          </div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-500/10 hover:text-emerald-400"
+            title="SHRANIX काळजी"
+          >
+            <Headset className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+        </div>
 
-        {/* Expanded Support Details */}
+        {/* Support Drawer */}
         <div
           className={cn(
             'overflow-hidden transition-all duration-200 ease-out',
             expanded ? 'max-h-32' : 'max-h-0',
           )}
         >
-          <div className="space-y-1 px-2 py-1.5">
-            <div className="flex items-center gap-2 text-[11px] text-[#8899B0]">
-              <span className="text-[#5A6B82]">📞</span>
-              <span>+91-XXXXXXXXXX</span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-[#8899B0]">
-              <span className="text-[#5A6B82]">✉</span>
-              <span>support@shranix.com</span>
-            </div>
+          <div className="space-y-1 rounded-lg border border-emerald-500/20 bg-[#071A2F]/90 p-2.5 text-[11px] text-slate-300">
+            <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-white">
+              <Headset className="h-3.5 w-3.5 text-emerald-400" />
+              SHRANIX काळजी Support
+            </p>
+            <p className="text-slate-400">📞 +91-9881292045 / 9021212045</p>
+            <p className="text-slate-400">✉ support@shranix.com</p>
           </div>
         </div>
 
-        {/* Version */}
-        <div className="mt-1 flex items-center justify-between px-2">
-          <span
-            className="text-[9px] font-medium text-[#5A6B82]"
-            style={{ fontFamily: "'Poppins', sans-serif" }}
-          >
-            v1.0.0
+        {/* Footer Meta Row (Version & Collapse) */}
+        <div className="flex items-center justify-between px-1 pt-0.5">
+          <span className="font-poppins flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            v1.0.0 ENTERPRISE
           </span>
-          <button
-            onClick={toggleFn}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[#5A6B82] transition-all duration-200 hover:bg-[#163D63] hover:text-white"
-            title="बाजूची पट्टी लपवा"
-          >
-            <PanelRightClose className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
+          {toggleFn && (
+            <button
+              onClick={toggleFn}
+              className="h-6.5 w-6.5 duration-180 flex items-center justify-center rounded-md text-slate-400 transition-all hover:bg-emerald-500/15 hover:text-emerald-400"
+              title="बाजूची पट्टी लपवा (Collapse Sidebar)"
+            >
+              <PanelRightClose className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -747,7 +920,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const currentSectionLabel = useMemo(() => {
     for (const section of visibleSections) {
       const allLeafItems = flattenItems(section.items);
-      if (allLeafItems.some((i) => i.path === location.pathname)) {
+      if (allLeafItems.some((i) => isRouteActive(i.path, location.pathname))) {
         return section.label;
       }
     }
@@ -811,13 +984,12 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         ref={sidebarRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        style={{ background: '#0C2338' }}
         className={cn(
-          'relative flex flex-col',
-          'shrink-0 transition-all duration-200 ease-in-out',
-          collapsed ? 'w-16' : 'w-64',
+          'sidebar-premium relative flex h-full select-none flex-col',
+          'shrink-0 border-r border-white/[0.08] transition-all duration-200 ease-in-out',
+          collapsed ? 'w-18' : 'w-[280px]',
           onClose && [
-            'fixed left-0 top-0 z-50 h-full shadow-2xl shadow-black/50',
+            'fixed left-0 top-0 z-50 h-full shadow-2xl shadow-black/70',
             'animate-in slide-in-from-left-1/2 fade-in duration-200',
           ],
         )}
@@ -826,37 +998,68 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         aria-label={onClose ? 'नेव्हिगेशन मेनू' : undefined}
       >
         {/* ── Ambient glow effects ── */}
-        <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-[#1E88E5]/[0.08] blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#1E88E5]/[0.04] blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-emerald-500/[0.08] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-44 w-44 rounded-full bg-teal-500/[0.06] blur-3xl" />
 
         {/* ── Brand Header ── */}
         <div
           className={cn(
-            'relative z-10 flex shrink-0 items-center justify-center border-b border-white/[0.06]',
-            collapsed ? 'h-24' : 'h-28 px-4',
+            'relative z-10 flex shrink-0 items-center justify-center border-b border-white/[0.08] transition-all duration-200',
+            collapsed ? 'h-18 px-2 py-2' : 'h-[84px] flex-col gap-1 px-3 py-2 text-center',
           )}
         >
-          {collapsed ? <Logo variant="icon-only" /> : <Logo variant="sidebar" />}
+          {/* Subtle glow radial background */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.12),transparent_70%)]" />
+
+          {collapsed ? (
+            <div className="flex flex-col items-center justify-center">
+              <div className="rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent p-1.5 shadow-[0_0_15px_rgba(16,185,129,0.12)] ring-1 ring-emerald-500/20">
+                <Logo variant="icon-only" />
+              </div>
+            </div>
+          ) : (
+            <div className="flex w-full flex-col items-center justify-center gap-1">
+              <div className="shrink-0 rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent p-1 shadow-[0_0_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20">
+                <Logo variant="icon-only" />
+              </div>
+              <div className="flex w-full flex-col items-center justify-center gap-0.5">
+                <span className="font-poppins whitespace-nowrap text-[13.5px] font-extrabold tracking-wider text-white">
+                  SHRANIX TECHNOLOGIES
+                </span>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
+                  <span className="font-poppins whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400">
+                    KRUSHI ERP
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Navigation Body ── */}
-        <nav className="sidebar-scrollbar-premium relative z-10 flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <nav className="sidebar-scrollbar-premium relative z-10 flex-1 space-y-1.5 overflow-y-auto px-3 py-2">
           {/* ⭐ आवडते */}
           {!collapsed && favoriteItems.length > 0 && (
             <div className="mb-2">
               <div
-                className="flex items-center gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-[#A7B4C8]"
+                className="flex items-center gap-2 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-400/80"
                 style={{ fontFamily: "'Poppins', sans-serif" }}
               >
-                <Star className="h-3 w-3 text-amber-400/60" strokeWidth={1.5} />
+                <Star className="h-3 w-3 text-amber-400" strokeWidth={1.5} />
                 आवडते
               </div>
               <div className="space-y-0.5">
                 {favoriteItems.map((item) => (
-                  <NavItemLink key={item.path} item={item} onNavigate={onClose} />
+                  <NavItemLink
+                    key={item.path}
+                    item={item}
+                    locationPath={location.pathname}
+                    onNavigate={onClose}
+                  />
                 ))}
               </div>
-              <div className="mx-2 my-1 border-t border-white/[0.04]" />
+              <div className="mx-2 my-1.5 border-t border-white/[0.06]" />
             </div>
           )}
 
@@ -875,29 +1078,15 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         </nav>
 
         {/* ── Agriculture-themed Decorative Bottom ── */}
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-0 h-48 overflow-hidden opacity-[0.07]">
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-0 h-44 overflow-hidden opacity-[0.05]">
           <svg viewBox="0 0 400 200" className="h-full w-full" preserveAspectRatio="xMidYMax slice">
             <path
               d="M0,150 C30,140 60,160 90,145 C120,130 150,110 180,125 C210,140 240,155 270,140 C300,125 330,110 360,130 C390,150 400,145 400,145 L400,200 L0,200 Z"
-              fill="#4CAF50"
+              fill="#10B981"
             />
-            <circle cx="80" cy="100" r="15" fill="#8BC34A" opacity="0.5" />
-            <circle cx="200" cy="80" r="12" fill="#8BC34A" opacity="0.4" />
-            <circle cx="320" cy="110" r="18" fill="#8BC34A" opacity="0.3" />
-            <path
-              d="M120,120 Q130,95 140,120"
-              stroke="#8BC34A"
-              strokeWidth="2"
-              fill="none"
-              opacity="0.4"
-            />
-            <path
-              d="M260,100 Q270,75 280,100"
-              stroke="#8BC34A"
-              strokeWidth="2"
-              fill="none"
-              opacity="0.4"
-            />
+            <circle cx="80" cy="100" r="15" fill="#34D399" opacity="0.5" />
+            <circle cx="200" cy="80" r="12" fill="#34D399" opacity="0.4" />
+            <circle cx="320" cy="110" r="18" fill="#34D399" opacity="0.3" />
           </svg>
           <div className="absolute inset-0 bg-gradient-to-t from-[#0C2338] via-[#0C2338]/80 to-transparent" />
         </div>
@@ -915,22 +1104,22 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
       >
         {favoriteItems.length > 0 && (
           <div className="mb-2">
-            <div className="flex items-center gap-2 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] text-amber-400/60">
+            <div className="flex items-center gap-2 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-400/80">
               <Star className="h-3 w-3" strokeWidth={1.5} />
               आवडते
             </div>
             <div className="space-y-0.5">
               {favoriteItems.map((item) => (
-                <NavItemLink key={item.path} item={item} />
+                <NavItemLink key={item.path} item={item} locationPath={location.pathname} />
               ))}
             </div>
-            <div className="mx-2 my-1 border-t border-white/[0.04]" />
+            <div className="mx-2 my-1 border-t border-white/[0.06]" />
           </div>
         )}
 
         {visibleSections.map((section) => (
           <div key={section.label} className="mb-1">
-            <div className="flex items-center gap-2 px-2 py-1 text-[9px] font-medium uppercase tracking-[0.08em] text-[#8899B0]">
+            <div className="flex items-center gap-2 px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-emerald-400/80">
               {section.label}
             </div>
             <div className="space-y-0.5">

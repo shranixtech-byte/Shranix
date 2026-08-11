@@ -130,18 +130,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [preferences]);
 
-  // ── Dark Mode ↔ ThemeProvider (bidirectional sync) ─────
-  // Theme provider 'shranix-theme' key ko control karta hai; yahan se
-  // bhi wahi key write hoti hai, taaki header toggle aur settings dono sync rahen.
+  // ── Dark Mode → ThemeProvider Sync ────────────────────────
+  // ThemeProvider is the single source of truth for theme state.
+  // We keep preferences.darkMode aligned with ThemeProvider theme state without circular loops.
   useEffect(() => {
     setPreferencesState((prev) => (prev.darkMode === theme ? prev : { ...prev, darkMode: theme }));
   }, [theme]);
-
-  useEffect(() => {
-    if (preferences.darkMode !== theme) {
-      setTheme(preferences.darkMode);
-    }
-  }, [preferences.darkMode, setTheme, theme]);
 
   // ── Compact Mode → html.shranix-compact ─────────────────
   useEffect(() => {
@@ -165,8 +159,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const setPreference = useCallback(
     <K extends keyof Preferences>(key: K, value: Preferences[K]) => {
       setPreferencesState((prev) => ({ ...prev, [key]: value }));
+      if (key === 'darkMode') {
+        setTheme(value as 'light' | 'dark' | 'system');
+      }
     },
-    [],
+    [setTheme],
   );
 
   const setWidget = useCallback((id: WidgetId, enabled: boolean) => {

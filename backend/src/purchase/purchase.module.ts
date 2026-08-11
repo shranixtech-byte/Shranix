@@ -21,8 +21,11 @@ import {
   PurchaseSearchController,
   PurchaseDebitNoteController,
   PurchasePostingController,
+  PurchasePaymentsController,
 } from './controllers';
 import { PurchaseDebitNoteService } from './debit-note.service';
+import { PurchaseNumberingService } from './purchase-numbering.service';
+import { PurchasePaymentsService } from './purchase-payments.service';
 import { PurchasePostingEngineService } from './purchase-postings.service';
 import {
   PurchaseOrdersService,
@@ -64,6 +67,7 @@ import { SuppliersService } from './suppliers.service';
     PurchaseSearchController,
     PurchaseDebitNoteController,
     PurchasePostingController,
+    PurchasePaymentsController,
     SupplierDetailsController,
     SupplierGroupsController,
     SupplierCategoriesController,
@@ -86,6 +90,8 @@ import { SuppliersService } from './suppliers.service';
     { provide: 'STOCK_POSTING_SERVICE', useExisting: StockPostingService },
     PurchasePostingEngineService,
     PurchaseDebitNoteService,
+    PurchasePaymentsService,
+    PurchaseNumberingService,
     DatabaseService,
     AuditService,
   ],
@@ -106,6 +112,8 @@ import { SuppliersService } from './suppliers.service';
     StockPostingService,
     PurchasePostingEngineService,
     PurchaseDebitNoteService,
+    PurchasePaymentsService,
+    PurchaseNumberingService,
   ],
 })
 export class PurchaseModule {}

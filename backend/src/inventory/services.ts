@@ -668,6 +668,94 @@ export class InventoryPostingEngine {
     const seq = String(this.entryCounter++).padStart(4, '0');
     return `INV-${ts}-${seq}`;
   }
+
+  /**
+   * Build a UNIQUE reference number for the ledger. `reference_number` carries
+   * a UNIQUE index in shranix_inv_stock_ledger, so every entry must have its
+   * own value even when the same source document posts multiple lines (e.g. a
+   * 5-line adjustment). The caller-facing document reference is preserved in
+   * `documentRef` (non-unique).
+   */
+  private uniqueReference(inputRef?: string): string {
+    if (!inputRef) {
+      return this.generateEntryNumber();
+    }
+    return `${inputRef}-${this.entryCounter++}`;
+  }
+
+  private async getBalanceRow(warehouseId: string, itemId: string): Promise<any> {
+    const res = await this.database.invStockBalance.findAll({
+      filters: [
+        { field: 'warehouseId', operator: 'eq' as const, value: warehouseId },
+        { field: 'itemId', operator: 'eq' as const, value: itemId },
+      ],
+      pageSize: 1,
+    } as any);
+    return ((res as any)?.data || [])[0] || null;
+  }
+
+  /**
+   * Apply a quantity delta to the running balance row and return the row AFTER
+   * the change (used to stamp running balanceQuantity/balanceCost on the entry).
+   */
+  private async applyBalanceDelta(
+    warehouseId: string,
+    itemId: string,
+    direction: string,
+    quantity: number,
+    unitCost: number,
+    seed?: Partial<Record<string, any>>,
+  ): Promise<any> {
+    const qty = Math.abs(quantity || 0);
+    let bal = await this.getBalanceRow(warehouseId, itemId);
+    if (!bal) {
+      const created = await this.database.invStockBalance.create({
+        warehouseId,
+        itemId,
+        variantId: seed?.variantId || null,
+        batchId: seed?.batchId || null,
+        batchNo: seed?.batchNo || null,
+        zoneId: seed?.zoneId || null,
+        rackId: seed?.rackId || null,
+        onHand: 0,
+        available: 0,
+        reserved: 0,
+        committed: 0,
+        allocated: 0,
+        damaged: 0,
+        blocked: 0,
+        inTransit: 0,
+      } as any);
+      bal = created;
+    }
+    const row = bal as Record<string, any>;
+    switch (direction) {
+      case 'IN':
+        row.onHand = (row.onHand || 0) + qty;
+        row.available = (row.available || 0) + qty;
+        break;
+      case 'OUT':
+        row.onHand = Math.max(0, (row.onHand || 0) - qty);
+        row.available = Math.max(0, (row.available || 0) - qty);
+        break;
+      case 'RESERVE':
+        row.reserved = (row.reserved || 0) + qty;
+        row.available = Math.max(0, (row.available || 0) - qty);
+        break;
+      case 'RELEASE':
+        row.reserved = Math.max(0, (row.reserved || 0) - qty);
+        row.available = (row.available || 0) + qty;
+        break;
+      case 'TRANSFER':
+        row.inTransit = (row.inTransit || 0) + qty;
+        break;
+      default:
+        break; // REVERSAL entries are posted by reverseMovement with isReversal=true
+    }
+    await this.database.invStockBalance.update(row.id, row);
+    return row;
+  }
+
   async postMovement(input: {
     transactionType: string;
     direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
@@ -695,15 +783,37 @@ export class InventoryPostingEngine {
     approvedBy?: string;
   }) {
     return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
-      const amount = (input.quantity || 0) * (input.unitCost || 0);
+      const entryNumber = this.generateEntryNumber();
+      const qty = Math.abs(input.quantity || 0);
+      const unitCost = input.unitCost || 0;
+      const amount = qty * unitCost;
+      const ts = new Date().toISOString();
+      const referenceNumber = this.uniqueReference(input.referenceNumber);
+
+      // Balance is only adjusted for real quantity movements; REVERSAL rows are
+      // posted by reverseMovement (which restores the balance itself).
+      let balance = null;
+      if (input.direction !== 'REVERSAL') {
+        balance = await this.applyBalanceDelta(
+          input.warehouseId,
+          input.itemId,
+          input.direction,
+          qty,
+          unitCost,
+          input as any,
+        );
+      }
+      const balanceQuantity = balance?.onHand ?? 0;
+      const balanceCost = balanceQuantity * unitCost;
+
       await this.database.invStockLedger.create({
-        entryNumber: this.generateEntryNumber(),
+        entryNumber,
         transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
-        referenceNumber: input.referenceNumber,
+        referenceNumber,
         transactionType: input.transactionType,
         direction: input.direction,
-        transactionDate: new Date().toISOString(),
-        postingDate: new Date().toISOString(),
+        transactionDate: ts,
+        postingDate: ts,
         itemId: input.itemId,
         variantId: input.variantId,
         batchId: input.batchId,
@@ -718,67 +828,31 @@ export class InventoryPostingEngine {
         fromWarehouseId: input.fromWarehouseId,
         toWarehouseId: input.toWarehouseId,
         uom: input.uom,
-        quantity: input.quantity,
-        unitCost: input.unitCost || 0,
+        quantity: qty,
+        unitCost,
         amount,
-        balanceQuantity: 0,
-        balanceCost: 0,
-        documentRef: input.documentRef,
+        balanceQuantity,
+        balanceCost,
+        documentRef: input.documentRef || input.referenceNumber || null,
         documentType: input.documentType,
         remarks: input.remarks,
         createdBy: input.createdBy,
         approvedBy: input.approvedBy,
-      });
-      // Update stock balance
-      const existingBalance = await this.database.invStockBalance.findAll({
-        filters: [
-          { field: 'warehouseId', operator: 'eq' as const, value: input.warehouseId },
-          { field: 'itemId', operator: 'eq' as const, value: input.itemId },
-        ],
-        pageSize: 1,
       } as any);
-      const currentBalance = ((existingBalance as any)?.data || [])[0];
-      if (currentBalance) {
-        const bal = currentBalance as Record<string, any>;
-        if (input.direction === 'IN') {
-          bal.onHand = (bal.onHand || 0) + input.quantity;
-          bal.available = (bal.available || 0) + input.quantity;
-        } else if (input.direction === 'OUT') {
-          bal.onHand = Math.max(0, (bal.onHand || 0) - input.quantity);
-          bal.available = Math.max(0, (bal.available || 0) - input.quantity);
-        } else if (input.direction === 'TRANSFER') {
-          bal.inTransit = (bal.inTransit || 0) + input.quantity;
-        }
-        await this.database.invStockBalance.update(currentBalance.id, bal);
-      } else {
-        await this.database.invStockBalance.create({
-          warehouseId: input.warehouseId,
-          itemId: input.itemId,
-          variantId: input.variantId || null,
-          batchId: input.batchId || null,
-          batchNo: input.batchNo || null,
-          zoneId: input.zoneId || null,
-          rackId: input.rackId || null,
-          onHand: input.direction === 'IN' ? input.quantity : 0,
-          available: input.direction === 'IN' ? input.quantity : 0,
-          reserved: 0,
-          committed: 0,
-          allocated: 0,
-          damaged: 0,
-          blocked: 0,
-          inTransit: input.direction === 'TRANSFER' ? input.quantity : 0,
-        });
-      }
       await this.audit.log({
         userId: input.createdBy || 'system',
         event: `stock_${input.direction.toLowerCase()}`,
         resource: '',
-        details: { message: `${input.direction} ${input.quantity} units` } as any,
+        details: {
+          message: `${input.direction} ${qty} units of ${input.itemId}`,
+          entryNumber,
+          referenceNumber,
+        } as any,
       });
-      return { entryNumber: '', success: true };
+      return { entryNumber, success: true, balanceQuantity };
     });
   }
-  async postTransfer(_input: {
+  async postTransfer(input: {
     itemId: string;
     fromWarehouseId: string;
     toWarehouseId: string;
@@ -786,15 +860,205 @@ export class InventoryPostingEngine {
     unitCost?: number;
     batchId?: string;
     batchNo?: string;
+    lotNo?: string;
+    serialNo?: string;
+    variantId?: string;
     uom?: string;
     referenceNumber?: string;
+    documentRef?: string;
     createdBy?: string;
     remarks?: string;
   }) {
-    return { outEntry: { entryNumber: '' }, inEntry: { entryNumber: '' } };
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      const qty = Math.abs(input.quantity || 0);
+      if (qty <= 0) {
+        throw new Error('Transfer quantity must be greater than zero');
+      }
+      const unitCost = input.unitCost || 0;
+      const ts = new Date().toISOString();
+      const baseRef = input.referenceNumber || input.documentRef || 'TRF';
+      const outEntryNumber = this.generateEntryNumber();
+      const inEntryNumber = this.generateEntryNumber();
+      const docRef = input.documentRef || input.referenceNumber || null;
+
+      // 1) OUT from source warehouse — decrement source onHand/available
+      const sourceBalance = await this.applyBalanceDelta(
+        input.fromWarehouseId,
+        input.itemId,
+        'OUT',
+        qty,
+        unitCost,
+        input as any,
+      );
+      await this.database.invStockLedger.create({
+        entryNumber: outEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: `${baseRef}-OUT-${outEntryNumber}`,
+        transactionType: 'transfer_out',
+        direction: 'OUT',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: input.itemId,
+        variantId: input.variantId,
+        batchId: input.batchId,
+        batchNo: input.batchNo,
+        lotNo: input.lotNo,
+        serialNo: input.serialNo,
+        warehouseId: input.fromWarehouseId,
+        fromWarehouseId: input.fromWarehouseId,
+        toWarehouseId: input.toWarehouseId,
+        uom: input.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: sourceBalance?.onHand ?? 0,
+        balanceCost: (sourceBalance?.onHand ?? 0) * unitCost,
+        documentRef: docRef,
+        documentType: 'stock_transfer',
+        remarks: input.remarks || `Transfer OUT from ${input.fromWarehouseId}`,
+        createdBy: input.createdBy,
+      } as any);
+
+      // 2) IN to destination warehouse — increment destination onHand/available
+      const destBalance = await this.applyBalanceDelta(
+        input.toWarehouseId,
+        input.itemId,
+        'IN',
+        qty,
+        unitCost,
+        input as any,
+      );
+      await this.database.invStockLedger.create({
+        entryNumber: inEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: `${baseRef}-IN-${inEntryNumber}`,
+        transactionType: 'transfer_in',
+        direction: 'IN',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: input.itemId,
+        variantId: input.variantId,
+        batchId: input.batchId,
+        batchNo: input.batchNo,
+        lotNo: input.lotNo,
+        serialNo: input.serialNo,
+        warehouseId: input.toWarehouseId,
+        fromWarehouseId: input.fromWarehouseId,
+        toWarehouseId: input.toWarehouseId,
+        uom: input.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: destBalance?.onHand ?? 0,
+        balanceCost: (destBalance?.onHand ?? 0) * unitCost,
+        documentRef: docRef,
+        documentType: 'stock_transfer',
+        remarks: input.remarks || `Transfer IN to ${input.toWarehouseId}`,
+        createdBy: input.createdBy,
+      } as any);
+
+      await this.audit.log({
+        userId: input.createdBy || 'system',
+        event: 'stock_transfer',
+        resource: '',
+        details: {
+          message: `Transferred ${qty} units of ${input.itemId} from ${input.fromWarehouseId} to ${input.toWarehouseId}`,
+          outEntry: outEntryNumber,
+          inEntry: inEntryNumber,
+        } as any,
+      });
+      return { outEntry: { entryNumber: outEntryNumber }, inEntry: { entryNumber: inEntryNumber } };
+    });
   }
-  async reverseMovement(_originalEntryNumber: string, _reason: string, _userId?: string) {
-    return { reversalEntryNumber: '', success: true };
+  async reverseMovement(originalEntryNumber: string, reason: string, userId?: string) {
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      const res = await this.database.invStockLedger.findAll({
+        filters: [{ field: 'entryNumber', operator: 'eq' as const, value: originalEntryNumber }],
+        pageSize: 1,
+      } as any);
+      const original = ((res as any)?.data || [])[0] as Record<string, any> | undefined;
+      if (!original) {
+        throw new Error(`Stock entry ${originalEntryNumber} not found`);
+      }
+      if (original.isReversal) {
+        throw new Error(
+          `Entry ${originalEntryNumber} is already a reversal — cannot reverse it again`,
+        );
+      }
+      // Duplicate-reversal guard: one original may only be reversed once
+      const existingReversal = await this.database.invStockLedger.findAll({
+        filters: [{ field: 'reversalRefId', operator: 'eq' as const, value: original.id }],
+        pageSize: 1,
+      } as any);
+      if (((existingReversal as any)?.data || []).length > 0) {
+        throw new Error(`Entry ${originalEntryNumber} has already been reversed`);
+      }
+
+      const qty = Math.abs(original.quantity || 0);
+      const unitCost = Number(original.unitCost) || 0;
+      const ts = new Date().toISOString();
+      const reversalEntryNumber = this.generateEntryNumber();
+
+      // Restore the balance to its pre-entry state (opposite of the original delta)
+      const originalDirection = String(original.direction).toUpperCase();
+      const reverseDirection =
+        originalDirection === 'IN'
+          ? 'OUT'
+          : originalDirection === 'OUT'
+            ? 'IN'
+            : originalDirection === 'RESERVE'
+              ? 'RELEASE'
+              : originalDirection === 'RELEASE'
+                ? 'RESERVE'
+                : originalDirection;
+      const warehouseId = original.warehouseId || original.toWarehouseId;
+      if (warehouseId && originalDirection !== 'TRANSFER') {
+        await this.applyBalanceDelta(warehouseId, original.itemId, reverseDirection, qty, unitCost);
+      }
+
+      const entry = await this.database.invStockLedger.create({
+        entryNumber: reversalEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: this.uniqueReference(original.referenceNumber),
+        transactionType: `${original.transactionType || 'movement'}_reversal`,
+        direction: 'REVERSAL',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: original.itemId,
+        variantId: original.variantId,
+        batchId: original.batchId,
+        batchNo: original.batchNo,
+        lotNo: original.lotNo,
+        serialNo: original.serialNo,
+        warehouseId,
+        fromWarehouseId: original.fromWarehouseId,
+        toWarehouseId: original.toWarehouseId,
+        uom: original.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: 0,
+        balanceCost: 0,
+        reversalRefId: original.id,
+        isReversal: true,
+        documentRef: original.documentRef || original.referenceNumber || null,
+        documentType: original.documentType,
+        remarks: `Reversal of ${originalEntryNumber}: ${reason}`,
+        createdBy: userId,
+      } as any);
+
+      await this.audit.log({
+        userId: userId || 'system',
+        event: 'stock_reversal',
+        resource: '',
+        details: {
+          message: `Reversed ${originalEntryNumber} (${qty} units)`,
+          reason,
+          reversalEntryNumber,
+        } as any,
+      });
+      return { reversalEntryNumber, entryId: entry?.id, success: true };
+    });
   }
 }
 
@@ -1012,12 +1276,29 @@ export class EnterpriseTransferService {
     return this.getTransferDetails(id);
   }
   async approveTransfer(id: string, approvalNotes?: string, userId?: string) {
+    const doc = (await this.database.stockTransfers.findById(id)) as any;
+    if (!doc) {
+      throw new Error(`Transfer ${id} not found`);
+    }
+    if (doc.status !== 'pending_approval') {
+      throw new Error(`Cannot approve transfer in ${doc.status} status`);
+    }
     await this.database.stockTransfers.update(id, {
       status: 'approved',
       approvedBy: userId,
       approvedDate: new Date().toISOString(),
       approvalNotes: approvalNotes || null,
     });
+    // Default approval = full requested quantity
+    const itemsResult = await this.database.transferItems.findAll({
+      filters: [{ field: 'transferId', operator: 'eq' as const, value: id }],
+      pageSize: 1000,
+    } as any);
+    for (const item of (itemsResult as any)?.data || []) {
+      await this.database.transferItems.update(item.id, {
+        approvedQty: item.requestedQty || 0,
+      });
+    }
     return this.getTransferDetails(id);
   }
   async receiveTransfer(input: {
@@ -1025,8 +1306,90 @@ export class EnterpriseTransferService {
     items?: Array<{ itemId: string; batchNo?: string; receivedQty: number; rejectedQty?: number }>;
     userId?: string;
   }) {
+    const doc = (await this.database.stockTransfers.findById(input.id)) as any;
+    if (!doc) {
+      throw new Error(`Transfer ${input.id} not found`);
+    }
+    if (
+      doc.status !== 'approved' &&
+      doc.status !== 'in_transit' &&
+      doc.status !== 'partially_received'
+    ) {
+      throw new Error(`Cannot receive transfer in ${doc.status} status`);
+    }
+    const itemsResult = await this.database.transferItems.findAll({
+      filters: [{ field: 'transferId', operator: 'eq' as const, value: input.id }],
+      pageSize: 1000,
+    } as any);
+    const items = ((itemsResult as any)?.data || []) as any[];
+    if (items.length === 0) {
+      throw new Error(`Transfer ${input.id} has no items to receive`);
+    }
+
+    // Map receive quantities by itemId (fall back to approved/requested qty)
+    const receiveMap = new Map<string, { receivedQty: number; rejectedQty: number }>();
+    for (const r of input.items || []) {
+      receiveMap.set(r.itemId, {
+        receivedQty: r.receivedQty || 0,
+        rejectedQty: r.rejectedQty || 0,
+      });
+    }
+
+    let anyReceived = false;
+    let allReceived = true;
+    for (const item of items) {
+      const approvedQty = Number(item.approvedQty) || Number(item.requestedQty) || 0;
+      const alreadyReceived = Number(item.receivedQty) || 0;
+      const remainingQty = Math.max(0, approvedQty - alreadyReceived);
+      const incoming = receiveMap.get(item.itemId);
+      // Client-supplied quantity wins; otherwise fall back to the REMAINING
+      // quantity (approved − already received) so a second partial receive
+      // never re-posts previously received stock. Clamp to the remaining
+      // approved quantity to prevent over-receipt.
+      const requested = incoming ? incoming.receivedQty : remainingQty;
+      const receivedQty = Math.min(Math.max(0, requested || 0), remainingQty);
+      const rejectedQty = incoming ? incoming.rejectedQty || 0 : 0;
+      if (receivedQty <= 0 && rejectedQty <= 0) {
+        continue;
+      }
+      // Post the actual stock movement (OUT at source, IN at destination)
+      if (receivedQty > 0) {
+        anyReceived = true;
+        await this.postingEngine.postTransfer({
+          itemId: item.itemId,
+          fromWarehouseId: doc.sourceWarehouseId,
+          toWarehouseId: doc.destinationWarehouseId,
+          quantity: receivedQty,
+          unitCost: item.unitCost || 0,
+          batchId: item.batchId || undefined,
+          batchNo: item.batchNo || undefined,
+          lotNo: item.lotNo || undefined,
+          serialNo: item.serialNo || undefined,
+          variantId: item.variantId || undefined,
+          uom: item.uom || undefined,
+          referenceNumber: doc.transferNumber,
+          documentRef: doc.transferNumber,
+          createdBy: input.userId,
+          remarks: `Transfer ${doc.transferNumber} receive`,
+        });
+      }
+      // Accumulate across multiple partial receives (never overwrite)
+      const newReceivedTotal = alreadyReceived + receivedQty;
+      await this.database.transferItems.update(item.id, {
+        transferredQty: newReceivedTotal,
+        receivedQty: newReceivedTotal,
+        rejectedQty: (Number(item.rejectedQty) || 0) + rejectedQty,
+      });
+      if (newReceivedTotal < approvedQty) {
+        allReceived = false;
+      }
+    }
+    if (!anyReceived) {
+      throw new Error('No items received on this transfer');
+    }
+
     await this.database.stockTransfers.update(input.id, {
-      status: 'received',
+      status: allReceived ? 'received' : 'partially_received',
       receivedDate: new Date().toISOString(),
       receivedBy: input.userId,
     });

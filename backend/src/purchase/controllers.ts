@@ -58,7 +58,10 @@ import {
   BulkSupplierDeleteDto,
   CreatePurchaseRequisitionDto,
   UpdatePurchaseRequisitionDto,
+  CollectSupplierPaymentDto,
+  ApplySupplierAdvanceDto,
 } from './dto';
+import { PurchasePaymentsService } from './purchase-payments.service';
 import { PurchasePostingEngineService } from './purchase-postings.service';
 import {
   PurchaseOrdersService,
@@ -111,6 +114,15 @@ export class PurchaseOrdersController {
   @ApiResponse({ status: 200, description: 'Paginated list of purchase orders' })
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
+  }
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto purchase-order number (e.g. PO-0001)' })
+  @ApiResponse({ status: 200, description: 'Next PO number' })
+  async getNextNumber() {
+    return this.service.getNextNumber();
   }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
@@ -184,6 +196,15 @@ export class PurchaseQuotationsController {
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
   }
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto purchase-quotation number (e.g. QTN-0001)' })
+  @ApiResponse({ status: 200, description: 'Next quotation number' })
+  async getNextNumber() {
+    return this.service.getNextNumber();
+  }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('purchase.read')
@@ -255,6 +276,15 @@ export class GrnController {
   @ApiResponse({ status: 200, description: 'Paginated list of GRNs' })
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
+  }
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto GRN number (e.g. GRN-0001)' })
+  @ApiResponse({ status: 200, description: 'Next GRN number' })
+  async getNextNumber() {
+    return this.service.getNextNumber();
   }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
@@ -338,6 +368,15 @@ export class PurchaseInvoicesController {
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
   }
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto purchase-invoice number (e.g. PI-0001)' })
+  @ApiResponse({ status: 200, description: 'Next invoice number' })
+  async getNextNumber() {
+    return this.service.getNextNumber();
+  }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('purchase.read')
@@ -409,6 +448,15 @@ export class PurchaseReturnsController {
   @ApiResponse({ status: 200, description: 'Paginated list of purchase returns' })
   async findAll(@Query('page') p = 1, @Query('ps') ps = 50, @Query('search') s?: string) {
     return this.service.findAll(Number(p), Number(ps), s);
+  }
+  @Get('next-number')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Next auto purchase-return number (e.g. PR-0001)' })
+  @ApiResponse({ status: 200, description: 'Next return number' })
+  async getNextNumber() {
+    return this.service.getNextNumber();
   }
   @Get(':id')
   @Roles('admin', 'manager', 'accountant')
@@ -998,12 +1046,23 @@ export class PurchaseReportsController {
   @Roles('admin', 'manager', 'accountant')
   @Permissions('purchase.read')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'GST purchase report' })
+  @ApiOperation({ summary: 'GST purchase report (invoice GST breakdown)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'ps', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'GST purchase data' })
   async gstPurchase(@Query('page') p = 1, @Query('ps') ps = 50) {
     return this.service.getGstPurchaseReport(Number(p), Number(ps));
+  }
+  @Get('payment-report')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Purchase payment report' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'ps', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Purchase payment data' })
+  async paymentReport(@Query('page') p = 1, @Query('ps') ps = 50) {
+    return this.service.getPaymentReport(Number(p), Number(ps));
   }
 }
 
@@ -1129,5 +1188,110 @@ export class PurchasePostingController {
   @ApiParam({ name: 'invoiceId', description: 'Purchase invoice ID' })
   async previewPosting(@Param('invoiceId') invoiceId: string) {
     return this.service.previewPosting(invoiceId);
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// PURCHASE PAYMENTS CONTROLLER (Phase 3.3 — G3)
+// ═════════════════════════════════════════════════════════
+
+@ApiTags('Purchase - Payments')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
+@Controller('purchase/payments')
+export class PurchasePaymentsController {
+  constructor(private readonly service: PurchasePaymentsService) {}
+
+  @Get('dashboard')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Payment dashboard — total payable, overdue, advance, today payments',
+  })
+  @ApiResponse({ status: 200, description: 'Dashboard summary + recent payments' })
+  async getDashboard() {
+    return this.service.getDashboard();
+  }
+
+  @Get()
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List supplier payments with filters (supplier, mode, date range)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'pageSize', required: false, type: Number })
+  @ApiQuery({ name: 'supplierId', required: false, type: String })
+  @ApiQuery({
+    name: 'mode',
+    required: false,
+    enum: ['cash', 'upi', 'bank', 'cheque', 'advance', 'all'],
+  })
+  @ApiQuery({ name: 'from', required: false, type: String, description: 'YYYY-MM-DD' })
+  @ApiQuery({ name: 'to', required: false, type: String, description: 'YYYY-MM-DD' })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  async list(
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 50,
+    @Query('supplierId') supplierId?: string,
+    @Query('mode') mode?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.service.listPayments({
+      page: Number(page),
+      pageSize: Number(pageSize),
+      supplierId,
+      mode,
+      from,
+      to,
+      search,
+    });
+  }
+
+  @Get('invoice/:invoiceId')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Payments history for a single purchase invoice' })
+  @ApiParam({ name: 'invoiceId', description: 'Purchase invoice ID' })
+  async getInvoicePayments(@Param('invoiceId') invoiceId: string) {
+    return this.service.getInvoicePayments(invoiceId);
+  }
+
+  @Get('supplier/:supplierId')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Supplier payment summary — due invoices, advance balance, history',
+  })
+  @ApiParam({ name: 'supplierId', description: 'Supplier ID' })
+  async getSupplierSummary(@Param('supplierId') supplierId: string) {
+    return this.service.getSupplierSummary(supplierId);
+  }
+
+  @Post('collect')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Make supplier payment — cash/UPI/bank/cheque. Allocates to invoices oldest-first; excess becomes advance',
+  })
+  @ApiBody({ type: CollectSupplierPaymentDto })
+  async collect(@Body() dto: CollectSupplierPaymentDto, @CurrentUser() u: { id: string }) {
+    return this.service.collect(dto as any, u?.id);
+  }
+
+  @Post('apply-advance')
+  @Roles('admin', 'manager', 'accountant')
+  @Permissions('purchase.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Apply supplier advance balance to selected invoices' })
+  @ApiBody({ type: ApplySupplierAdvanceDto })
+  async applyAdvance(@Body() dto: ApplySupplierAdvanceDto, @CurrentUser() u: { id: string }) {
+    return this.service.applyAdvance(dto as any, u?.id);
   }
 }

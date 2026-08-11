@@ -1,10 +1,35 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 
+import { ActivationGate } from '@/components/activation-gate';
 import { LoadingScreen } from '@/components/loading-screen';
 import { ProtectedRoute } from '@/components/protected-route';
 import { useAuth } from '@/context/AuthContext';
+import { PortalAuthProvider } from '@/context/PortalAuthContext';
 import { AppLayout } from '@/layouts/app-layout';
+import { PortalLayout } from '@/layouts/portal-layout';
 import { getUserLandingPath, hasModuleAccess } from '@/lib/module-access';
+import { ActivationPage } from '@/pages/activation/activate';
+import { PortalAdminPage } from '@/pages/portal/admin';
+import { PortalDashboardPage } from '@/pages/portal/dashboard';
+import { PortalDocumentsPage } from '@/pages/portal/documents';
+import { PortalInvoicesPage, PortalInvoiceDetailPage } from '@/pages/portal/invoices';
+import { PortalLedgerPage } from '@/pages/portal/ledger';
+import { PortalLoginPage } from '@/pages/portal/login';
+import { PortalOrdersPage, PortalOrderDetailPage } from '@/pages/portal/orders';
+import { PortalOutstandingPage } from '@/pages/portal/outstanding';
+import { PortalProfilePage } from '@/pages/portal/profile';
+import { PortalQuotationsPage, PortalQuotationDetailPage } from '@/pages/portal/quotations';
+import { PortalTicketsPage, PortalTicketDetailPage } from '@/pages/portal/tickets';
+
+// Portal routes are wrapped in their own auth provider — the customer portal
+// session is completely separate from the internal ERP session.
+function PortalRoutes() {
+  return (
+    <PortalAuthProvider>
+      <PortalLayout />
+    </PortalAuthProvider>
+  );
+}
 import { AccessDeniedPage } from '@/pages/auth/access-denied';
 import { ForgotPasswordPage } from '@/pages/auth/forgot-password';
 import { LoginPage } from '@/pages/auth/login';
@@ -38,6 +63,7 @@ import {
   BankBookPage,
   CostCentersPage,
   AccountingSettingsPage,
+  FinanceDashboardPage,
 } from '@/pages/finance';
 import {
   CreateAccountGroupPage,
@@ -56,6 +82,7 @@ import {
   CashFlowPage,
   DayBookPage,
   AccountStatementPage,
+  FinancialDashboardPage,
 } from '@/pages/gl';
 import {
   CreateGlEntryPage,
@@ -188,8 +215,10 @@ import {
   PendingPOReport,
   PurchaseReturnReport,
   GstPurchaseReport,
+  PurchaseDashboardPage,
 } from '@/pages/purchase';
 import { CreatePurchaseSettingsPage } from '@/pages/purchase/dynamic-forms';
+import { PurchasePaymentCollectionPage } from '@/pages/purchase/payment-collection-page';
 import {
   SalesQuotationsPage,
   SalesOrdersPage,
@@ -234,7 +263,61 @@ import {
   DebitNotesPage,
   ReturnReportsPage,
 } from '@/pages/sales/returns';
+import {
+  OverviewAnalyticsPage,
+  SalesAnalyticsPage,
+  PurchaseAnalyticsPage,
+  InventoryAnalyticsPage,
+  FinanceAnalyticsPage,
+  GstAnalyticsPage,
+  CustomerAnalyticsPage,
+  SupplierAnalyticsPage,
+  WarehouseAnalyticsPage,
+  ProfitabilityAnalyticsPage,
+  CashFlowAnalyticsPage,
+  GrowthAnalyticsPage,
+  TopBottomAnalyticsPage,
+} from '@/pages/bi-dashboards';
 import { SalesOrderFormPage } from '@/pages/sales/sales-order-form-page';
+import { CrmDashboardPage, CrmReportsPage } from '@/pages/crm';
+import { NotificationCenterPage } from '@/pages/communications/center';
+import { AssetExpenseDashboardPage } from '@/pages/assets/dashboard';
+import { AssetsPage } from '@/pages/assets';
+import { AssetDetailPage } from '@/pages/assets/detail';
+import { AssetFormPage } from '@/pages/assets/form';
+import { ExpensesPage } from '@/pages/expenses';
+import { ExpenseFormPage } from '@/pages/expenses/form';
+import { BusinessRulesPage } from '@/pages/control/business-rules';
+import { CustomFieldsPage } from '@/pages/control/custom-fields';
+import { TagsPage } from '@/pages/control/tags';
+import { GlobalSearchPage } from '@/pages/control/global-search';
+import { BusinessControlPage } from '@/pages/control/business-control';
+import { CommercialDashboardPage } from '@/pages/commercial/dashboard';
+import { CommercialPlansPage } from '@/pages/commercial/plans';
+import { CommercialSubscriptionsPage } from '@/pages/commercial/subscriptions';
+import { CommercialCouponsPage } from '@/pages/commercial/coupons';
+import { CommercialBillingPage } from '@/pages/commercial/billing';
+import { LicenseDashboardPage } from '@/pages/license/dashboard';
+import { LicensesPage } from '@/pages/license/licenses';
+import { LicenseDetailPage } from '@/pages/license/license-detail';
+import { PortalLicensePage } from '@/pages/portal/license';
+import { CommercialReportsPage } from '@/pages/commercial/reports';
+import { PortalBillingPage } from '@/pages/portal/billing';
+import { AttendancePage } from '@/pages/hr/attendance';
+import { HrDashboardPage } from '@/pages/hr/dashboard';
+import { EmployeeDetailPage } from '@/pages/hr/employee-detail';
+import { EmployeeFormPage } from '@/pages/hr/employee-form';
+import { EmployeesPage } from '@/pages/hr/employees';
+import { LeavePage } from '@/pages/hr/leave';
+import { PayrollPage } from '@/pages/hr/payroll';
+import { CommunicationLogPage } from '@/pages/communications/log';
+import { CommunicationTemplatesPage } from '@/pages/communications/templates';
+import { CommunicationSettingsPage } from '@/pages/communications/settings';
+import { CrmTasksPage, FollowUpsPage } from '@/pages/crm/engagement';
+import { LeadFormPage } from '@/pages/crm/lead-form';
+import { LeadDetailPage } from '@/pages/crm/lead-detail';
+import { LeadsPage } from '@/pages/crm/leads';
+import { CrmPipelinePage } from '@/pages/crm/pipeline';
 import {
   CreateSupplierPage,
   EditSupplierPage,
@@ -266,7 +349,9 @@ export const routes: RouteObject[] = [
     path: '/',
     element: (
       <ProtectedRoute>
-        <AppLayout />
+        <ActivationGate>
+          <AppLayout />
+        </ActivationGate>
       </ProtectedRoute>
     ),
     errorElement: <ErrorPage />,
@@ -376,7 +461,8 @@ export const routes: RouteObject[] = [
       { path: 'inventory/reports/slow-moving', element: <SlowMovingPage /> },
       { path: 'inventory/barcode-gen', element: <BarcodeGenPage /> },
       // ── Purchase Modules ────────────────────────────
-      { path: 'purchase/dashboard', element: <Navigate to="/" replace /> },
+      { path: 'purchase/dashboard', element: <PurchaseDashboardPage /> },
+      { path: 'purchase/payments', element: <PurchasePaymentCollectionPage /> },
       { path: 'purchase/orders', element: <PurchaseOrdersPage /> },
       { path: 'purchase/quotations', element: <PurchaseQuotationsPage /> },
       { path: 'purchase/grn', element: <GrnPage /> },
@@ -442,6 +528,70 @@ export const routes: RouteObject[] = [
       { path: 'sales/reports/payment', element: <PaymentReport /> },
       { path: 'sales/reports/profit', element: <ProfitAnalysisReport /> },
       { path: 'sales/reports/export', element: <ExportCenter /> },
+      // ── BI Analytics Dashboards (Phase 5) ────────────
+      { path: 'analytics/overview', element: <OverviewAnalyticsPage /> },
+      { path: 'analytics/sales', element: <SalesAnalyticsPage /> },
+      { path: 'analytics/purchase', element: <PurchaseAnalyticsPage /> },
+      { path: 'analytics/inventory', element: <InventoryAnalyticsPage /> },
+      { path: 'analytics/finance', element: <FinanceAnalyticsPage /> },
+      { path: 'analytics/gst', element: <GstAnalyticsPage /> },
+      { path: 'analytics/customers', element: <CustomerAnalyticsPage /> },
+      { path: 'analytics/suppliers', element: <SupplierAnalyticsPage /> },
+      { path: 'analytics/warehouses', element: <WarehouseAnalyticsPage /> },
+      { path: 'analytics/profitability', element: <ProfitabilityAnalyticsPage /> },
+      { path: 'analytics/cashflow', element: <CashFlowAnalyticsPage /> },
+      { path: 'analytics/growth', element: <GrowthAnalyticsPage /> },
+      { path: 'analytics/top-bottom', element: <TopBottomAnalyticsPage /> },
+      // ── CRM (Phase 6) ────────────────────────────────
+      { path: 'crm/dashboard', element: <CrmDashboardPage /> },
+      { path: 'crm/leads', element: <LeadsPage /> },
+      { path: 'crm/leads/new', element: <LeadFormPage /> },
+      { path: 'crm/leads/:id', element: <LeadDetailPage /> },
+      { path: 'crm/leads/:id/edit', element: <LeadFormPage /> },
+      { path: 'crm/pipeline', element: <CrmPipelinePage /> },
+      { path: 'crm/follow-ups', element: <FollowUpsPage /> },
+      { path: 'crm/tasks', element: <CrmTasksPage /> },
+      { path: 'crm/reports', element: <CrmReportsPage /> },
+      // ── Communication & Notifications (Phase 7) ──────────
+      { path: 'communications/center', element: <NotificationCenterPage /> },
+      // ── HR & Employee Management (Phase 8) ──────────────
+      { path: 'hr/dashboard', element: <HrDashboardPage /> },
+      { path: 'hr/employees', element: <EmployeesPage /> },
+      { path: 'hr/employees/new', element: <EmployeeFormPage /> },
+      { path: 'hr/employees/:id', element: <EmployeeDetailPage /> },
+      { path: 'hr/employees/:id/edit', element: <EmployeeFormPage /> },
+      { path: 'hr/attendance', element: <AttendancePage /> },
+      { path: 'hr/leave', element: <LeavePage /> },
+      { path: 'hr/payroll', element: <PayrollPage /> },
+      { path: 'assets', element: <AssetExpenseDashboardPage /> },
+      { path: 'assets/list', element: <AssetsPage /> },
+      { path: 'assets/new', element: <AssetFormPage /> },
+      { path: 'assets/:id', element: <AssetDetailPage /> },
+      { path: 'assets/:id/edit', element: <AssetFormPage /> },
+      { path: 'assets/maintenance', element: <AssetsPage /> },
+      { path: 'expenses', element: <ExpensesPage /> },
+      { path: 'expenses/new', element: <ExpenseFormPage /> },
+      { path: 'workflow/control', element: <BusinessControlPage /> },
+      { path: 'control/business-rules', element: <BusinessRulesPage /> },
+      { path: 'control/custom-fields', element: <CustomFieldsPage /> },
+      { path: 'control/tags', element: <TagsPage /> },
+      { path: 'control/global-search', element: <GlobalSearchPage /> },
+
+      // ── Commercial (Phase 12) ─────────────────────
+      { path: 'commercial/dashboard', element: <CommercialDashboardPage /> },
+      { path: 'commercial/plans', element: <CommercialPlansPage /> },
+      { path: 'commercial/subscriptions', element: <CommercialSubscriptionsPage /> },
+      { path: 'commercial/coupons', element: <CommercialCouponsPage /> },
+      { path: 'commercial/billing', element: <CommercialBillingPage /> },
+      { path: 'commercial/reports', element: <CommercialReportsPage /> },
+
+      // ── License (Phase 13) ─────────────────────────
+      { path: 'license/dashboard', element: <LicenseDashboardPage /> },
+      { path: 'license', element: <LicensesPage /> },
+      { path: 'license/:id', element: <LicenseDetailPage /> },
+      { path: 'communications/log', element: <CommunicationLogPage /> },
+      { path: 'communications/templates', element: <CommunicationTemplatesPage /> },
+      { path: 'communications/settings', element: <CommunicationSettingsPage /> },
       // ── Sales Approval Workflow (Step 11) ────────────
       { path: 'sales/approvals', element: <ApprovalsPage /> },
       { path: 'sales/approvals/dashboard', element: <ApprovalDashboard /> },
@@ -459,7 +609,7 @@ export const routes: RouteObject[] = [
       { path: 'sales/returns/debit-notes', element: <DebitNotesPage /> },
       { path: 'sales/returns/reports', element: <ReturnReportsPage /> },
       // ── Finance Modules ────────────────────────────
-      { path: 'finance/dashboard', element: <Navigate to="/" replace /> },
+      { path: 'finance/dashboard', element: <FinanceDashboardPage /> },
       { path: 'finance/account-groups', element: <AccountGroupsPage /> },
       { path: 'finance/account-groups/create', element: <CreateAccountGroupPage /> },
       { path: 'finance/account-groups/:id/edit', element: <CreateAccountGroupPage /> },
@@ -485,7 +635,7 @@ export const routes: RouteObject[] = [
       // Purane /settings links/bookmarks → Accounting Settings (404 se bachne ke liye)
       { path: 'settings', element: <Navigate to="/finance/settings" replace /> },
       // ── GL / Reporting Modules ─────────────────────
-      { path: 'gl/dashboard', element: <Navigate to="/" replace /> },
+      { path: 'gl/dashboard', element: <FinancialDashboardPage /> },
       { path: 'gl/entries', element: <GlEntriesPage /> },
       { path: 'gl/entries/create', element: <CreateGlEntryPage /> },
       { path: 'gl/entries/:id/edit', element: <CreateGlEntryPage /> },
@@ -559,6 +709,8 @@ export const routes: RouteObject[] = [
   { path: 'workflow/tasks', element: <PendingTasksDashboardPage /> },
   { path: 'workflow/my-tasks', element: <MyTasksDashboardPage /> },
   { path: 'workflow/escalation', element: <EscalationDashboardPage /> },
+  // ── Customer Portal Admin (Phase 11) ──────────
+  { path: 'portal-admin', element: <PortalAdminPage /> },
   { path: 'ai/dashboard', element: <Navigate to="/" replace /> },
   { path: 'ai/insights', element: <Navigate to="/" replace /> },
   { path: 'ai/forecasts', element: <Navigate to="/" replace /> },
@@ -575,6 +727,41 @@ export const routes: RouteObject[] = [
       { path: 'session-expired', element: <SessionExpiredPage /> },
     ],
   },
+
+  // ── Activation (Phase 14) — first-run / recovery, public ──
+  { path: '/activate', element: <ActivationPage /> },
+
+  // ── Customer Portal (Phase 11) — isolated from internal ERP ──
+  {
+    path: '/portal/login',
+    element: (
+      <PortalAuthProvider>
+        <PortalLoginPage />
+      </PortalAuthProvider>
+    ),
+  },
+  {
+    path: '/portal',
+    element: <PortalRoutes />,
+    children: [
+      { index: true, element: <PortalDashboardPage /> },
+      { path: 'quotations', element: <PortalQuotationsPage /> },
+      { path: 'quotations/:id', element: <PortalQuotationDetailPage /> },
+      { path: 'orders', element: <PortalOrdersPage /> },
+      { path: 'orders/:id', element: <PortalOrderDetailPage /> },
+      { path: 'invoices', element: <PortalInvoicesPage /> },
+      { path: 'invoices/:id', element: <PortalInvoiceDetailPage /> },
+      { path: 'outstanding', element: <PortalOutstandingPage /> },
+      { path: 'ledger', element: <PortalLedgerPage /> },
+      { path: 'documents', element: <PortalDocumentsPage /> },
+      { path: 'tickets', element: <PortalTicketsPage /> },
+      { path: 'tickets/:id', element: <PortalTicketDetailPage /> },
+      { path: 'profile', element: <PortalProfilePage /> },
+      { path: 'billing', element: <PortalBillingPage /> },
+      { path: 'license', element: <PortalLicensePage /> },
+    ],
+  },
+
   {
     path: '*',
     element: <NotFoundPage />,

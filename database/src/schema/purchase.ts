@@ -341,6 +341,70 @@ export const pgPurchaseInvoices = pgTableBase(
   (table) => ({ invoiceNumberIdx: pgUniqueIndex('pi_number_idx').on(table.invoiceNumber) }),
 );
 
+// Purchase Invoice Items (Phase 3.3 — G2: invoice line items)
+export const sqlitePurchaseInvoiceItems = sqliteTableBase('shranix_purchase_invoice_items', {
+  id: sqliteText('id')
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  createdAt: sqliteText('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updatedAt: sqliteText('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString())
+    .$onUpdateFn(() => new Date().toISOString()),
+  deletedAt: sqliteText('deleted_at'),
+  isDeleted: sqliteInteger('is_deleted', { mode: 'boolean' }).notNull().default(false),
+  invoiceId: sqliteText('invoice_id').notNull(),
+  poItemId: sqliteText('po_item_id'),
+  grnItemId: sqliteText('grn_item_id'),
+  itemId: sqliteText('item_id').notNull(),
+  variantId: sqliteText('variant_id'),
+  batchNo: sqliteText('batch_no'),
+  mfgDate: sqliteText('mfg_date'),
+  expDate: sqliteText('exp_date'),
+  quantity: sqliteReal('quantity').notNull().default(1),
+  unitId: sqliteText('unit_id'),
+  rate: sqliteReal('rate').notNull().default(0),
+  discountPercent: sqliteReal('discount_percent').notNull().default(0),
+  discountAmount: sqliteReal('discount_amount').notNull().default(0),
+  taxableValue: sqliteReal('taxable_value').notNull().default(0),
+  gstRate: sqliteReal('gst_rate').notNull().default(0),
+  igst: sqliteReal('igst').notNull().default(0),
+  cgst: sqliteReal('cgst').notNull().default(0),
+  sgst: sqliteReal('sgst').notNull().default(0),
+  cess: sqliteReal('cess').notNull().default(0),
+  totalAmount: sqliteReal('total_amount').notNull().default(0),
+  warehouseId: sqliteText('warehouse_id'),
+  remarks: sqliteText('remarks'),
+});
+
+export const pgPurchaseInvoiceItems = pgTableBase('shranix_purchase_invoice_items', {
+  id: pgUuid('id').primaryKey().defaultRandom(),
+  invoiceId: pgUuid('invoice_id').notNull(),
+  poItemId: pgUuid('po_item_id'),
+  grnItemId: pgUuid('grn_item_id'),
+  itemId: pgUuid('item_id').notNull(),
+  variantId: pgUuid('variant_id'),
+  batchNo: pgText('batch_no'),
+  mfgDate: pgTimestamp('mfg_date', { withTimezone: true }),
+  expDate: pgTimestamp('exp_date', { withTimezone: true }),
+  quantity: pgReal('quantity').notNull().default(1),
+  unitId: pgUuid('unit_id'),
+  rate: pgReal('rate').notNull().default(0),
+  discountPercent: pgReal('discount_percent').notNull().default(0),
+  discountAmount: pgReal('discount_amount').notNull().default(0),
+  taxableValue: pgReal('taxable_value').notNull().default(0),
+  gstRate: pgReal('gst_rate').notNull().default(0),
+  igst: pgReal('igst').notNull().default(0),
+  cgst: pgReal('cgst').notNull().default(0),
+  sgst: pgReal('sgst').notNull().default(0),
+  cess: pgReal('cess').notNull().default(0),
+  totalAmount: pgReal('total_amount').notNull().default(0),
+  warehouseId: pgUuid('warehouse_id'),
+  remarks: pgText('remarks'),
+});
+
 // ═════════════════════════════════════════════════════════
 // 5. PURCHASE RETURNS
 // ═════════════════════════════════════════════════════════
@@ -988,5 +1052,65 @@ export const pgPurchaseSettings = pgTableBase(
   },
   (table) => ({
     purchaseSettingsCompanyIdx: pgUniqueIndex('purchase_settings_company_idx').on(table.companyId),
+  }),
+);
+
+// ═════════════════════════════════════════════════════════
+// 10. PURCHASE PAYMENTS (Phase 3.3 — G3 supplier payment collection)
+// Mirrors `shranix_sales_payments`: cash/upi/bank/cheque/advance.
+// Payment → reduces invoice paidAmount/balanceAmount + supplier currentBalance,
+// writes supplier-ledger credit + cash/bank book (receipt).
+// ═════════════════════════════════════════════════════════
+export const sqlitePurchasePayments = sqliteTableBase(
+  'shranix_purchase_payments',
+  {
+    ...sqliteBase,
+    paymentNumber: sqliteText('payment_number').notNull(),
+    invoiceId: sqliteText('invoice_id'),
+    supplierId: sqliteText('supplier_id').notNull(),
+    paymentDate: sqliteText('payment_date').notNull(),
+    mode: sqliteText('mode').notNull().default('cash'), // cash, upi, bank, cheque, advance
+    amount: sqliteReal('amount').notNull().default(0),
+    referenceNo: sqliteText('reference_no'),
+    bankName: sqliteText('bank_name'),
+    chequeNo: sqliteText('cheque_no'),
+    chequeDate: sqliteText('cheque_date'),
+    notes: sqliteText('notes'),
+    status: sqliteText('status').notNull().default('completed'), // completed, bounced, cancelled
+    isAdvance: sqliteInteger('is_advance', { mode: 'boolean' }).notNull().default(false),
+    createdBy: sqliteText('created_by'),
+    updatedBy: sqliteText('updated_by'),
+  },
+  (table) => ({
+    purchasePaymentNumberIdx: uniqueIndex('pp_payment_number_idx').on(table.paymentNumber),
+    purchasePaymentInvoiceIdx: sqliteIndex('pp_payment_invoice_idx').on(table.invoiceId),
+    purchasePaymentSupplierIdx: sqliteIndex('pp_payment_supplier_idx').on(table.supplierId),
+  }),
+);
+
+export const pgPurchasePayments = pgTableBase(
+  'shranix_purchase_payments',
+  {
+    ...pgBase,
+    paymentNumber: pgText('payment_number').notNull(),
+    invoiceId: pgUuid('invoice_id'),
+    supplierId: pgUuid('supplier_id').notNull(),
+    paymentDate: pgTimestamp('payment_date', { withTimezone: true }).notNull(),
+    mode: pgText('mode').notNull().default('cash'),
+    amount: pgReal('amount').notNull().default(0),
+    referenceNo: pgText('reference_no'),
+    bankName: pgText('bank_name'),
+    chequeNo: pgText('cheque_no'),
+    chequeDate: pgTimestamp('cheque_date', { withTimezone: true }),
+    notes: pgText('notes'),
+    status: pgText('status').notNull().default('completed'),
+    isAdvance: pgBoolean('is_advance').notNull().default(false),
+    createdBy: pgUuid('created_by'),
+    updatedBy: pgUuid('updated_by'),
+  },
+  (table) => ({
+    purchasePaymentNumberIdx: pgUniqueIndex('pp_payment_number_idx').on(table.paymentNumber),
+    purchasePaymentInvoiceIdx: pgIndex('pp_payment_invoice_idx').on(table.invoiceId),
+    purchasePaymentSupplierIdx: pgIndex('pp_payment_supplier_idx').on(table.supplierId),
   }),
 );

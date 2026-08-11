@@ -90,7 +90,7 @@ interface MandiRate {
 
 const sampleMandiRates: MandiRate[] = [
   {
-    commodity: 'Wheat',
+    commodity: 'Wheat (गहू)',
     rate: 2450,
     unit: 'quintal',
     change: 25,
@@ -98,7 +98,7 @@ const sampleMandiRates: MandiRate[] = [
     market: 'Lasalgaon',
   },
   {
-    commodity: 'Rice (Basmati)',
+    commodity: 'Rice - Basmati (तांदूळ)',
     rate: 5200,
     unit: 'quintal',
     change: -75,
@@ -106,7 +106,7 @@ const sampleMandiRates: MandiRate[] = [
     market: 'Lasalgaon',
   },
   {
-    commodity: 'Onion',
+    commodity: 'Onion (कांदा)',
     rate: 1850,
     unit: 'quintal',
     change: 120,
@@ -114,7 +114,7 @@ const sampleMandiRates: MandiRate[] = [
     market: 'Nashik',
   },
   {
-    commodity: 'Tomato',
+    commodity: 'Tomato (टोमॅटो)',
     rate: 980,
     unit: 'quintal',
     change: -45,
@@ -122,7 +122,7 @@ const sampleMandiRates: MandiRate[] = [
     market: 'Nashik',
   },
   {
-    commodity: 'Soybean',
+    commodity: 'Soybean (सोयाबीन)',
     rate: 4200,
     unit: 'ton',
     change: 150,
@@ -130,7 +130,7 @@ const sampleMandiRates: MandiRate[] = [
     market: 'Lasalgaon',
   },
   {
-    commodity: 'Cotton',
+    commodity: 'Cotton (कापूस)',
     rate: 7250,
     unit: 'quintal',
     change: -200,
@@ -314,7 +314,7 @@ const sampleNotifications: NotificationItem[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════
-// UTILITY
+// UTILITIES
 // ═══════════════════════════════════════════════════════════
 
 const number = new Intl.NumberFormat('en-IN');
@@ -324,6 +324,9 @@ function formatCurrency(amount: number): string {
 }
 
 function formatCompactCurrency(amount: number): string {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)}Cr`;
+  }
   if (amount >= 100000) {
     return `₹${(amount / 100000).toFixed(1)}L`;
   }
@@ -349,7 +352,7 @@ function Sparkline({
   data,
   color = '#10b981',
   height = 32,
-  width = 64,
+  width = 72,
 }: {
   data: number[];
   color?: string;
@@ -364,29 +367,28 @@ function Sparkline({
   const range = max - min || 1;
   const pts = data.map((v, i) => {
     const x = (i / (data.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 4) - 2;
+    const y = height - ((v - min) / range) * (height - 6) - 3;
     return `${x},${y}`;
   });
   const d = `M ${pts.join(' L ')}`;
+  const gradientId = `sg-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
+
   return (
     <svg
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
-      className="shrink-0"
+      className="shrink-0 overflow-visible"
       aria-label="Trend sparkline"
     >
       <title>Trend line</title>
       <defs>
-        <linearGradient id={`sg-${color.replace(/[#]/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.0} />
         </linearGradient>
       </defs>
-      <path
-        d={`${d} L ${width},${height} L 0,${height} Z`}
-        fill={`url(#sg-${color.replace(/[#]/g, '')})`}
-      />
+      <path d={`${d} L ${width},${height} L 0,${height} Z`} fill={`url(#${gradientId})`} />
       <path
         d={d}
         fill="none"
@@ -398,17 +400,18 @@ function Sparkline({
       <circle
         cx={pts[pts.length - 1].split(',')[0]}
         cy={pts[pts.length - 1].split(',')[1]}
-        r={2.5}
+        r={3}
         fill={color}
-        stroke="#fff"
+        stroke="#ffffff"
         strokeWidth={1.5}
+        className="drop-shadow-sm"
       />
     </svg>
   );
 }
 
 // ═══════════════════════════════════════════════════════════
-// HERO BANNER — with tractor/field image & Marathi greeting
+// HERO BANNER — Enterprise Deep Ocean Navy & Emerald
 // ═══════════════════════════════════════════════════════════
 
 const HERO_IMAGE_URL = '/assets/dashboard-bg.png';
@@ -428,130 +431,138 @@ function HeroBanner({ generatedAt }: { generatedAt: string }) {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-slate-900 shadow-xl shadow-blue-900/20">
-      {/* Agricultural landscape image — full visibility, no overlay */}
-      <div className="absolute inset-0">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-700/40 bg-gradient-to-br from-[#0C2338] via-[#0B1A33] to-[#163D63] text-white shadow-xl shadow-slate-950/20">
+      {/* Background image treatment */}
+      <div className="absolute inset-0 z-0">
         <img
           src={HERO_IMAGE_URL}
-          alt="Agricultural fields"
-          className="h-full w-full object-cover opacity-30"
+          alt="Agricultural background"
+          className="h-full w-full object-cover opacity-20 mix-blend-overlay"
           loading="eager"
         />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0C2338]/95 via-[#0B1A33]/85 to-transparent" />
       </div>
 
-      {/* Decorative pattern */}
-      <div className="pointer-events-none absolute right-6 top-6 opacity-[0.04]">
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          <pattern id="hero-dots2" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-            <circle cx="2" cy="2" r="1" fill="white" />
+      {/* Decorative dot pattern */}
+      <div className="pointer-events-none absolute right-8 top-8 z-0 opacity-[0.06]">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <pattern id="hero-dots" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="3" cy="3" r="1.5" fill="white" />
           </pattern>
-          <rect width="100" height="100" fill="url(#hero-dots2)" />
+          <rect width="120" height="120" fill="url(#hero-dots)" />
         </svg>
       </div>
 
-      {/* Notifications Bell — near admin user */}
-      <div className="absolute right-4 top-4 z-20" ref={notifRef}>
+      {/* Radial glow overlay */}
+      <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+
+      {/* Header Notification Action */}
+      <div className="absolute right-5 top-5 z-20" ref={notifRef}>
         <button
           onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-white/20 active:scale-95"
-          aria-label="Notifications"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-all duration-200 hover:scale-105 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 active:scale-95"
+          aria-label="Toggle notifications menu"
+          aria-expanded={showNotifDropdown}
         >
-          <Bell className="h-4 w-4" strokeWidth={1.5} />
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm ring-2 ring-blue-900">
+          <Bell className="h-4 w-4" strokeWidth={1.75} />
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0C2338]">
             3
           </span>
         </button>
 
         {showNotifDropdown && (
-          <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 top-full mt-2 w-72 rounded-xl border border-white/10 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-2 py-2">
-              <p className="text-xs font-semibold text-white">Notifications</p>
-              <span className="rounded-full bg-red-500/20 px-1.5 py-0.5 text-[9px] font-medium text-red-400">
-                3 new
+          <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 top-full z-50 mt-3 w-80 rounded-2xl border border-white/15 bg-[#0C2338]/95 p-3 shadow-2xl backdrop-blur-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-2 pb-2.5 pt-1">
+              <div className="flex items-center gap-1.5">
+                <Bell className="h-3.5 w-3.5 text-emerald-400" />
+                <p className="text-xs font-semibold text-white">System Notifications</p>
+              </div>
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                3 New
               </span>
             </div>
-            <div className="space-y-1 py-1">
+            <div className="space-y-1.5 py-2">
               {[
                 {
                   icon: FileText,
                   text: 'New purchase order #PO-2026-0042',
                   time: '2 min ago',
-                  color: 'text-emerald-400',
+                  color: 'text-emerald-400 bg-emerald-500/10',
                 },
                 {
                   icon: Mail,
                   text: 'Invoice #INV-2026-0108 awaiting payment',
                   time: '15 min ago',
-                  color: 'text-amber-400',
+                  color: 'text-amber-400 bg-amber-500/10',
                 },
                 {
                   icon: AlertTriangle,
                   text: 'DAP Fertilizer stock below reorder level',
                   time: '1 hour ago',
-                  color: 'text-red-400',
+                  color: 'text-red-400 bg-red-500/10',
                 },
               ].map((notif, i) => {
                 const NotifIcon = notif.icon;
                 return (
                   <div
                     key={i}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-white/5 px-3 py-2.5 transition-colors hover:bg-white/10"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/5 bg-white/5 p-2.5 transition-all duration-200 hover:bg-white/10"
                   >
                     <div
-                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 ${notif.color}`}
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${notif.color}`}
                     >
-                      <NotifIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <NotifIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-medium leading-tight text-white/90">
+                      <p className="text-xs font-medium leading-snug text-slate-100">
                         {notif.text}
                       </p>
-                      <p className="mt-0.5 text-[9px] text-white/40">{notif.time}</p>
+                      <p className="mt-1 text-[10px] text-slate-400">{notif.time}</p>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="border-t border-white/10 pt-1">
-              <button className="flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-medium text-blue-400 transition-colors hover:bg-white/5">
-                <Shield className="h-3 w-3" strokeWidth={1.5} />
-                View all notifications
+            <div className="border-t border-white/10 pt-2 text-center">
+              <button className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-white/5">
+                <Shield className="h-3.5 w-3.5" strokeWidth={1.5} />
+                View Notification Center
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Accent glow */}
-      <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-blue-400/10 blur-3xl" />
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col justify-center px-6 py-8 sm:px-10 sm:py-10">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-emerald-200 shadow-lg backdrop-blur-sm">
-            <Leaf className="h-4 w-4" />
+      {/* Main Banner Content */}
+      <div className="relative z-10 flex flex-col justify-center px-6 py-7 sm:px-10 sm:py-9">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/20 text-emerald-300 shadow-lg shadow-emerald-500/10 backdrop-blur-md">
+            <Leaf className="h-5 w-5" strokeWidth={1.75} />
           </div>
-          <span className="text-[14px] font-bold uppercase tracking-[0.22em] text-emerald-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+          <span className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-400">
             SHRANIX Krushi ERP
           </span>
         </div>
 
-        <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+        <h1 className="font-poppins mt-3.5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">
           🌾 स्वागत आहे, Admin!
         </h1>
 
-        <p className="mt-2 text-base leading-relaxed text-blue-100/70 sm:text-lg">
-          Good Morning! Here's your farm business overview.
+        <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-300/90 sm:text-base">
+          Good Morning! Here is your real-time agribusiness operational summary.
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-blue-200/60">
-          <span className="bg-white/8 flex items-center gap-1.5 rounded-full px-3 py-1 backdrop-blur-sm">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+        <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 font-medium text-slate-200 backdrop-blur-md">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
             Default Company
           </span>
-          <span className="bg-white/8 flex items-center gap-1.5 rounded-full px-3 py-1 backdrop-blur-sm">
-            <Clock className="h-3.5 w-3.5" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 font-medium text-slate-200 backdrop-blur-md">
+            <Clock className="h-3.5 w-3.5 text-emerald-400" />
             {generatedAt ? formatDate(generatedAt) : 'Today'}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-3 py-1.5 font-semibold text-emerald-300">
+            FY 2026-27
           </span>
         </div>
       </div>
@@ -560,7 +571,7 @@ function HeroBanner({ generatedAt }: { generatedAt: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// KPI CARD — compact size
+// ENTERPRISE KPI CARD
 // ═══════════════════════════════════════════════════════════
 
 function KPICard({
@@ -584,80 +595,67 @@ function KPICard({
 }) {
   const { preferences } = usePreferences();
   const isPositive = change !== null && change.value >= 0;
+
   const colorStyles: Record<
     string,
     {
       dot: string;
       iconBg: string;
       iconColor: string;
-      accent: string;
-      glow: string;
-      border: string;
-      cardBg: string;
+      badgeBg: string;
+      badgeText: string;
     }
   > = {
     blue: {
-      dot: 'bg-blue-500',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
+      dot: '#2563EB',
+      iconBg: 'bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/20',
       iconColor: 'text-blue-600 dark:text-blue-400',
-      accent: 'from-blue-500 to-blue-600',
-      glow: 'shadow-blue-500/20',
-      border: 'hover:border-blue-500/30',
-      cardBg: 'bg-blue-50/80 dark:bg-slate-900',
+      badgeBg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200/50 dark:border-blue-900/50',
+      badgeText: 'text-blue-700 dark:text-blue-300',
     },
     green: {
-      dot: 'bg-emerald-500',
-      iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+      dot: '#10B981',
+      iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/20',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
-      accent: 'from-emerald-500 to-emerald-600',
-      glow: 'shadow-emerald-500/20',
-      border: 'hover:border-emerald-500/30',
-      cardBg: 'bg-green-50/80 dark:bg-slate-900',
+      badgeBg:
+        'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-900/50',
+      badgeText: 'text-emerald-700 dark:text-emerald-300',
     },
     emerald: {
-      dot: 'bg-emerald-500',
-      iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
+      dot: '#10B981',
+      iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/20',
       iconColor: 'text-emerald-600 dark:text-emerald-400',
-      accent: 'from-emerald-500 to-emerald-600',
-      glow: 'shadow-emerald-500/20',
-      border: 'hover:border-emerald-500/30',
-      cardBg: 'bg-emerald-50/80 dark:bg-slate-900',
+      badgeBg:
+        'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-900/50',
+      badgeText: 'text-emerald-700 dark:text-emerald-300',
     },
     purple: {
-      dot: 'bg-purple-500',
-      iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+      dot: '#8B5CF6',
+      iconBg: 'bg-purple-500/10 dark:bg-purple-500/20 border-purple-500/20',
       iconColor: 'text-purple-600 dark:text-purple-400',
-      accent: 'from-purple-500 to-purple-600',
-      glow: 'shadow-purple-500/20',
-      border: 'hover:border-purple-500/30',
-      cardBg: 'bg-purple-50/80 dark:bg-slate-900',
+      badgeBg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200/50 dark:border-purple-900/50',
+      badgeText: 'text-purple-700 dark:text-purple-300',
     },
     orange: {
-      dot: 'bg-orange-500',
-      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+      dot: '#F97316',
+      iconBg: 'bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/20',
       iconColor: 'text-orange-600 dark:text-orange-400',
-      accent: 'from-orange-500 to-orange-600',
-      glow: 'shadow-orange-500/20',
-      border: 'hover:border-orange-500/30',
-      cardBg: 'bg-orange-50/80 dark:bg-slate-900',
+      badgeBg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200/50 dark:border-orange-900/50',
+      badgeText: 'text-orange-700 dark:text-orange-300',
     },
     amber: {
-      dot: 'bg-amber-500',
-      iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+      dot: '#F59E0B',
+      iconBg: 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20',
       iconColor: 'text-amber-600 dark:text-amber-400',
-      accent: 'from-amber-500 to-amber-600',
-      glow: 'shadow-amber-500/20',
-      border: 'hover:border-amber-500/30',
-      cardBg: 'bg-amber-50/80 dark:bg-slate-900',
+      badgeBg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/50 dark:border-amber-900/50',
+      badgeText: 'text-amber-700 dark:text-amber-300',
     },
     red: {
-      dot: 'bg-red-500',
-      iconBg: 'bg-red-100 dark:bg-red-900/30',
+      dot: '#EF4444',
+      iconBg: 'bg-red-500/10 dark:bg-red-500/20 border-red-500/20',
       iconColor: 'text-red-600 dark:text-red-400',
-      accent: 'from-red-500 to-red-600',
-      glow: 'shadow-red-500/20',
-      border: 'hover:border-red-500/30',
-      cardBg: 'bg-red-50/80 dark:bg-slate-900',
+      badgeBg: 'bg-red-50 dark:bg-red-950/40 border-red-200/50 dark:border-red-900/50',
+      badgeText: 'text-red-700 dark:text-red-300',
     },
   };
   const cs = colorStyles[color] || colorStyles.blue;
@@ -677,74 +675,75 @@ function KPICard({
             }
           : undefined
       }
-      className={`group relative rounded-lg border border-slate-200 ${cs.cardBg} p-1.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`group relative rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 ${
+        onClick
+          ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500'
+          : ''
+      }`}
     >
-      {/* Hover glow effect */}
-      <div
-        className={`pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-[0.04] ${cs.accent}`}
-      />
-
-      {/* Top row */}
-      <div className="relative flex items-start justify-between">
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between">
         <div
-          className={`flex h-7 w-7 items-center justify-center rounded-lg shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:shadow-md ${cs.iconBg} ${cs.iconColor}`}
+          className={`flex h-9 w-9 items-center justify-center rounded-xl border ${cs.iconBg} ${cs.iconColor} transition-transform duration-200 group-hover:scale-105`}
         >
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
         </div>
         {change && (
           <span
-            className={`inline-flex items-center gap-0.5 rounded-md px-1 py-0.5 text-[11px] font-semibold transition-all duration-200 ${
+            className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
               isPositive
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
-                : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+                ? 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300'
+                : 'border-red-200/60 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300'
             }`}
           >
             {isPositive ? (
-              <ArrowUpRight className="h-2 w-2" />
+              <ArrowUpRight className="h-3 w-3" />
             ) : (
-              <ArrowDownRight className="h-2 w-2" />
+              <ArrowDownRight className="h-3 w-3" />
             )}
             {Math.abs(change.value).toFixed(1)}%
           </span>
         )}
       </div>
 
-      {/* Title - English + Marathi (Settings → Dashboard → Language se Marathi line control hoti hai) */}
-      {preferences.language === 'mr' && (
-        <p className="relative mt-1 truncate text-[18px] font-medium text-slate-500 dark:text-slate-400">
-          {titleMr}
+      {/* Titles */}
+      <div className="mt-3 min-w-0">
+        {preferences.language === 'mr' && (
+          <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {titleMr}
+          </p>
+        )}
+        <p
+          className={`truncate ${preferences.language === 'mr' ? 'text-[11px] text-slate-400 dark:text-slate-500' : 'text-xs font-semibold text-slate-500 dark:text-slate-400'}`}
+        >
+          {title}
         </p>
-      )}
-      <p
-        className={`${preferences.language === 'mr' ? '-mt-0.5 text-[15px] text-slate-400 dark:text-slate-500' : 'mt-1 text-[18px] font-medium text-slate-500 dark:text-slate-400'} relative truncate`}
-      >
-        {title}
-      </p>
+      </div>
 
-      {/* Value */}
-      <p className="relative mt-0.5 text-[22px] font-bold tracking-tight text-slate-900 dark:text-white">
-        {value}
-      </p>
+      {/* Main Metric Value */}
+      <div className="mt-1.5 flex items-baseline justify-between">
+        <p className="font-poppins text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          {value}
+        </p>
+        {trend && trend.length > 1 && (
+          <div className="ml-2 shrink-0">
+            <Sparkline data={trend} color={cs.dot} height={24} width={56} />
+          </div>
+        )}
+      </div>
 
-      {/* Change label */}
+      {/* Subtitle / Change Label */}
       {change && (
-        <p className="relative mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+        <p className="mt-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
           {change.label}
         </p>
-      )}
-
-      {/* Bottom sparkline */}
-      {trend && trend.length > 1 && (
-        <div className="relative -mb-1 mt-0.5 flex justify-end">
-          <Sparkline data={trend} color={cs.dot.replace('bg-', '#')} height={20} width={48} />
-        </div>
       )}
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════
-// DAILY OVERVIEW CHART — premium with gradient fills
+// DAILY OVERVIEW CHART — Refined Area Chart
 // ═══════════════════════════════════════════════════════════
 
 function DailyOverviewChart({
@@ -781,38 +780,40 @@ function DailyOverviewChart({
   }));
 
   return (
-    <div className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Daily Overview</h3>
-          <p className="text-[12px] text-slate-400">दैनंदिन आढावा</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Daily Overview
+          </h3>
+          <p className="text-xs font-medium text-slate-400">दैनंदिन विक्री व खरेदी आढावा</p>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[12px] text-slate-500">
-            <span className="h-2.5 w-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/40" />
+        <div className="flex items-center gap-4 text-xs font-semibold">
+          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+            <span className="h-3 w-3 rounded-full bg-blue-600 shadow-sm" />
             Vikri (Sales)
           </span>
-          <span className="flex items-center gap-1.5 text-[12px] text-slate-500">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/40" />
+          <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+            <span className="h-3 w-3 rounded-full bg-emerald-600 shadow-sm" />
             Kharedi (Purchase)
           </span>
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative pt-2">
         <svg
           viewBox={`0 0 ${chartW} ${chartH + 20}`}
-          className="h-44 w-full"
+          className="h-48 w-full overflow-visible"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
             <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2563EB" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#2563EB" stopOpacity={0.02} />
+              <stop offset="100%" stopColor="#2563EB" stopOpacity={0.01} />
             </linearGradient>
             <linearGradient id="purchaseGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#16A34A" stopOpacity={0.2} />
-              <stop offset="100%" stopColor="#16A34A" stopOpacity={0.02} />
+              <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="#10B981" stopOpacity={0.01} />
             </linearGradient>
           </defs>
 
@@ -824,100 +825,59 @@ function DailyOverviewChart({
               x2={chartW}
               y2={label.y}
               stroke="currentColor"
-              className="text-slate-200 dark:text-slate-700"
+              className="text-slate-100 dark:text-slate-800"
               strokeWidth={0.5}
-              strokeDasharray="3 3"
+              strokeDasharray="2 2"
             />
           ))}
-          {yLabels.map((label) => (
-            <text
-              key={label.value}
-              x="-2"
-              y={label.y + 3}
-              textAnchor="end"
-              className="fill-slate-400 text-[4px]"
-            >
-              {formatCompactCurrency(label.value)}
-            </text>
-          ))}
-          {/* Area fills */}
+
           <path d={areaSalesD} fill="url(#salesGrad)" />
           <path d={areaPurchaseD} fill="url(#purchaseGrad)" />
-          {/* Lines */}
+
           <path
             d={salesD}
             fill="none"
             stroke="#2563EB"
-            strokeWidth={2.5}
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="transition-all duration-300 group-hover:opacity-80"
           />
           <path
             d={purchaseD}
             fill="none"
-            stroke="#16A34A"
-            strokeWidth={2.5}
+            stroke="#10B981"
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="transition-all duration-300 group-hover:opacity-80"
           />
-          {/* Data points */}
+
           {salesPoints.map((p, i) => (
-            <g
+            <circle
               key={i}
-              className="cursor-pointer opacity-0 transition-all duration-200 hover:opacity-100 group-hover:opacity-100"
-            >
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={3.5}
-                fill="#2563EB"
-                stroke="white"
-                strokeWidth={2}
-                className="drop-shadow-sm"
-              />
-            </g>
+              cx={p.x}
+              cy={p.y}
+              r={2.5}
+              fill="#2563EB"
+              stroke="#ffffff"
+              strokeWidth={1.5}
+            />
           ))}
           {purchasePoints.map((p, i) => (
-            <g
+            <circle
               key={i}
-              className="cursor-pointer opacity-0 transition-all duration-200 hover:opacity-100 group-hover:opacity-100"
-            >
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={3.5}
-                fill="#16A34A"
-                stroke="white"
-                strokeWidth={2}
-                className="drop-shadow-sm"
-              />
-            </g>
+              cx={p.x}
+              cy={p.y}
+              r={2.5}
+              fill="#10B981"
+              stroke="#ffffff"
+              strokeWidth={1.5}
+            />
           ))}
-          {/* Always visible end dots */}
-          <circle
-            cx={salesPoints[salesPoints.length - 1].x}
-            cy={salesPoints[salesPoints.length - 1].y}
-            r={4}
-            fill="#2563EB"
-            stroke="white"
-            strokeWidth={2}
-            className="drop-shadow-md"
-          />
-          <circle
-            cx={purchasePoints[purchasePoints.length - 1].x}
-            cy={purchasePoints[purchasePoints.length - 1].y}
-            r={4}
-            fill="#16A34A"
-            stroke="white"
-            strokeWidth={2}
-            className="drop-shadow-md"
-          />
         </svg>
-        <div className="-mt-1 flex justify-between px-1">
+
+        <div className="mt-2 flex justify-between border-t border-slate-100 px-1 pt-2 dark:border-slate-800">
           {monthlySeries.map((m) => (
-            <span key={m.month} className="text-[11px] font-medium text-slate-400">
+            <span key={m.month} className="text-xs font-medium text-slate-400">
               {m.month.slice(0, 3)}
             </span>
           ))}
@@ -926,78 +886,79 @@ function DailyOverviewChart({
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// TOP PRODUCTS TABLE
 // ═══════════════════════════════════════════════════════════
 
 const TopProductsData = [
-  { name: 'DAP Fertilizer', qty: 45, sales: 234500 },
-  { name: 'Urea 50kg', qty: 38, sales: 114000 },
-  { name: 'NPK 12:32:16', qty: 22, sales: 83600 },
-  { name: 'Pesticide Gold', qty: 18, sales: 75600 },
-  { name: 'Potash 25kg', qty: 15, sales: 52500 },
+  { name: 'DAP Fertilizer 50kg', qty: 45, sales: 234500 },
+  { name: 'Urea Fertilizer 50kg', qty: 38, sales: 114000 },
+  { name: 'NPK 12:32:16 Bag', qty: 22, sales: 83600 },
+  { name: 'Pesticide Bio Gold', qty: 18, sales: 75600 },
+  { name: 'Potash Fertilizer 25kg', qty: 15, sales: 52500 },
 ];
 
-const rankColors = [
-  'bg-amber-500 text-white',
-  'bg-slate-400 text-white',
-  'bg-orange-400 text-white',
-  'bg-slate-300 text-slate-700',
-  'bg-slate-200 text-slate-600',
+const rankBadgeStyles = [
+  'bg-amber-500 text-white shadow-sm shadow-amber-500/30',
+  'bg-slate-400 text-white shadow-sm shadow-slate-400/30',
+  'bg-amber-700 text-white shadow-sm shadow-amber-700/30',
+  'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
 ];
 
 function TopProductsTable() {
   const maxQty = Math.max(...TopProductsData.map((p) => p.qty), 1);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Top Products Today</h3>
-          <p className="text-[12px] text-slate-400">आजची टॉप उत्पादने</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Top Selling Products
+          </h3>
+          <p className="text-xs font-medium text-slate-400">आजची सर्वाधिक विक्री झालेली उत्पादने</p>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-100 dark:border-slate-800">
-              <th className="w-6 pb-2" />
-              <th className="pb-2 font-semibold text-slate-500 dark:text-slate-400">Product</th>
-              <th className="pb-2 text-right font-semibold text-slate-500 dark:text-slate-400">
-                Qty
-              </th>
-              <th className="pb-2 text-right font-semibold text-slate-500 dark:text-slate-400">
-                Sales
-              </th>
+            <tr className="border-b border-slate-100 text-slate-400 dark:border-slate-800">
+              <th className="w-8 pb-2.5 font-semibold">#</th>
+              <th className="pb-2.5 font-semibold">Product Name</th>
+              <th className="pb-2.5 text-right font-semibold">Volume</th>
+              <th className="pb-2.5 text-right font-semibold">Revenue</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
             {TopProductsData.map((product, i) => (
               <tr
                 key={i}
-                className="group border-b border-slate-50 transition-colors last:border-0 hover:bg-slate-50/50 dark:border-slate-800/50 dark:hover:bg-slate-800/20"
+                className="group transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/30"
               >
-                <td className="py-2.5">
+                <td className="py-3">
                   <span
-                    className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${rankColors[i] || rankColors[4]}`}
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${rankBadgeStyles[i] || rankBadgeStyles[4]}`}
                   >
                     {i + 1}
                   </span>
                 </td>
-                <td className="py-2.5">
-                  <p className="font-medium text-slate-800 dark:text-slate-200">{product.name}</p>
+                <td className="py-3 font-semibold text-slate-800 dark:text-slate-200">
+                  {product.name}
                 </td>
-                <td className="py-2.5">
+                <td className="py-3">
                   <div className="flex items-center justify-end gap-2">
-                    <div className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
-                        className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                         style={{ width: `${(product.qty / maxQty) * 100}%` }}
                       />
                     </div>
-                    <span className="w-6 text-right font-medium text-slate-600 dark:text-slate-400">
+                    <span className="w-6 text-right font-semibold text-slate-700 dark:text-slate-300">
                       {product.qty}
                     </span>
                   </div>
                 </td>
-                <td className="py-2.5 text-right font-semibold text-slate-800 dark:text-slate-200">
+                <td className="font-poppins py-3 text-right font-bold text-slate-900 dark:text-white">
                   {formatCurrency(product.sales)}
                 </td>
               </tr>
@@ -1010,47 +971,47 @@ function TopProductsTable() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// LOW STOCK WIDGET — enhanced with out-of-stock & reorder
+// LOW STOCK WIDGET
 // ═══════════════════════════════════════════════════════════
 
 const sampleLowStockFull = [
   {
-    name: 'DAP Fertilizer',
+    name: 'DAP Fertilizer 50kg',
     sku: 'FERT-DAP-001',
     currentStock: 0,
     reorderLevel: 50,
     status: 'out' as const,
   },
   {
-    name: 'Urea 50kg',
+    name: 'Urea Fertilizer 50kg',
     sku: 'FERT-UREA-002',
     currentStock: 8,
     reorderLevel: 40,
     status: 'low' as const,
   },
   {
-    name: 'NPK 12:32:16',
+    name: 'NPK 12:32:16 Bag',
     sku: 'FERT-NPK-003',
     currentStock: 3,
     reorderLevel: 30,
     status: 'critical' as const,
   },
   {
-    name: 'Pesticide Gold',
+    name: 'Pesticide Bio Gold',
     sku: 'PEST-GLD-004',
     currentStock: 5,
     reorderLevel: 25,
     status: 'critical' as const,
   },
   {
-    name: 'Potash 25kg',
+    name: 'Potash Fertilizer 25kg',
     sku: 'FERT-POT-005',
     currentStock: 0,
     reorderLevel: 20,
     status: 'out' as const,
   },
   {
-    name: 'Weedicide Pro',
+    name: 'Weedicide Pro Liquid',
     sku: 'PEST-WED-006',
     currentStock: 2,
     reorderLevel: 15,
@@ -1064,76 +1025,76 @@ function LowStockWidget() {
   const low = sampleLowStockFull.filter((i) => i.status === 'low');
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Stock Status</h3>
-          <p className="text-[12px] text-slate-400">स्टॉक स्थिती</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Inventory Stock Alerts
+          </h3>
+          <p className="text-xs font-medium text-slate-400">स्टॉक इशारा व पुनर्साठा पातळी</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[12px] font-semibold text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          <Package className="h-3 w-3" />
-          {outOfStock.length + critical.length} alerts
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/40 dark:text-red-400">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          {outOfStock.length + critical.length} Alerts
         </span>
       </div>
 
-      {/* Summary stats */}
-      <div className="mb-3 grid grid-cols-3 gap-2">
-        <div className="rounded-lg bg-red-50 p-2 text-center dark:bg-red-950/20">
-          <p className="text-lg font-bold text-red-600 dark:text-red-400">{outOfStock.length}</p>
-          <p className="text-[10px] font-medium text-red-500">Out of Stock</p>
+      <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-xl border border-red-100 bg-red-50/80 p-2.5 dark:border-red-900/30 dark:bg-red-950/30">
+          <p className="text-xl font-bold text-red-600 dark:text-red-400">{outOfStock.length}</p>
+          <p className="text-[10px] font-semibold text-red-600/80 dark:text-red-300">
+            Out of Stock
+          </p>
         </div>
-        <div className="rounded-lg bg-orange-50 p-2 text-center dark:bg-orange-950/20">
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+        <div className="rounded-xl border border-orange-100 bg-orange-50/80 p-2.5 dark:border-orange-900/30 dark:bg-orange-950/30">
+          <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
             {critical.length}
           </p>
-          <p className="text-[10px] font-medium text-orange-500">Critical</p>
+          <p className="text-[10px] font-semibold text-orange-600/80 dark:text-orange-300">
+            Critical
+          </p>
         </div>
-        <div className="rounded-lg bg-amber-50 p-2 text-center dark:bg-amber-950/20">
-          <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{low.length}</p>
-          <p className="text-[10px] font-medium text-amber-500">Low Stock</p>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-2.5 dark:border-amber-900/30 dark:bg-amber-950/30">
+          <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{low.length}</p>
+          <p className="text-[10px] font-semibold text-amber-600/80 dark:text-amber-300">
+            Low Stock
+          </p>
         </div>
       </div>
 
-      <div className="custom-scrollbar max-h-52 space-y-1.5 overflow-y-auto pr-1">
+      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
         {sampleLowStockFull.map((item, i) => {
           const isOut = item.status === 'out';
           const isCrit = item.status === 'critical';
-          const dotColor = isOut ? 'bg-red-500' : isCrit ? 'bg-orange-500' : 'bg-amber-500';
-          const textCol = isOut
-            ? 'text-red-600 dark:text-red-400'
+          const statusBadge = isOut
+            ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-900/50'
             : isCrit
-              ? 'text-orange-600 dark:text-orange-400'
-              : 'text-amber-600 dark:text-amber-400';
-          const bgRow = isOut
-            ? 'bg-red-50/50 dark:bg-red-950/10'
-            : isCrit
-              ? 'bg-orange-50/30 dark:bg-orange-950/5'
-              : '';
-          const statusLabel = isOut ? 'Out' : isCrit ? 'Critical' : 'Low';
+              ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-900/50'
+              : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900/50';
+
           return (
             <div
               key={i}
-              className={`group flex items-center justify-between rounded-lg ${bgRow} px-3 py-2 transition-all duration-200 hover:shadow-sm`}
+              className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 transition-all duration-200 hover:bg-slate-100/70 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/60"
             >
-              <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor} shadow-sm`} />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate text-[13px] font-medium text-slate-700 dark:text-slate-300">
-                      {item.name}
-                    </p>
-                    <span
-                      className={`rounded px-1 text-[10px] font-semibold ${textCol} bg-white/60 dark:bg-white/5`}
-                    >
-                      {statusLabel}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">{item.sku}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {item.name}
+                  </p>
+                  <span
+                    className={`py-0.25 rounded-md border px-1.5 text-[10px] font-bold ${statusBadge}`}
+                  >
+                    {isOut ? 'Out' : isCrit ? 'Critical' : 'Low'}
+                  </span>
                 </div>
+                <p className="text-[10px] font-medium text-slate-400">{item.sku}</p>
               </div>
               <div className="ml-2 shrink-0 text-right">
-                <p className={`text-xs font-bold ${textCol}`}>{item.currentStock}</p>
-                <p className="text-[10px] text-slate-400">min: {item.reorderLevel}</p>
+                <p className="font-poppins text-xs font-extrabold text-slate-900 dark:text-white">
+                  {item.currentStock}
+                </p>
+                <p className="text-[10px] text-slate-400">reorder: {item.reorderLevel}</p>
               </div>
             </div>
           );
@@ -1150,58 +1111,60 @@ function LowStockWidget() {
 function WeatherWidget() {
   const weather = sampleWeather;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Weather</h3>
-          <p className="text-[12px] text-slate-400">हवामान</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Agri Weather
+          </h3>
+          <p className="text-xs font-medium text-slate-400">हवामान अंदाज</p>
         </div>
-        <span className="flex items-center gap-1 text-[11px] text-slate-400">
-          <MapPin className="h-3 w-3" /> {weather.location}
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <MapPin className="h-3.5 w-3.5 text-emerald-500" /> {weather.location}
         </span>
       </div>
 
-      {/* Main temp */}
-      <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-          <Sun className="h-7 w-7" strokeWidth={1.5} />
+      <div className="mb-4 flex items-center gap-3.5 rounded-xl border border-amber-500/15 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent p-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
+          <Sun className="h-6 w-6" strokeWidth={1.75} />
         </div>
         <div>
-          <p className="text-2xl font-bold text-slate-900 dark:text-white">
+          <p className="font-poppins text-2xl font-extrabold text-slate-900 dark:text-white">
             {weather.temperature}°C
           </p>
-          <p className="text-[12px] text-slate-500">{weather.condition}</p>
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {weather.condition}
+          </p>
         </div>
       </div>
 
-      {/* Detail metrics */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg bg-blue-50 p-2.5 text-center dark:bg-blue-950/20">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-2.5 text-center dark:border-blue-900/30 dark:bg-blue-950/20">
           <Droplets
-            className="mx-auto h-4 w-4 text-blue-500 dark:text-blue-400"
-            strokeWidth={1.5}
+            className="mx-auto h-4 w-4 text-blue-600 dark:text-blue-400"
+            strokeWidth={1.75}
           />
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
+          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
             {weather.humidity}%
           </p>
-          <p className="text-[10px] text-slate-400">Humidity</p>
+          <p className="text-[10px] font-medium text-slate-400">Humidity</p>
         </div>
-        <div className="rounded-lg bg-cyan-50 p-2.5 text-center dark:bg-cyan-950/20">
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50/80 p-2.5 text-center dark:border-cyan-900/30 dark:bg-cyan-950/20">
           <Thermometer
-            className="mx-auto h-4 w-4 text-cyan-500 dark:text-cyan-400"
-            strokeWidth={1.5}
+            className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-400"
+            strokeWidth={1.75}
           />
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
+          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
             {weather.rainChance}%
           </p>
-          <p className="text-[10px] text-slate-400">Rain</p>
+          <p className="text-[10px] font-medium text-slate-400">Rain Risk</p>
         </div>
-        <div className="rounded-lg bg-teal-50 p-2.5 text-center dark:bg-teal-950/20">
-          <Wind className="mx-auto h-4 w-4 text-teal-500 dark:text-teal-400" strokeWidth={1.5} />
-          <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
+        <div className="rounded-xl border border-teal-100 bg-teal-50/80 p-2.5 text-center dark:border-teal-900/30 dark:bg-teal-950/20">
+          <Wind className="mx-auto h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.75} />
+          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
             {weather.windSpeed} km/h
           </p>
-          <p className="text-[10px] text-slate-400">Wind</p>
+          <p className="text-[10px] font-medium text-slate-400">Wind</p>
         </div>
       </div>
     </div>
@@ -1214,42 +1177,53 @@ function WeatherWidget() {
 
 function MandiRatesWidget() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Today's Mandi Rates</h3>
-          <p className="text-[12px] text-slate-400">आजचे बाजार भाव</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Live Mandi Rates
+          </h3>
+          <p className="text-xs font-medium text-slate-400">आजचे कृषी बाजार भाव</p>
         </div>
-        <span className="text-[11px] text-slate-400">लासलगाव · नाशिक</span>
+        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+          लासलगाव · नाशिक
+        </span>
       </div>
-      <div className="space-y-1.5">
+      <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
         {sampleMandiRates.map((item, i) => (
           <div
             key={i}
-            className="group flex items-center justify-between rounded-lg px-3 py-2 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+            className="flex items-center justify-between rounded-xl border border-transparent p-2.5 transition-all duration-200 hover:border-slate-200/60 hover:bg-slate-50 dark:hover:border-slate-700/60 dark:hover:bg-slate-800/40"
           >
             <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <Store className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.5} />
+              <Store
+                className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                strokeWidth={1.75}
+              />
               <div className="min-w-0">
-                <p className="truncate text-[13px] font-medium text-slate-700 dark:text-slate-300">
+                <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {item.commodity}
                 </p>
                 <p className="text-[10px] text-slate-400">
-                  {item.market} · per {item.unit}
+                  {item.market} · /{item.unit}
                 </p>
               </div>
             </div>
             <div className="ml-2 shrink-0 text-right">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+              <p className="font-poppins text-xs font-bold text-slate-900 dark:text-white">
                 ₹{number.format(item.rate)}
               </p>
               <span
-                className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${item.change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+                className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${
+                  item.change >= 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}
               >
                 {item.change >= 0 ? (
-                  <ChevronUp className="h-2.5 w-2.5" />
+                  <ChevronUp className="h-3 w-3" />
                 ) : (
-                  <ChevronDown className="h-2.5 w-2.5" />
+                  <ChevronDown className="h-3 w-3" />
                 )}
                 {item.changePct >= 0 ? '+' : ''}
                 {item.changePct}%
@@ -1269,43 +1243,55 @@ function MandiRatesWidget() {
 function InventorySummaryWidget() {
   const inv = sampleInventorySummary;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Inventory Summary</h3>
-          <p className="text-[12px] text-slate-400">इन्व्हेंटरी सारांश</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Inventory Overview
+          </h3>
+          <p className="text-xs font-medium text-slate-400">इन्व्हेंटरी साठा वर्गीकरण</p>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/30">
-          <p className="text-lg font-bold text-slate-900 dark:text-white">{inv.totalProducts}</p>
-          <p className="text-[11px] text-slate-500">Total Products</p>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
+          <p className="font-poppins text-xl font-extrabold text-slate-900 dark:text-white">
+            {inv.totalProducts}
+          </p>
+          <p className="text-xs font-medium text-slate-500">Total SKU Items</p>
         </div>
-        <div className="rounded-lg bg-emerald-50 p-3 dark:bg-emerald-950/20">
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 p-3 dark:border-emerald-900/30 dark:bg-emerald-950/20">
+          <p className="font-poppins text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
             {inv.activeProducts}
           </p>
-          <p className="text-[11px] text-emerald-500">Active</p>
+          <p className="text-xs font-medium text-emerald-600/80 dark:text-emerald-300">
+            Active Stock
+          </p>
         </div>
-        <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-950/20">
-          <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{inv.nearExpiry}</p>
-          <p className="text-[11px] text-amber-500">Near Expiry</p>
+        <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3 dark:border-amber-900/30 dark:bg-amber-950/20">
+          <p className="font-poppins text-xl font-extrabold text-amber-600 dark:text-amber-400">
+            {inv.nearExpiry}
+          </p>
+          <p className="text-xs font-medium text-amber-600/80 dark:text-amber-300">Near Expiry</p>
         </div>
-        <div className="rounded-lg bg-red-50 p-3 dark:bg-red-950/20">
-          <p className="text-lg font-bold text-red-600 dark:text-red-400">{inv.expired}</p>
-          <p className="text-[11px] text-red-500">Expired</p>
+        <div className="rounded-xl border border-red-100 bg-red-50/80 p-3 dark:border-red-900/30 dark:bg-red-950/20">
+          <p className="font-poppins text-xl font-extrabold text-red-600 dark:text-red-400">
+            {inv.expired}
+          </p>
+          <p className="text-xs font-medium text-red-600/80 dark:text-red-300">Expired Stock</p>
         </div>
-        <div className="rounded-lg bg-orange-50 p-3 dark:bg-orange-950/20">
-          <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{inv.lowStock}</p>
-          <p className="text-[11px] text-orange-500">Low Stock</p>
+        <div className="rounded-xl border border-orange-100 bg-orange-50/80 p-3 dark:border-orange-900/30 dark:bg-orange-950/20">
+          <p className="font-poppins text-xl font-extrabold text-orange-600 dark:text-orange-400">
+            {inv.lowStock}
+          </p>
+          <p className="text-xs font-medium text-orange-600/80 dark:text-orange-300">Low Stock</p>
         </div>
-        <div className="rounded-lg bg-purple-50 p-3 dark:bg-purple-950/20">
-          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{inv.outOfStock}</p>
-          <p className="text-[11px] text-purple-500">Out of Stock</p>
-        </div>
-        <div className="col-span-2 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
-          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{inv.reservedStock}</p>
-          <p className="text-[11px] text-blue-500">Reserved Stock</p>
+        <div className="rounded-xl border border-purple-100 bg-purple-50/80 p-3 dark:border-purple-900/30 dark:bg-purple-950/20">
+          <p className="font-poppins text-xl font-extrabold text-purple-600 dark:text-purple-400">
+            {inv.outOfStock}
+          </p>
+          <p className="text-xs font-medium text-purple-600/80 dark:text-purple-300">
+            Out of Stock
+          </p>
         </div>
       </div>
     </div>
@@ -1317,60 +1303,67 @@ function InventorySummaryWidget() {
 // ═══════════════════════════════════════════════════════════
 
 const activityColors: Record<string, string> = {
-  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-  emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
-  purple: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400',
-  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-  orange: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
-  green: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  blue: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20',
+  emerald:
+    'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-500/20',
+  purple:
+    'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-500/20',
+  amber:
+    'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 border-amber-500/20',
+  orange:
+    'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 border-orange-500/20',
+  green:
+    'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border-emerald-500/20',
 };
 
 function RecentActivityTimeline() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Activity</h3>
-          <p className="text-[12px] text-slate-400">अलीकडील क्रिया</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Recent Transaction Log
+          </h3>
+          <p className="text-xs font-medium text-slate-400">अलीकडील प्रणाली व्यवहार</p>
         </div>
-        <span className="flex cursor-pointer items-center gap-1 text-[11px] text-blue-500 hover:underline">
-          View all <ChevronRight className="h-3 w-3" />
-        </span>
+        <button className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:underline dark:text-emerald-400">
+          View All <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <div className="relative">
-        {/* Timeline line */}
-        <div className="absolute bottom-1 left-4 top-1 w-px bg-slate-200 dark:bg-slate-700" />
-        <div className="space-y-0">
-          {sampleActivities.map((act, i) => {
-            const ActIcon = act.icon;
-            return (
-              <div key={i} className="group relative flex gap-3 py-2 pl-0">
-                {/* Timeline dot */}
-                <div className="relative z-10 flex items-center justify-center">
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 group-hover:scale-110 ${activityColors[act.color] || activityColors.blue}`}
-                  >
-                    <ActIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 pb-1 group-last:pb-0">
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-[13px] font-medium text-slate-800 dark:text-slate-200">
-                      {act.text}
-                    </p>
-                    <span className="ml-2 shrink-0 text-[11px] text-slate-400">{act.time}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">{act.subtitle}</p>
-                  {act.amount && (
-                    <p className="mt-0.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(act.amount)}
-                    </p>
-                  )}
-                </div>
+      <div className="relative space-y-3">
+        {sampleActivities.map((act, i) => {
+          const ActIcon = act.icon;
+          return (
+            <div
+              key={i}
+              className="group flex items-start gap-3 rounded-xl p-2 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+            >
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${activityColors[act.color] || activityColors.blue}`}
+              >
+                <ActIcon className="h-4 w-4" strokeWidth={1.75} />
               </div>
-            );
-          })}
-        </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    {act.text}
+                  </p>
+                  <span className="ml-2 shrink-0 text-[10px] font-medium text-slate-400">
+                    {act.time}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">{act.subtitle}</p>
+              </div>
+              {act.amount && (
+                <div className="shrink-0 text-right">
+                  <p className="font-poppins text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(act.amount)}
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1382,61 +1375,64 @@ function RecentActivityTimeline() {
 
 function TopCustomersWidget() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Top Customers</h3>
-          <p className="text-[12px] text-slate-400">टॉप ग्राहक</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Top Customer Accounts
+          </h3>
+          <p className="text-xs font-medium text-slate-400">उच्च-मूल्य ग्राहक खाते</p>
         </div>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {sampleTopCustomers.map((customer, i) => {
           const rankColors = ['#F59E0B', '#94A3B8', '#D97706', '#CBD5E1', '#E2E8F0'];
           const isVIP = customer.status === 'vip';
           const isNew = customer.status === 'new';
+
           return (
             <div
               key={i}
-              className="group flex items-center justify-between rounded-lg px-3 py-2 transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+              className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/40 p-2.5 transition-all duration-200 hover:bg-slate-100/60 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/60"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div className="relative">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white`}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
                     style={{ backgroundColor: rankColors[i] }}
                   >
                     {i + 1}
                   </div>
                   {isVIP && (
                     <Star
-                      className="absolute -right-1 -top-1 h-3 w-3 fill-amber-400 text-amber-400"
+                      className="absolute -right-1 -top-1 h-3.5 w-3.5 fill-amber-400 text-amber-400"
                       strokeWidth={1}
                     />
                   )}
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="truncate text-[13px] font-medium text-slate-700 dark:text-slate-300">
+                    <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
                       {customer.name}
                     </p>
                     {isNew && (
-                      <span className="rounded bg-emerald-50 px-1 text-[10px] font-semibold text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
+                      <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
                         New
                       </span>
                     )}
                     {isVIP && (
-                      <span className="rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
+                      <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                         VIP
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[10px] text-slate-400">
                     {customer.visits} visits · Last: {formatDate(customer.lastPurchase)}
                   </p>
                 </div>
               </div>
               <div className="ml-2 shrink-0 text-right">
-                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-200">
+                <p className="font-poppins text-xs font-extrabold text-slate-900 dark:text-white">
                   {formatCurrency(customer.totalPurchases)}
                 </p>
               </div>
@@ -1453,63 +1449,55 @@ function TopCustomersWidget() {
 // ═══════════════════════════════════════════════════════════
 
 const notifColors: Record<string, string> = {
-  blue: 'text-blue-600 dark:text-blue-400',
-  amber: 'text-amber-600 dark:text-amber-400',
-  orange: 'text-orange-600 dark:text-orange-400',
-  red: 'text-red-600 dark:text-red-400',
-  purple: 'text-purple-600 dark:text-purple-400',
-};
-
-const notifBgColors: Record<string, string> = {
-  blue: 'bg-blue-50 dark:bg-blue-950/20',
-  amber: 'bg-amber-50 dark:bg-amber-950/20',
-  orange: 'bg-orange-50 dark:bg-orange-950/20',
-  red: 'bg-red-50 dark:bg-red-950/20',
-  purple: 'bg-purple-50 dark:bg-purple-950/20',
+  blue: 'text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/20',
+  amber: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+  orange: 'text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/20',
+  red: 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-500/20',
+  purple: 'text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20',
 };
 
 function NotificationsPanel() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h3>
-          <p className="text-[12px] text-slate-400">सूचना</p>
+          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+            Critical System Alerts
+          </h3>
+          <p className="text-xs font-medium text-slate-400">प्रणाली सूचना व इशारे</p>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[12px] font-semibold text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
-          <Bell className="h-3 w-3" />
-          {sampleNotifications.filter((n) => n.urgent).length} urgent
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+          <Bell className="h-3.5 w-3.5" />
+          {sampleNotifications.filter((n) => n.urgent).length} Urgent
         </span>
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {sampleNotifications.map((notif, i) => {
           const NotifIcon = notif.icon;
           return (
             <div
               key={i}
-              className={`group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 hover:shadow-sm ${notifBgColors[notif.color] || notifBgColors.blue}`}
+              className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-100 p-2.5 transition-all duration-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40"
             >
-              <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-110 ${notifColors[notif.color]} bg-white/60 dark:bg-white/10`}
-              >
-                <NotifIcon className="h-4 w-4" strokeWidth={1.5} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-slate-700 dark:text-slate-300">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border ${notifColors[notif.color] || notifColors.blue}`}
+                >
+                  <NotifIcon className="h-4 w-4" strokeWidth={1.75} />
+                </div>
+                <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {notif.text}
                 </p>
               </div>
-              <div className="shrink-0">
-                <span
-                  className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
-                    notif.urgent
-                      ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                  }`}
-                >
-                  {notif.count}
-                </span>
-              </div>
+              <span
+                className={`ml-2 inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-2 text-xs font-extrabold ${
+                  notif.urgent
+                    ? 'bg-red-500 text-white'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+              >
+                {notif.count}
+              </span>
             </div>
           );
         })}
@@ -1519,7 +1507,7 @@ function NotificationsPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// QUICK ACTIONS PANEL — improved with 7 buttons
+// QUICK ACTIONS PANEL
 // ═══════════════════════════════════════════════════════════
 
 const quickActions = [
@@ -1574,83 +1562,67 @@ const quickActions = [
   },
 ];
 
-const actionColors: Record<string, { bg: string; hover: string; active: string }> = {
+const actionColors: Record<string, { bg: string; icon: string }> = {
   blue: {
-    bg: 'bg-blue-50 dark:bg-blue-900/20',
-    hover: 'hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:shadow-blue-500/10',
-    active: 'active:bg-blue-200 dark:active:bg-blue-900/40',
+    bg: 'hover:bg-blue-50 dark:hover:bg-blue-950/30 hover:border-blue-200 dark:hover:border-blue-900',
+    icon: 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400',
   },
   emerald: {
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    hover: 'hover:bg-emerald-100 dark:hover:bg-emerald-900/30 hover:shadow-emerald-500/10',
-    active: 'active:bg-emerald-200 dark:active:bg-emerald-900/40',
+    bg: 'hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-200 dark:hover:border-emerald-900',
+    icon: 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400',
   },
   amber: {
-    bg: 'bg-amber-50 dark:bg-amber-900/20',
-    hover: 'hover:bg-amber-100 dark:hover:bg-amber-900/30 hover:shadow-amber-500/10',
-    active: 'active:bg-amber-200 dark:active:bg-amber-900/40',
+    bg: 'hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:border-amber-200 dark:hover:border-amber-900',
+    icon: 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400',
   },
   purple: {
-    bg: 'bg-purple-50 dark:bg-purple-900/20',
-    hover: 'hover:bg-purple-100 dark:hover:bg-purple-900/30 hover:shadow-purple-500/10',
-    active: 'active:bg-purple-200 dark:active:bg-purple-900/40',
+    bg: 'hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:border-purple-200 dark:hover:border-purple-900',
+    icon: 'bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400',
   },
   orange: {
-    bg: 'bg-orange-50 dark:bg-orange-900/20',
-    hover: 'hover:bg-orange-100 dark:hover:bg-orange-900/30 hover:shadow-orange-500/10',
-    active: 'active:bg-orange-200 dark:active:bg-orange-900/40',
+    bg: 'hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:border-orange-200 dark:hover:border-orange-900',
+    icon: 'bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400',
   },
   cyan: {
-    bg: 'bg-cyan-50 dark:bg-cyan-900/20',
-    hover: 'hover:bg-cyan-100 dark:hover:bg-cyan-900/30 hover:shadow-cyan-500/10',
-    active: 'active:bg-cyan-200 dark:active:bg-cyan-900/40',
+    bg: 'hover:bg-cyan-50 dark:hover:bg-cyan-950/30 hover:border-cyan-200 dark:hover:border-cyan-900',
+    icon: 'bg-cyan-500/10 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400',
   },
   slate: {
-    bg: 'bg-slate-100 dark:bg-slate-800',
-    hover: 'hover:bg-slate-200 dark:hover:bg-slate-700 hover:shadow-slate-500/10',
-    active: 'active:bg-slate-300 dark:active:bg-slate-600',
+    bg: 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
+    icon: 'bg-slate-500/10 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400',
   },
-};
-
-const actionTextColors: Record<string, string> = {
-  blue: 'text-blue-600 dark:text-blue-400',
-  emerald: 'text-emerald-600 dark:text-emerald-400',
-  amber: 'text-amber-600 dark:text-amber-400',
-  purple: 'text-purple-600 dark:text-purple-400',
-  orange: 'text-orange-600 dark:text-orange-400',
-  cyan: 'text-cyan-600 dark:text-cyan-400',
-  slate: 'text-slate-600 dark:text-slate-400',
 };
 
 function QuickActionsPanel() {
   const navigate = useNavigate();
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg dark:border-slate-700 dark:bg-slate-900">
-      <h3 className="text-sm font-bold text-slate-900 dark:text-white">Quick Actions</h3>
-      <p className="mb-3 text-[10px] text-slate-400">द्रुत कृती</p>
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-4 border-b border-slate-100 pb-3 dark:border-slate-800">
+        <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
+          Quick Actions Hub
+        </h3>
+        <p className="text-xs font-medium text-slate-400">द्रुत व्यापार कृती</p>
+      </div>
       <div className="grid grid-cols-2 gap-2">
         {quickActions.map((action) => {
           const ActionIcon = action.icon;
           const c = actionColors[action.color] || actionColors.slate;
-          const txt = actionTextColors[action.color] || actionTextColors.slate;
           return (
             <button
               key={action.label}
               onClick={() => navigate(action.path)}
-              className={`group flex items-center gap-2.5 rounded-lg p-2.5 text-left transition-all duration-200 ${c.bg} ${c.hover} ${c.active} hover:shadow-sm active:scale-[0.97]`}
+              className={`group flex items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/40 p-2.5 text-left transition-all duration-200 active:scale-95 dark:border-slate-800 dark:bg-slate-800/30 ${c.bg} focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500`}
             >
               <div
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-300 group-hover:rotate-3 group-hover:scale-110 ${txt} bg-white/60 shadow-sm dark:bg-white/10`}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent transition-transform duration-200 group-hover:scale-105 ${c.icon}`}
               >
-                <ActionIcon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <ActionIcon className="h-4 w-4" strokeWidth={1.75} />
               </div>
               <div className="min-w-0">
-                <p
-                  className={`truncate text-[12px] font-semibold leading-tight transition-colors duration-200 ${txt}`}
-                >
+                <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-200">
                   {action.labelMr}
                 </p>
-                <p className="truncate text-[10px] text-slate-400">{action.label}</p>
+                <p className="truncate text-[10px] font-medium text-slate-400">{action.label}</p>
               </div>
             </button>
           );
@@ -1668,7 +1640,6 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { preferences } = usePreferences();
 
-  // ── Live KPI values (backend /dashboard se) — sample fallback agar API fail ho ──
   const sampleKPIs = {
     revenue: { value: 0, change: null as number | null, period: 'today' },
     purchases: { value: 0, change: null as number | null, period: 'today' },
@@ -1708,19 +1679,13 @@ export function DashboardPage() {
   const purchaseTrend = [28000, 32000, 29000, 35000, 31000, 37000, 34000];
 
   return (
-    <div className="animate-in fade-in space-y-4 duration-500">
-      {/* ════════════════════════════════════════════════════
-          ROW 1: HERO BANNER
-      ════════════════════════════════════════════════════ */}
-      {/* Widgets Settings Hub → Dashboard → Widgets ON/OFF ke hisaab se ON/OFF hote hain */}
-
+    <div className="animate-in fade-in space-y-6 pb-8 duration-300">
+      {/* ROW 1: HERO BANNER */}
       {preferences.widgets.heroBanner && <HeroBanner generatedAt={'Today'} />}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 2: TODAY'S SUMMARY — 8 KPI Cards (4x2 grid)
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 2: TODAY'S SUMMARY — KPI Cards */}
       {preferences.widgets.kpis && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
           <KPICard
             title="Today's Sales"
             titleMr="आजची विक्री"
@@ -1801,11 +1766,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 3: EXPIRY ALERT + LOW STOCK
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 3: EXPIRY ALERT + LOW STOCK */}
       {preferences.widgets.stockAlerts && (
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-5 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <ExpiryAlertWidget />
           </div>
@@ -1815,11 +1778,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 4: WEATHER + MANDI RATES + RECENT ACTIVITY
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 4: WEATHER + MANDI RATES + RECENT ACTIVITY */}
       {(preferences.widgets.weather || preferences.widgets.activity) && (
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-5 lg:grid-cols-4">
           {preferences.widgets.weather && (
             <div className="lg:col-span-1">
               <WeatherWidget />
@@ -1838,11 +1799,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 5: INVENTORY SUMMARY + NOTIFICATIONS
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 5: INVENTORY SUMMARY + NOTIFICATIONS */}
       {(preferences.widgets.inventorySummary || preferences.widgets.notifications) && (
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-5 lg:grid-cols-4">
           {preferences.widgets.inventorySummary && (
             <div className="lg:col-span-2">
               <InventorySummaryWidget />
@@ -1856,11 +1815,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 6: DAILY OVERVIEW CHART + QUICK ACTIONS
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 6: DAILY OVERVIEW CHART + QUICK ACTIONS */}
       {preferences.widgets.overviewChart && (
-        <div className="grid gap-4 lg:grid-cols-4">
+        <div className="grid gap-5 lg:grid-cols-4">
           <div className="lg:col-span-3">
             <DailyOverviewChart
               monthlySeries={[
@@ -1880,11 +1837,9 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          ROW 7: TOP PRODUCTS + TOP CUSTOMERS
-      ════════════════════════════════════════════════════ */}
+      {/* ROW 7: TOP PRODUCTS + TOP CUSTOMERS */}
       {preferences.widgets.topProducts && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           <TopProductsTable />
           <TopCustomersWidget />
         </div>

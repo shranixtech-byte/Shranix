@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { eq, and, isNull, count, desc, like } from 'drizzle-orm';
+import { eq, and, isNull, count, desc, like, sql } from 'drizzle-orm';
 
 import type { DatabaseClient } from '../client/index';
 import {
@@ -57,6 +57,30 @@ export class MasterDataRepository<T extends MasterRecord> {
 
   get table(): any {
     return this.isPostgres ? this.pgTable : this.sqliteTable;
+  }
+
+  /**
+   * Raw lexicographic max of a text column across ALL rows — including
+   * soft-deleted rows (which keep their unique document numbers). Used by the
+   * numbering services so a soft-deleted document can never cause a number
+   * reuse + UNIQUE collision. Values are zero-padded (SUB-000001), so the
+   * lexicographic max equals the numeric max.
+   */
+  async maxFieldValue(field: string): Promise<string | null> {
+    try {
+      if (this.isPostgres) {
+        const rows: any[] = await (this.db as any)
+          .select({ m: sql`max(${(this.pgTable as any)[field]})` })
+          .from(this.pgTable as any);
+        return rows[0]?.m ?? null;
+      }
+      const rows: any[] = await (this.db as any)
+        .select({ m: sql`max(${(this.sqliteTable as any)[field]})` })
+        .from(this.sqliteTable as any);
+      return rows[0]?.m ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Get the table as a column map for enterprise query builders */

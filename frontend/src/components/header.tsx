@@ -20,6 +20,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { hasModuleAccess } from '@/lib/module-access';
 import { useTheme } from '@/providers/theme-provider';
+import {
+  getMyNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type NotificationItem,
+} from '@/services/communication.service';
 
 interface BreadcrumbLabel {
   [key: string]: string;
@@ -137,6 +144,8 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
   const [showFyDropdown, setShowFyDropdown] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -144,10 +153,48 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   const companyRef = useRef<HTMLDivElement>(null);
   const fyRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
+  const loadNotifications = useCallback(async () => {
+    try {
+      const [list, unread] = await Promise.all([
+        getMyNotifications(1, 10),
+        getUnreadNotificationCount(),
+      ]);
+      setNotifications((list as any)?.data || []);
+      setUnreadCount((unread as any)?.count || 0);
+    } catch {
+      /* header badge must never break the app */
+    }
   }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const notifTimer = setInterval(() => void loadNotifications(), 60_000);
+    return () => {
+      clearInterval(timer);
+      clearInterval(notifTimer);
+    };
+  }, [loadNotifications]);
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -361,29 +408,69 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
-          <span className="bg-destructive ring-background absolute right-2 top-1.5 h-2 w-2 rounded-full ring-2" />
+          {unreadCount > 0 && (
+            <span className="bg-destructive ring-background absolute right-2 top-1.5 h-2 w-2 rounded-full ring-2" />
+          )}
         </button>
 
         {showNotifDropdown && (
           <div className="bg-popover absolute right-0 top-full mt-1.5 w-80 rounded-xl border shadow-xl">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <p className="text-sm font-semibold">Notifications</p>
-              <span className="bg-destructive/10 text-destructive rounded-full px-2 py-0.5 text-[10px] font-medium">
-                3 new
-              </span>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <span className="bg-destructive/10 text-destructive rounded-full px-2 py-0.5 text-[10px] font-medium">
+                    {unreadCount} new
+                  </span>
+                )}
+                {unreadCount > 0 && (
+                  <button
+                    onClick={() => void handleMarkAllRead()}
+                    className="text-primary hover:text-primary/80 text-[10px] font-medium"
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
             </div>
             <div className="max-h-72 overflow-y-auto p-2">
-              {/* Sample notifications — real data renders via the widget */}
-              <div className="bg-muted/30 rounded-lg p-3 text-center">
-                <FileText className="text-muted-foreground mx-auto h-5 w-5" />
-                <p className="text-muted-foreground mt-1 text-xs">
-                  View all notifications in the dashboard widget
-                </p>
-              </div>
+              {notifications.length === 0 ? (
+                <div className="bg-muted/30 rounded-lg p-3 text-center">
+                  <FileText className="text-muted-foreground mx-auto h-5 w-5" />
+                  <p className="text-muted-foreground mt-1 text-xs">No notifications yet</p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => void handleMarkRead(n.id)}
+                    className={`hover:bg-muted/60 flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
+                      n.isRead ? 'opacity-70' : 'bg-primary/5'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold">{n.title}</p>
+                      {!n.isRead && (
+                        <span className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
+                      )}
+                    </div>
+                    <p className="text-muted-foreground line-clamp-2 text-[11px]">{n.message}</p>
+                    <p className="text-muted-foreground/70 mt-0.5 text-[10px]">
+                      {new Date(n.createdAt).toLocaleString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </button>
+                ))
+              )}
             </div>
             <div className="border-t p-2">
               <Link
-                to="/"
+                to="/communications/center"
+                onClick={() => setShowNotifDropdown(false)}
                 className="text-primary hover:bg-primary/5 flex items-center justify-center rounded-lg py-2 text-xs font-medium transition-colors"
               >
                 View all notifications

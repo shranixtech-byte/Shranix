@@ -99,6 +99,83 @@
       "when": 1786383328675,
       "tag": "0013_good_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1786385717769,
+      "tag": "0014_sweet_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1786451580171,
+      "tag": "0015_furry_iron_fist",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1786455552926,
+      "tag": "0016_uneven_doctor_spectrum",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1786458747151,
+      "tag": "0017_nervous_namora",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1786461227678,
+      "tag": "0018_calm_callisto",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1786462425958,
+      "tag": "0019_yielding_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1786466549915,
+      "tag": "0020_careless_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1786467553146,
+      "tag": "0021_dizzy_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1786468802491,
+      "tag": "0022_low_captain_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1786470081570,
+      "tag": "0023_tan_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1786471871238,
+      "tag": "0024_friendly_garia",
+      "breakpoints": true
     }
   ]
 }

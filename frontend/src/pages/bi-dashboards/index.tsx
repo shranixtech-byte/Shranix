@@ -1,45 +1,253 @@
+import { TrendingUp, TrendingDown, Minus, Loader2, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { DashboardChart } from '@/components/dashboard/DashboardChart';
+import {
+  type AnalyticsFormat,
+  type AnalyticsPayload,
+  getAnalyticsOverview,
+  getSalesAnalytics,
+  getPurchaseAnalytics,
+  getInventoryAnalytics,
+  getFinanceAnalytics,
+  getGstAnalytics,
+  getCustomerAnalytics,
+  getSupplierAnalytics,
+  getWarehouseAnalytics,
+  getProfitabilityAnalytics,
+  getCashFlowAnalytics,
+  getGrowthAnalytics,
+  getTopBottomAnalytics,
+} from '@/services/analytics.service';
+
 // ═══════════════════════════════════════════════════════════════════
-// BI ANALYTICS DASHBOARD — Purchase Analytics
+// Shared formatting helpers
 // ═══════════════════════════════════════════════════════════════════
-export function PurchaseAnalyticsPage() {
+
+const inr = (v: number) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: v >= 10000 || v === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(v);
+
+export function formatAnalyticsValue(v: unknown, format?: AnalyticsFormat): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) {
+    return String(v ?? '—');
+  }
+  switch (format) {
+    case 'currency':
+      return inr(n);
+    case 'percent':
+      return `${Number.isInteger(n) ? n : n.toFixed(1)}%`;
+    case 'number':
+      return n.toLocaleString('en-IN', { maximumFractionDigits: 1 });
+    case 'date':
+      return n ? new Date(v as string).toLocaleDateString('en-IN') : '—';
+    default:
+      return typeof v === 'string' ? v : n.toLocaleString('en-IN');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Presentational building blocks
+// ═══════════════════════════════════════════════════════════════════
+
+function KpiCard({
+  label,
+  value,
+  format,
+  trend,
+  color = 'border-l-indigo-500',
+}: {
+  label: string;
+  value: number;
+  format?: AnalyticsFormat;
+  trend?: 'up' | 'down' | 'flat';
+  color?: string;
+}) {
+  const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
+  const trendColor =
+    trend === 'up' ? 'text-emerald-500' : trend === 'down' ? 'text-red-500' : 'text-slate-400';
+  return (
+    <div
+      className={`bg-card rounded-lg border-l-4 p-4 shadow-sm transition-transform hover:-translate-y-0.5 ${color}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-muted-foreground text-xs font-medium">{label}</p>
+        {trend && <TrendIcon className={`h-4 w-4 ${trendColor}`} />}
+      </div>
+      <p className="mt-1 text-2xl font-bold tracking-tight">
+        {formatAnalyticsValue(value, format)}
+      </p>
+    </div>
+  );
+}
+
+function ChartGrid({ charts }: { charts: AnalyticsPayload['charts'] }) {
+  if (!charts.length) {
+    return null;
+  }
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {charts.map((chart, i) => (
+        <DashboardChart
+          key={`${chart.title}-${i}`}
+          title={chart.title}
+          data={chart.data}
+          series={chart.series}
+          type={chart.type}
+          height={chart.height ?? 260}
+          formatValue={inr}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TableSection({ tables }: { tables: AnalyticsPayload['tables'] }) {
+  if (!tables.length) {
+    return null;
+  }
+  return (
+    <div className="space-y-6">
+      {tables.map((table, ti) => (
+        <div key={`${table.title}-${ti}`} className="bg-card rounded-lg border shadow-sm">
+          <div className="border-b px-4 py-3">
+            <h3 className="font-semibold">{table.title}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/40 text-muted-foreground border-b text-left text-xs">
+                  {table.columns.map((c) => (
+                    <th key={c.key} className="px-4 py-2.5 font-medium">
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {table.rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={table.columns.length}
+                      className="text-muted-foreground px-4 py-8 text-center text-xs"
+                    >
+                      No data available
+                    </td>
+                  </tr>
+                ) : (
+                  table.rows.map((row, ri) => (
+                    <tr key={ri} className="hover:bg-muted/30 border-b last:border-0">
+                      {table.columns.map((c) => (
+                        <td key={c.key} className="px-4 py-2.5">
+                          {formatAnalyticsValue(row[c.key], c.format)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Generic analytics page shell
+// ═══════════════════════════════════════════════════════════════════
+
+interface AnalyticsPageProps {
+  title: string;
+  description: string;
+  fetcher: () => Promise<AnalyticsPayload>;
+}
+
+function AnalyticsDashboardPage({ title, description, fetcher }: AnalyticsPageProps) {
+  const [payload, setPayload] = useState<AnalyticsPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      setPayload(await fetcher());
+    } catch (e) {
+      setError((e as Error)?.message || 'Failed to load analytics');
+    }
+  }, [fetcher]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Purchase Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Comprehensive purchase performance and trend analysis</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{description}</p>
+        </div>
+        <button
+          onClick={() => void load()}
+          className="bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+        >
+          Refresh
+        </button>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total POs', value: '—', color: 'border-l-blue-500' },
-          { label: 'Total Spend', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Avg PO Value', value: '₹—', color: 'border-l-purple-500' },
-          { label: 'Pending Deliveries', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Monthly Purchase Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Monthly purchase order value trend</div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+          <AlertCircle className="h-4 w-4" />
+          {error}
         </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Top Suppliers by Spend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Top 10 suppliers by total spend</div>
+      )}
+
+      {!payload && !error && (
+        <div className="text-muted-foreground flex h-64 items-center justify-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading analytics…
         </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Category Distribution</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Purchase by category</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">PO Status Overview</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — PO status breakdown (draft, approved, received, cancelled)</div>
-        </div>
-      </div>
+      )}
+
+      {payload && (
+        <>
+          {payload.kpis.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {payload.kpis.map((kpi) => (
+                <KpiCard
+                  key={kpi.key}
+                  label={kpi.label}
+                  value={kpi.value}
+                  format={kpi.format}
+                  trend={kpi.trend}
+                  color={kpi.color}
+                />
+              ))}
+            </div>
+          )}
+          <ChartGrid charts={payload.charts} />
+          <TableSection tables={payload.tables} />
+        </>
+      )}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BI ANALYTICS DASHBOARD — Overview (Management Dashboard)
+// ═══════════════════════════════════════════════════════════════════
+export function OverviewAnalyticsPage() {
+  return (
+    <AnalyticsDashboardPage
+      title="Management Analytics"
+      description="Enterprise KPIs — sales, purchase, profitability, receivables, payables, inventory and cash position"
+      fetcher={getAnalyticsOverview}
+    />
   );
 }
 
@@ -48,43 +256,24 @@ export function PurchaseAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function SalesAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Sales Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Real-time sales performance metrics and revenue analysis</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total Revenue', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Total Orders', value: '—', color: 'border-l-blue-500' },
-          { label: 'Avg Order Value', value: '₹—', color: 'border-l-purple-500' },
-          { label: 'Pending Invoices', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Revenue Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Monthly revenue trend line</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Top Customers</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Top 10 customers by revenue</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Product Performance</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Top-selling products</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Sales by Category</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Revenue by product category</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Sales Analytics"
+      description="Real-time sales performance metrics, trends, category/customer/salesperson analysis and quotation funnel"
+      fetcher={getSalesAnalytics}
+    />
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BI ANALYTICS DASHBOARD — Purchase Analytics
+// ═══════════════════════════════════════════════════════════════════
+export function PurchaseAnalyticsPage() {
+  return (
+    <AnalyticsDashboardPage
+      title="Purchase Analytics"
+      description="Comprehensive purchase performance, supplier concentration and trend analysis"
+      fetcher={getPurchaseAnalytics}
+    />
   );
 }
 
@@ -93,43 +282,11 @@ export function SalesAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function InventoryAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Inventory Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Stock movement, valuation, and turnover analysis</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total Items', value: '—', color: 'border-l-blue-500' },
-          { label: 'Stock Value', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Low Stock Items', value: '—', color: 'border-l-red-500' },
-          { label: 'Dead Stock', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Stock Movement</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Inward/outward stock movement over time</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Inventory Turnover</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Category-wise inventory turnover ratio</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Stock Aging</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Aging analysis of current stock</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Warehouse Distribution</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Stock distribution across warehouses</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Inventory Analytics"
+      description="Stock movement, valuation, warehouse distribution and fast/slow/dead stock analysis"
+      fetcher={getInventoryAnalytics}
+    />
   );
 }
 
@@ -138,43 +295,11 @@ export function InventoryAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function FinanceAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Finance Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Profitability, cash flow, and financial performance metrics</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Revenue', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Expenses', value: '₹—', color: 'border-l-red-500' },
-          { label: 'Net Profit', value: '₹—', color: 'border-l-blue-500' },
-          { label: 'Profit Margin', value: '—%', color: 'border-l-purple-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Income vs Expenses</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Monthly income vs expense comparison</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Cash Flow</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Operating, investing, financing cash flow</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Expense Breakdown</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Expense by category</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Profit Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Gross vs net profit trend</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Financial Analytics"
+      description="Revenue, margins, expenses, profit trend and sales vs purchase comparison"
+      fetcher={getFinanceAnalytics}
+    />
   );
 }
 
@@ -183,43 +308,11 @@ export function FinanceAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function GstAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">GST Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Tax liability, input credit, and GST filing overview</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Output GST', value: '₹—', color: 'border-l-red-500' },
-          { label: 'Input Credit', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Net Payable', value: '₹—', color: 'border-l-blue-500' },
-          { label: 'Pending Returns', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">GST Liability Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Monthly GST payable trend</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">ITC vs Output</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Input tax credit vs output tax comparison</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">GST Rate Distribution</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Taxable value by GST rate slab</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Filing Status</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — GST return filing status overview</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="GST Analytics"
+      description="Output and input tax, GST by rate and period from invoice-level tax data"
+      fetcher={getGstAnalytics}
+    />
   );
 }
 
@@ -228,35 +321,11 @@ export function GstAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function CustomerAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Customer Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Customer segmentation, behavior, and revenue analysis</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total Customers', value: '—', color: 'border-l-blue-500' },
-          { label: 'Active Customers', value: '—', color: 'border-l-green-500' },
-          { label: 'Avg Revenue/Customer', value: '₹—', color: 'border-l-purple-500' },
-          { label: 'Repeat Rate', value: '—%', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Customer Distribution</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Customers by region/category</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Revenue by Customer</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Top customers by revenue contribution</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Customer Analytics"
+      description="Customer sales, outstanding, credit limit utilization and inactive customer analysis"
+      fetcher={getCustomerAnalytics}
+    />
   );
 }
 
@@ -265,35 +334,11 @@ export function CustomerAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function SupplierAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Supplier Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Supplier performance, spending, and reliability metrics</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total Suppliers', value: '—', color: 'border-l-blue-500' },
-          { label: 'Active Suppliers', value: '—', color: 'border-l-green-500' },
-          { label: 'Total Spend', value: '₹—', color: 'border-l-purple-500' },
-          { label: 'Avg Delivery Days', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Spend by Supplier</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Top suppliers by spend</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Supplier Performance</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — On-time delivery rate by supplier</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Supplier Analytics"
+      description="Supplier spend, concentration and pending payment analysis"
+      fetcher={getSupplierAnalytics}
+    />
   );
 }
 
@@ -302,145 +347,62 @@ export function SupplierAnalyticsPage() {
 // ═══════════════════════════════════════════════════════════════════
 export function WarehouseAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Warehouse Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Warehouse capacity, utilization, and efficiency metrics</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Total Warehouses', value: '—', color: 'border-l-blue-500' },
-          { label: 'Total Capacity', value: '—', color: 'border-l-green-500' },
-          { label: 'Utilization', value: '—%', color: 'border-l-purple-500' },
-          { label: 'Items in Stock', value: '—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Warehouse Utilization</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Capacity utilization by warehouse</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Stock Distribution</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Stock value distribution across warehouses</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Warehouse Analytics"
+      description="Warehouse stock distribution, value and transfer activity"
+      fetcher={getWarehouseAnalytics}
+    />
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// PROFITABILITY ANALYTICS
+// BI ANALYTICS DASHBOARD — Profitability Analytics
 // ═══════════════════════════════════════════════════════════════════
 export function ProfitabilityAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Profitability Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Gross profit, net profit, margin analysis across dimensions</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Gross Profit', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Net Profit', value: '₹—', color: 'border-l-blue-500' },
-          { label: 'Gross Margin', value: '—%', color: 'border-l-purple-500' },
-          { label: 'Net Margin', value: '—%', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Margin Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Gross and net margin trend over time</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Profit by Product</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Profit contribution by product category</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Profitability Analytics"
+      description="Product-level gross profit, margins and bottom performers"
+      fetcher={getProfitabilityAnalytics}
+    />
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CASH FLOW ANALYTICS
+// BI ANALYTICS DASHBOARD — Cash Flow Analytics
 // ═══════════════════════════════════════════════════════════════════
 export function CashFlowAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Cash Flow Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Cash inflow/outflow analysis and liquidity forecasting</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Operating Cash Flow', value: '₹—', color: 'border-l-green-500' },
-          { label: 'Investing Cash Flow', value: '₹—', color: 'border-l-blue-500' },
-          { label: 'Financing Cash Flow', value: '₹—', color: 'border-l-purple-500' },
-          { label: 'Net Cash Flow', value: '₹—', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Cash Flow Trend</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Monthly cash flow trend (inflow vs outflow)</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Cash Position</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Opening vs closing cash balance over time</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Cash Flow Analytics"
+      description="Cash inflow and outflow trends from the GL"
+      fetcher={getCashFlowAnalytics}
+    />
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// GROWTH ANALYTICS
+// BI ANALYTICS DASHBOARD — Growth Analytics
 // ═══════════════════════════════════════════════════════════════════
 export function GrowthAnalyticsPage() {
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Growth Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Year-over-year growth, trends, and business expansion metrics</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: 'Revenue Growth', value: '—%', color: 'border-l-green-500' },
-          { label: 'Order Growth', value: '—%', color: 'border-l-blue-500' },
-          { label: 'Customer Growth', value: '—%', color: 'border-l-purple-500' },
-          { label: 'Market Share', value: '—%', color: 'border-l-yellow-500' },
-        ].map((c) => (
-          <div key={c.label} className={`rounded-lg border-l-4 bg-card p-4 shadow-sm ${c.color}`}>
-            <p className="text-sm font-medium text-muted-foreground">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold">{c.value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">YoY Revenue Growth</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Year-over-year revenue comparison</div>
-        </div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">Growth Drivers</h2>
-          <div className="flex h-48 items-center justify-center rounded-md bg-muted/50 text-sm text-muted-foreground">Chart — Growth contribution by product line</div>
-        </div>
-      </div>
-    </div>
+    <AnalyticsDashboardPage
+      title="Growth Analytics"
+      description="Month-over-month revenue and order growth"
+      fetcher={getGrowthAnalytics}
+    />
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BI ANALYTICS DASHBOARD — Top / Bottom
+// ═══════════════════════════════════════════════════════════════════
+export function TopBottomAnalyticsPage() {
+  return (
+    <AnalyticsDashboardPage
+      title="Top & Bottom Performers"
+      description="Top 10 customers, suppliers and products by sales, quantity and profit"
+      fetcher={getTopBottomAnalytics}
+    />
   );
 }
