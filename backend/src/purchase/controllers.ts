@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -32,6 +33,7 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { WorkflowDocument } from '../common/decorators/workflow-document.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 
 import { PurchaseDebitNoteService } from './debit-note.service';
 import {
@@ -672,7 +674,12 @@ export class SuppliersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'pageSize', required: false, type: Number })
   async search(@Query('q') q: string, @Query('page') p = 1, @Query('pageSize') ps = 50) {
-    return this.service.searchSuppliers({ q, page: Number(p), pageSize: Number(ps) });
+    // H4 — bound client-supplied page/pageSize (default 50, max 200)
+    return this.service.searchSuppliers({
+      q,
+      page: sanitizePage(p),
+      pageSize: sanitizePageSize(ps, 50),
+    });
   }
 
   @Get('outstanding')
@@ -691,8 +698,9 @@ export class SuppliersController {
     @Query('status') status?: string,
   ) {
     return this.service.getOutstanding({
-      page: Number(p),
-      pageSize: Number(ps),
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(p),
+      pageSize: sanitizePageSize(ps, 50),
       search: s,
       status,
     });
@@ -792,11 +800,12 @@ export class SuppliersController {
     // Legacy consumers (selection screens) call with only page/ps/search —
     // route them through findAll; the enterprise list page passes filters.
     if (!status && !supplierType && !sortBy && !groupId && !categoryId) {
-      return this.service.findAll(Number(p), Number(ps), s);
+      return this.service.findAll(sanitizePage(p), sanitizePageSize(ps, 50), s);
     }
     return this.service.listSuppliers({
-      page: Number(p),
-      pageSize: Number(ps),
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(p),
+      pageSize: sanitizePageSize(ps, 50),
       search: s,
       status,
       supplierType,
@@ -1240,8 +1249,9 @@ export class PurchasePaymentsController {
     @Query('search') search?: string,
   ) {
     return this.service.listPayments({
-      page: Number(page),
-      pageSize: Number(pageSize),
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(page),
+      pageSize: sanitizePageSize(pageSize, 50),
       supplierId,
       mode,
       from,

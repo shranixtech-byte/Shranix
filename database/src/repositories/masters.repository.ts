@@ -261,6 +261,76 @@ export class MasterDataRepository<T extends MasterRecord> {
   }
 
   /**
+   * H4 — SQL COUNT with enterprise filters (filters array, search, isActive).
+   * Counts in the database instead of loading rows into memory.
+   */
+  async countWhere(params?: {
+    filters?: import('../types/index').FilterCondition[];
+    search?: string;
+    searchFields?: string[];
+    isActive?: boolean;
+  }): Promise<number> {
+    const columns = this.tableColumns;
+    const baseConds: any[] = this.hasColumn('deletedAt') ? [isNull(this.table.deletedAt)] : [];
+    const conditions = buildEnterpriseConditions(
+      columns,
+      {
+        filters: params?.filters || [],
+        search: params?.search,
+        searchFields: params?.searchFields,
+        isActive: params?.isActive,
+      } as EnterpriseQuery,
+      baseConds,
+    );
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const result = await this.activeDb
+      .select({ value: count() })
+      .from(this.table)
+      .where(whereClause);
+    return Number(result[0]?.value ?? 0);
+  }
+
+  /**
+   * H4 — SQL SUM of a numeric column with enterprise filters.
+   *
+   * Aggregates in the database instead of loading up to pageSize rows into
+   * memory. This also fixes silent truncation: the previous in-memory pattern
+   * loaded at most `pageSize` rows (e.g. 10000) and produced WRONG totals once
+   * a table grew past that bound.
+   */
+  async sumField(
+    field: string,
+    params?: {
+      filters?: import('../types/index').FilterCondition[];
+      search?: string;
+      searchFields?: string[];
+      isActive?: boolean;
+    },
+  ): Promise<number> {
+    const column = this.tableColumns[field];
+    if (!column) {
+      return 0;
+    }
+    const baseConds: any[] = this.hasColumn('deletedAt') ? [isNull(this.table.deletedAt)] : [];
+    const conditions = buildEnterpriseConditions(
+      this.tableColumns,
+      {
+        filters: params?.filters || [],
+        search: params?.search,
+        searchFields: params?.searchFields,
+        isActive: params?.isActive,
+      } as EnterpriseQuery,
+      baseConds,
+    );
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const result = await this.activeDb
+      .select({ value: sql<number>`coalesce(sum(${column}), 0)` })
+      .from(this.table)
+      .where(whereClause);
+    return Number(result[0]?.value ?? 0);
+  }
+
+  /**
    * Find the max numeric sequence for a prefix on a given column, INCLUDING
    * soft-deleted rows (unique indexes still block numbers of deleted records,
    * so deleted numbers must not be reused). Returns 0 when nothing matches.

@@ -1,8 +1,30 @@
-import { and, asc, desc, eq, gte, gt, inArray, like, lte, lt, ne, notInArray, or, type SQL } from 'drizzle-orm';
-import type { AnyColumn } from 'drizzle-orm';
+import type {
+ AnyColumn ,
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  gt,
+  inArray,
+  like,
+  lte,
+  lt,
+  ne,
+  notInArray,
+  or,
+  type SQL } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
-import type { PaginatedResult, PaginationParams, FilterParams, FilterCondition, SortConfig, EnterpriseQuery } from '../types/index';
+
+import type {
+  PaginatedResult,
+  PaginationParams,
+  FilterParams,
+  FilterCondition,
+  SortConfig,
+  EnterpriseQuery,
+} from '../types/index';
 
 export type AnyTable = PgTable | SQLiteTable;
 
@@ -15,10 +37,10 @@ export function buildSortOrder(
   sortBy?: string,
   sortOrder?: 'asc' | 'desc',
 ): SQL[] | undefined {
-  if (!sortBy) return undefined;
+  if (!sortBy) {return undefined;}
 
   const column = (table as any)[sortBy] as AnyColumn | undefined;
-  if (!column) return undefined;
+  if (!column) {return undefined;}
 
   return sortOrder === 'desc' ? [desc(column)] : [asc(column)];
 }
@@ -28,7 +50,7 @@ export function buildSearchCondition(
   searchFields: (keyof typeof table)[],
   search?: string,
 ): SQL | undefined {
-  if (!search || searchFields.length === 0) return undefined;
+  if (!search || searchFields.length === 0) {return undefined;}
 
   const pattern = `%${search}%`;
   const conditions = searchFields
@@ -38,7 +60,7 @@ export function buildSearchCondition(
     })
     .filter((c): c is SQL => c !== undefined);
 
-  if (conditions.length === 0) return undefined;
+  if (conditions.length === 0) {return undefined;}
   return or(...conditions);
 }
 
@@ -76,7 +98,7 @@ export function buildFilterConditions(
   const conditions: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') continue;
+    if (value === undefined || value === null || value === '') {continue;}
     const dbField = fieldMap[key] || key;
     conditions[dbField] = value;
   }
@@ -96,7 +118,7 @@ export function buildFilterCondition(
   filter: FilterCondition,
 ): SQL | undefined {
   const column = table[filter.field];
-  if (!column) return undefined;
+  if (!column) {return undefined;}
 
   switch (filter.operator) {
     case 'eq':
@@ -126,7 +148,7 @@ export function buildFilterCondition(
         ? notInArray(column, filter.value as (string | number)[])
         : undefined;
     case 'between': {
-      if (!Array.isArray(filter.value) || filter.value.length !== 2) return undefined;
+      if (!Array.isArray(filter.value) || filter.value.length !== 2) {return undefined;}
       return and(
         gte(column, filter.value[0] as string | number | Date),
         lte(column, filter.value[1] as string | number | Date),
@@ -197,7 +219,7 @@ export function buildEnterpriseConditions(
   if (query.filters && query.filters.length > 0) {
     for (const filter of query.filters) {
       const cond = buildFilterCondition(table, filter);
-      if (cond) conditions.push(cond);
+      if (cond) {conditions.push(cond);}
     }
   }
 
@@ -215,10 +237,24 @@ export function buildEnterpriseConditions(
 /**
  * Extract pagination params from an EnterpriseQuery.
  */
-export function extractPagination(query: EnterpriseQuery, defaultPageSize: number = 50): PaginationParams {
+/**
+ * H4 — hard server-side ceiling for a single page. Client-supplied pageSize is
+ * never trusted; every query is bounded. Internal aggregation/export callers
+ * that legitimately need more use SQL aggregation instead of larger pages.
+ */
+export const MAX_PAGE_SIZE = 10000;
+
+export function extractPagination(
+  query: EnterpriseQuery,
+  defaultPageSize: number = 50,
+): PaginationParams {
+  const rawPage = Number(query.page ?? 1);
+  const rawSize = Number(query.pageSize ?? defaultPageSize);
   return {
-    page: query.page ?? 1,
-    pageSize: query.pageSize ?? defaultPageSize,
+    page: Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1,
+    pageSize:
+      Number.isFinite(rawSize) && rawSize > 0
+        ? Math.min(Math.floor(rawSize), MAX_PAGE_SIZE)
+        : defaultPageSize,
   };
 }
-

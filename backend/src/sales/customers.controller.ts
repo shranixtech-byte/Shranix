@@ -1,3 +1,4 @@
+
 import {
   Body,
   Controller,
@@ -31,6 +32,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 
 import { CustomersService } from './customers.service';
 import {
@@ -78,8 +80,9 @@ export class CustomersController {
   ) {
     return this.service.searchCustomers({
       q,
-      page: Number(page) || 1,
-      pageSize: Number(pageSize) || 50,
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(page),
+      pageSize: sanitizePageSize(pageSize, 50),
     });
   }
 

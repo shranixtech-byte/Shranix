@@ -1,3 +1,4 @@
+
 import {
   Controller,
   Get,
@@ -18,6 +19,7 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { WorkflowDocument } from '../common/decorators/workflow-document.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 import { BaseMasterService } from '../masters/base-master.service';
 
 import {
@@ -1195,8 +1197,9 @@ export class StockLedgerController {
     @Query('toDate') toDate?: string,
   ) {
     return this.service.getLedger({
-      page: Number(page) || 1,
-      pageSize: Number(ps) || 50,
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(page),
+      pageSize: sanitizePageSize(ps, 50),
       itemId,
       batchNo,
       movementType,

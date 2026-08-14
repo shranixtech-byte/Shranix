@@ -507,30 +507,49 @@ export class SalesInvoicesController {
       .catch(() => ({ data: [] }));
 
     // ════════════════════════════════════════════════════════════
-    // HARDENING H1+H2: Real stock validation + Real product data
+    // HARDENING H1+H2+H4: Real stock validation + Real product data
     // ════════════════════════════════════════════════════════════
-    // Batch-fetch product masters and warehouse stocks (2 queries total — NOT N+1)
-    const allItems = await this.database.items
-      .findAll({ page: 1, pageSize: 10000 })
-      .catch(() => ({ data: [] }));
-    const itemMasterMap = new Map(
-      (allItems?.data || []).map((im: Record<string, unknown>) => [im.id as string, im]),
-    );
-
-    const allStock = await this.database.invStockBalance
-      .findAll({ page: 1, pageSize: 10000 })
-      .catch(() => ({ data: [] }));
-    // Canonical balance projection — aggregate onHand across warehouses per item
+    // H4: fetch ONLY this invoice's item masters + balances via chunked IN
+    // queries — the old pattern loaded ALL items/balances (pageSize 10000),
+    // which truncated stock validation once the catalog passed 10k items.
+    const invoiceItemIds = [
+      ...new Set(
+        (invoiceItems?.data || [])
+          .map((it: any) => it.itemId)
+          .filter((v: unknown): v is string => Boolean(v)),
+      ),
+    ];
+    const itemMasterMap = new Map<string, Record<string, unknown>>();
     const stockByItemId = new Map<string, Record<string, unknown>>();
-    for (const s of (allStock?.data || []) as Record<string, unknown>[]) {
-      const itemId = s.itemId as string;
-      const current = stockByItemId.get(itemId);
-      const onHand = Number(s.onHand || 0);
-      stockByItemId.set(itemId, {
-        ...(current || {}),
-        itemId,
-        quantity: (Number(current?.quantity || 0) || 0) + onHand,
-      });
+    for (const chunk of chunkArray(invoiceItemIds, 500)) {
+      const itemsChunk = await this.database.items
+        .findAll({
+          page: 1,
+          pageSize: chunk.length,
+          filters: [{ field: 'id', operator: 'in', value: chunk }],
+        } as any)
+        .catch(() => ({ data: [] }));
+      for (const im of (itemsChunk?.data || []) as Record<string, unknown>[]) {
+        itemMasterMap.set(im.id as string, im);
+      }
+      const stockChunk = await this.database.invStockBalance
+        .findAll({
+          page: 1,
+          pageSize: chunk.length,
+          filters: [{ field: 'itemId', operator: 'in', value: chunk }],
+        } as any)
+        .catch(() => ({ data: [] }));
+      // Canonical balance projection — aggregate onHand across warehouses per item
+      for (const s of (stockChunk?.data || []) as Record<string, unknown>[]) {
+        const itemId = s.itemId as string;
+        const current = stockByItemId.get(itemId);
+        const onHand = Number(s.onHand || 0);
+        stockByItemId.set(itemId, {
+          ...(current || {}),
+          itemId,
+          quantity: (Number(current?.quantity || 0) || 0) + onHand,
+        });
+      }
     }
 
     const postingInputItems: any[] = [];
@@ -833,4 +852,16 @@ export class SalesSettingsController {
   async setUpi(@Body() dto: UpiSettingsDto, @CurrentUser() u: { id: string }) {
     return this.service.setUpiId(dto.upiId || '', u?.id);
   }
+}
+
+/**
+ * H4 — split a large id list into bounded chunks so batched `IN` queries stay
+ * within SQLite/Postgres parameter limits.
+ */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
 }

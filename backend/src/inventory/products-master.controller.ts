@@ -1,3 +1,4 @@
+
 import {
   Body,
   Controller,
@@ -31,6 +32,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 
 import {
   BulkProductDeleteDto,
@@ -79,7 +81,12 @@ export class ProductsMasterController {
     @Query('pageSize') ps = 50,
     @Query('status') status?: string,
   ) {
-    return this.service.searchProducts({ q, page: Number(p), pageSize: Number(ps), status });
+    return this.service.searchProducts({
+      q,
+      page: sanitizePage(p),
+      pageSize: sanitizePageSize(ps, 50),
+      status,
+    });
   }
 
   @Get('export')
@@ -270,8 +277,9 @@ export class ProductsMasterController {
     @Query('sortDir') sortDir?: string,
   ) {
     return this.service.findAll({
-      page: Number(p),
-      pageSize: Number(ps),
+      // H4 — bound client-supplied page/pageSize (default 50, max 200)
+      page: sanitizePage(p),
+      pageSize: sanitizePageSize(ps, 50),
       search,
       categoryId,
       subCategoryId,
