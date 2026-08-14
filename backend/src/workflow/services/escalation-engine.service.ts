@@ -18,39 +18,58 @@ export class EscalationEngineService {
   /**
    * Process all escalations: check overdue tasks and escalate where needed.
    */
-  async processEscalations(): Promise<{ escalated: number; reminded: number; autoApproved: number }> {
+  async processEscalations(): Promise<{
+    escalated: number;
+    reminded: number;
+    autoApproved: number;
+  }> {
     let escalated = 0;
     let reminded = 0;
     let autoApproved = 0;
 
     // Get all active escalation rules
     const rulesResult = await this.database.escalationRules.findAll({
-      page: 1, pageSize: 50, filter: { isActive: true } as any,
+      page: 1,
+      pageSize: 50,
+      filter: { isActive: true } as any,
     } as any);
 
     const rules = rulesResult.data || [];
 
-    // Get all pending overdue tasks
+    // Get all pending overdue tasks — `filters` array form (a plain `filter`
+    // object is silently ignored and would return tasks in ANY status, H2).
     const tasksResult = await this.database.workflowTasks.findAll({
-      page: 1, pageSize: 100, filter: { status: 'pending' } as any,
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'status', operator: 'eq', value: 'pending' }],
     } as any);
 
     const tasks = tasksResult.data || [];
     const now = new Date();
 
     for (const task of tasks as any[]) {
-      if (!task.dueDate) {continue;}
+      if (!task.dueDate) {
+        continue;
+      }
       const dueDate = new Date(task.dueDate);
-      if (dueDate >= now) {continue;}
+      if (dueDate >= now) {
+        continue;
+      }
 
       // Task is overdue
       const hoursOverdue = (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60);
 
       // Find matching escalation rules
       const matchingRules = rules.filter((r: any) => {
-        if (r.module && task.module !== r.module) {return false;}
-        if (r.documentType && task.documentType !== r.documentType) {return false;}
-        if (r.triggerState && task.status !== r.triggerState && r.triggerState !== 'pending') {return false;}
+        if (r.module && task.module !== r.module) {
+          return false;
+        }
+        if (r.documentType && task.documentType !== r.documentType) {
+          return false;
+        }
+        if (r.triggerState && task.status !== r.triggerState && r.triggerState !== 'pending') {
+          return false;
+        }
         return true;
       });
 
@@ -81,7 +100,9 @@ export class EscalationEngineService {
             });
 
             escalated++;
-            this.logger.log(`Task ${task.id} escalated: ${task.assignedRole || task.assignedToId} → ${rule.escalateToRole || rule.escalateToUserId}`);
+            this.logger.log(
+              `Task ${task.id} escalated: ${task.assignedRole || task.assignedToId} → ${rule.escalateToRole || rule.escalateToUserId}`,
+            );
           }
 
           // Auto-approve if configured

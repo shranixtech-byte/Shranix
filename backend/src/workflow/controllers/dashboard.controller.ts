@@ -24,7 +24,10 @@ export class WorkflowDashboardController {
   @ApiOperation({ summary: 'Get workflow dashboard data' })
   @HttpCode(HttpStatus.OK)
   async getDashboard(@CurrentUser() u: { id: string }) {
-    const instances = await this.database.workflowInstances.findAll({ page: 1, pageSize: 1000 } as any);
+    const instances = await this.database.workflowInstances.findAll({
+      page: 1,
+      pageSize: 1000,
+    } as any);
     const tasks = await this.database.workflowTasks.findAll({ page: 1, pageSize: 1000 } as any);
     const rules = await this.database.escalationRules.findAll({ page: 1, pageSize: 100 } as any);
 
@@ -44,7 +47,8 @@ export class WorkflowDashboardController {
         completed: allTasks.filter((t: any) => t.status === 'completed').length,
         overdue: allTasks.filter((t: any) => t.isOverdue).length,
         delegated: allTasks.filter((t: any) => t.status === 'delegated').length,
-        myPending: allTasks.filter((t: any) => t.assignedToId === u?.id && t.status === 'pending').length,
+        myPending: allTasks.filter((t: any) => t.assignedToId === u?.id && t.status === 'pending')
+          .length,
       },
       escalation: {
         totalRules: ((rules as any).data || []).length,
@@ -60,11 +64,17 @@ export class WorkflowDashboardController {
   @ApiOperation({ summary: 'Get my personal workflow dashboard' })
   @HttpCode(HttpStatus.OK)
   async getMyDashboard(@CurrentUser() u: { id: string }) {
+    // NOTE: `filters` array form — a plain `filter` object is silently ignored
+    // and would return EVERY workflow instance/task (cross-user leak, H2).
     const myInstances = await this.database.workflowInstances.findAll({
-      page: 1, pageSize: 100, filter: { initiatorId: u?.id } as any,
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'initiatorId', operator: 'eq', value: u?.id }],
     } as any);
     const myTasks = await this.database.workflowTasks.findAll({
-      page: 1, pageSize: 100, filter: { assignedToId: u?.id } as any,
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'assignedToId', operator: 'eq', value: u?.id }],
     } as any);
 
     const instances = (myInstances as any).data || [];

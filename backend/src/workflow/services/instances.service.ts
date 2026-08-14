@@ -1,9 +1,16 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 
+import { TransactionManager } from '../../automation/transaction.manager';
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
 
-import { ApprovalEngineService } from './approval-engine.service';
+import { ApprovalEngineService, type ApprovalActor } from './approval-engine.service';
 import { NotificationEngineService } from './notification-engine.service';
 import { StateMachineService } from './state-machine.service';
 import { TaskEngineService } from './task-engine.service';
@@ -25,13 +32,21 @@ export interface StartWorkflowDto {
 
 export interface ExecuteActionDto {
   action: string;
-  userId: string;
+  /** Legacy/display-only — NEVER used for authorization. The authenticated actor wins. */
+  userId?: string;
   userName?: string;
+  /** Legacy/display-only — NEVER used for authorization. Roles come from the server. */
   userRole?: string;
   comment?: string;
   ipAddress?: string;
   userAgent?: string;
   metadata?: Record<string, any>;
+}
+
+/** Server-derived actor for a workflow action. */
+export interface WorkflowActor {
+  id: string;
+  source?: 'user' | 'system';
 }
 
 @Injectable()
@@ -45,10 +60,21 @@ export class WorkflowInstancesService {
     private readonly approvalEngine: ApprovalEngineService,
     private readonly taskEngine: TaskEngineService,
     private readonly notificationEngine: NotificationEngineService,
+    private readonly transactionManager: TransactionManager,
   ) {}
 
-  async findAll(page = 1, pageSize = 50, search?: string, filter?: { status?: string; module?: string; currentState?: string }) {
-    const result = await this.database.workflowInstances.findAll({ page, pageSize, search, filter } as any);
+  async findAll(
+    page = 1,
+    pageSize = 50,
+    search?: string,
+    filter?: { status?: string; module?: string; currentState?: string },
+  ) {
+    const result = await this.database.workflowInstances.findAll({
+      page,
+      pageSize,
+      search,
+      filter,
+    } as any);
     // Parse JSON fields
     if (result.data) {
       result.data = result.data.map((r: any) => ({
@@ -62,32 +88,60 @@ export class WorkflowInstancesService {
 
   async findById(id: string) {
     const record = await this.database.workflowInstances.findById(id);
-    if (!record) {throw new NotFoundException(`Workflow instance with id "${id}" not found`);}
+    if (!record) {
+      throw new NotFoundException(`Workflow instance with id "${id}" not found`);
+    }
     return {
       ...record,
-      variables: typeof (record as any).variables === 'string' ? JSON.parse((record as any).variables) : (record as any).variables,
-      metadata: typeof (record as any).metadata === 'string' ? JSON.parse((record as any).metadata) : (record as any).metadata,
+      variables:
+        typeof (record as any).variables === 'string'
+          ? JSON.parse((record as any).variables)
+          : (record as any).variables,
+      metadata:
+        typeof (record as any).metadata === 'string'
+          ? JSON.parse((record as any).metadata)
+          : (record as any).metadata,
     };
   }
 
   async findByDocument(documentType: string, documentId: string) {
-    const result = await this.database.workflowInstances.findAll({ page: 1, pageSize: 10, filter: { documentType, documentId } } as any);
+    // NOTE: `filters` array form — a plain `filter` object is silently ignored
+    // and would return an unrelated workflow instance (H2 tenant-isolation fix).
+    const result = await this.database.workflowInstances.findAll({
+      page: 1,
+      pageSize: 10,
+      filters: [
+        { field: 'documentType', operator: 'eq', value: documentType },
+        { field: 'documentId', operator: 'eq', value: documentId },
+      ],
+    } as any);
     return result.data?.[0] || null;
   }
 
   async findByAssignee(userId: string, status?: string) {
-    const result = await this.database.workflowInstances.findAll({ page: 1, pageSize: 50, filter: { assignedToId: userId, status } } as any);
+    const result = await this.database.workflowInstances.findAll({
+      page: 1,
+      pageSize: 50,
+      filters: [
+        { field: 'assignedToId', operator: 'eq', value: userId },
+        ...(status ? [{ field: 'status', operator: 'eq', value: status }] : []),
+      ],
+    } as any);
     return result;
   }
 
   async startWorkflow(dto: StartWorkflowDto, userId?: string) {
     // Get template
     const template = await this.database.workflowTemplates.findById(dto.templateId);
-    if (!template) {throw new NotFoundException(`Workflow template "${dto.templateId}" not found`);}
+    if (!template) {
+      throw new NotFoundException(`Workflow template "${dto.templateId}" not found`);
+    }
 
     // Check for existing instance
     const existing = await this.findByDocument(dto.documentType, dto.documentId);
-    if (existing) {throw new BadRequestException(`Workflow already exists for this document`);}
+    if (existing) {
+      throw new BadRequestException(`Workflow already exists for this document`);
+    }
 
     const templateStates = JSON.parse((template as any).states || '[]');
     const templateTransitions = JSON.parse((template as any).transitions || '[]');
@@ -131,7 +185,9 @@ export class WorkflowInstancesService {
       updatedBy: userId || dto.initiatorId || undefined,
     } as any);
 
-    this.logger.log(`Workflow started: ${dto.documentType} #${dto.documentNumber || dto.documentId} → ${initialState}`);
+    this.logger.log(
+      `Workflow started: ${dto.documentType} #${dto.documentNumber || dto.documentId} → ${initialState}`,
+    );
 
     // Create initial task
     await this.taskEngine.createTask({
@@ -160,7 +216,17 @@ export class WorkflowInstancesService {
 
     // Audit
     if (userId) {
-      await this.audit.log({ userId, event: 'workflow_started' as any, resource: 'workflow', action: 'start', details: { instanceId: instance.id, documentType: dto.documentType, documentId: dto.documentId } });
+      await this.audit.log({
+        userId,
+        event: 'workflow_started' as any,
+        resource: 'workflow',
+        action: 'start',
+        details: {
+          instanceId: instance.id,
+          documentType: dto.documentType,
+          documentId: dto.documentId,
+        },
+      });
     }
 
     // Record workflow history
@@ -184,116 +250,184 @@ export class WorkflowInstancesService {
     return instance;
   }
 
-  async executeAction(instanceId: string, dto: ExecuteActionDto) {
-    const instance = await this.findById(instanceId);
-    if ((instance as any).status !== 'active') {
-      throw new BadRequestException(`Workflow is ${(instance as any).status}. Cannot execute action on non-active workflow.`);
+  /**
+   * H2 — resolve a user actor's server-side roles + department for eligibility.
+   */
+  private async resolveActorAuthorization(
+    actorId: string,
+  ): Promise<{ roles: string[]; departmentId?: string }> {
+    let roles: string[] = [];
+    try {
+      const roleRows = await this.database.roles.getUserRoles(actorId);
+      roles = (roleRows || []).map((r: any) => r.name);
+    } catch {
+      roles = [];
+    }
+    let departmentId: string | undefined;
+    try {
+      // NOTE: must use the `filters` array form — a plain `filter` object is
+      // silently ignored by the enterprise query builder and would return the
+      // FIRST employee row for ANY actor (cross-user department leak, H2).
+      const empRes = await this.database.employees.findAll({
+        page: 1,
+        pageSize: 1,
+        filters: [{ field: 'userId', operator: 'eq', value: actorId }],
+      } as any);
+      departmentId = (empRes.data || [])[0]?.departmentId || undefined;
+    } catch {
+      departmentId = undefined;
+    }
+    return { roles, departmentId };
+  }
+
+  /**
+   * Execute a workflow action (submit, approve, reject, return, cancel, …).
+   *
+   * H2 hardening:
+   *  - actor is server-derived from the authenticated session / system hook;
+   *    a client-supplied dto.userId is rejected when it does not match.
+   *  - dto.userRole is ignored for authorization (roles are loaded server-side).
+   *  - approve/reject/return require designated-approver eligibility.
+   *  - the whole transition runs inside a transaction; the instance is re-read
+   *    inside the tx so concurrent duplicate approvals cannot both succeed.
+   */
+  async executeAction(instanceId: string, dto: ExecuteActionDto, actor: WorkflowActor) {
+    const source = actor.source || 'user';
+    const actorId = actor.id;
+
+    // Impersonation guard: a client-supplied userId that differs from the
+    // authenticated actor is rejected outright (never used as authority).
+    if (dto.userId && dto.userId !== actorId) {
+      throw new ForbiddenException(
+        'Actor identity mismatch — approval identity comes from the authenticated session',
+      );
     }
 
-    const templateId = (instance as any).templateId;
-    const currentState = (instance as any).currentState;
-
-    // Validate transition
-    const transition = this.stateMachine.validateTransition(templateId, currentState, dto.action);
-    const nextState = transition.to;
-
-    // Check if comment is required
-    if (transition.requireComment && !dto.comment) {
-      throw new BadRequestException(`Comment is required for "${dto.action}" action`);
-    }
-
-    // Check role permissions if specified
-    if (transition.roles && transition.roles.length > 0 && dto.userRole) {
-      if (!transition.roles.includes(dto.userRole)) {
-        throw new BadRequestException(`User role "${dto.userRole}" is not authorized for "${dto.action}" action. Required roles: ${transition.roles.join(', ')}`);
+    return this.transactionManager.executeInTransaction(async () => {
+      // Re-read inside the transaction so a concurrent duplicate approval sees
+      // the committed state and is rejected by the guards below.
+      const instance = await this.findById(instanceId);
+      if ((instance as any).status !== 'active') {
+        throw new BadRequestException(
+          `Workflow is ${(instance as any).status}. Cannot execute action on non-active workflow.`,
+        );
       }
-    }
 
-    // Handle approval-specific actions
-    if (dto.action === 'approve' || dto.action === 'reject' || dto.action === 'return') {
-      await this.approvalEngine.processApprovalAction(instance, dto, transition);
-    }
+      const templateId = (instance as any).templateId;
+      const currentState = (instance as any).currentState;
 
-    // Update instance
-    const updateData: Record<string, any> = {
-      previousState: currentState,
-      currentState: nextState,
-      updatedBy: dto.userId,
-    };
+      // Validate transition
+      const transition = this.stateMachine.validateTransition(templateId, currentState, dto.action);
+      const nextState = transition.to;
 
-    // If action goes to a final state
-    if (this.stateMachine.isFinalState(templateId, nextState)) {
-      updateData.status = nextState === 'cancelled' ? 'cancelled' : 'completed';
-      updateData.completedAt = new Date().toISOString();
-      updateData.completedBy = dto.userId;
-    }
+      // Check if comment is required
+      if (transition.requireComment && !dto.comment) {
+        throw new BadRequestException(`Comment is required for "${dto.action}" action`);
+      }
 
-    await this.database.workflowInstances.update(instanceId, updateData as any);
+      // Resolve server-side roles + department for user actors on approval actions
+      let approvalActor: ApprovalActor = { id: actorId, source };
+      if (
+        source === 'user' &&
+        (dto.action === 'approve' || dto.action === 'reject' || dto.action === 'return')
+      ) {
+        const authz = await this.resolveActorAuthorization(actorId);
+        approvalActor = {
+          id: actorId,
+          source,
+          roles: authz.roles,
+          departmentId: authz.departmentId,
+        };
+      }
 
-    this.logger.log(`Workflow ${instanceId}: ${currentState} → ${nextState} (${dto.action}) by ${dto.userId}`);
+      // Handle approval-specific actions (designated-approver verification lives here)
+      if (dto.action === 'approve' || dto.action === 'reject' || dto.action === 'return') {
+        await this.approvalEngine.processApprovalAction(instance, dto, transition, approvalActor);
+      }
 
-    // Record history
-    await this.recordHistory({
-      instanceId,
-      documentId: (instance as any).documentId,
-      documentType: (instance as any).documentType,
-      action: dto.action,
-      actionLabel: transition.label,
-      fromState: currentState,
-      toState: nextState,
-      userId: dto.userId,
-      userName: dto.userName || undefined,
-      userRole: dto.userRole || undefined,
-      comment: dto.comment || undefined,
-      approvalLevel: (instance as any).approvalLevel,
-      ipAddress: dto.ipAddress || undefined,
-      userAgent: dto.userAgent || undefined,
-    });
+      // Update instance — actor is always the server-derived identity
+      const updateData: Record<string, any> = {
+        previousState: currentState,
+        currentState: nextState,
+        updatedBy: actorId,
+      };
 
-    // Update/create tasks based on new state
-    if (nextState === 'submitted' || nextState === 'under_review') {
-      await this.taskEngine.createApprovalTasks(instance, dto.userId);
-    } else if (nextState === 'draft' && dto.action === 'return') {
-      await this.taskEngine.createTask({
+      // If action goes to a final state
+      if (this.stateMachine.isFinalState(templateId, nextState)) {
+        updateData.status = nextState === 'cancelled' ? 'cancelled' : 'completed';
+        updateData.completedAt = new Date().toISOString();
+        updateData.completedBy = actorId;
+      }
+
+      await this.database.workflowInstances.update(instanceId, updateData as any);
+
+      this.logger.log(
+        `Workflow ${instanceId}: ${currentState} → ${nextState} (${dto.action}) by ${actorId}`,
+      );
+
+      // Record history — authoritative actor, never the client-supplied userId
+      await this.recordHistory({
         instanceId,
         documentId: (instance as any).documentId,
         documentType: (instance as any).documentType,
-        documentNumber: (instance as any).documentNumber,
-        module: (instance as any).module,
-        title: `${(instance as any).documentType} returned — needs revision`,
-        taskType: 'action',
-        assignedToId: (instance as any).initiatorId,
-        priority: (instance as any).priority,
+        action: dto.action,
+        actionLabel: transition.label,
+        fromState: currentState,
+        toState: nextState,
+        userId: actorId,
+        userName: dto.userName || undefined,
+        userRole: undefined,
+        comment: dto.comment || undefined,
+        approvalLevel: (instance as any).approvalLevel,
+        ipAddress: dto.ipAddress || undefined,
+        userAgent: dto.userAgent || undefined,
       });
-    } else if (this.stateMachine.isFinalState(templateId, nextState)) {
-      // Mark all pending tasks as completed
-      await this.database.workflowTasks.markCompletedByInstance(instanceId, dto.userId);
-    }
 
-    // Notify relevant users
-    await this.notificationEngine.notifyAction(instance, dto, transition, nextState);
+      // Update/create tasks based on new state
+      if (nextState === 'submitted' || nextState === 'under_review') {
+        await this.taskEngine.createApprovalTasks(instance, actorId);
+      } else if (nextState === 'draft' && dto.action === 'return') {
+        await this.taskEngine.createTask({
+          instanceId,
+          documentId: (instance as any).documentId,
+          documentType: (instance as any).documentType,
+          documentNumber: (instance as any).documentNumber,
+          module: (instance as any).module,
+          title: `${(instance as any).documentType} returned — needs revision`,
+          taskType: 'action',
+          assignedToId: (instance as any).initiatorId,
+          priority: (instance as any).priority,
+        });
+      } else if (this.stateMachine.isFinalState(templateId, nextState)) {
+        // Mark all pending tasks as completed
+        await this.database.workflowTasks.markCompletedByInstance(instanceId, actorId);
+      }
 
-    // Audit
-    await this.audit.log({
-      userId: dto.userId,
-      event: `workflow_${dto.action}` as any,
-      resource: 'workflow',
-      action: dto.action,
-      details: { instanceId, fromState: currentState, toState: nextState, comment: dto.comment },
-      ipAddress: dto.ipAddress,
-      userAgent: dto.userAgent,
+      // Notify relevant users
+      await this.notificationEngine.notifyAction(instance, dto, transition, nextState);
+
+      // Audit — authoritative actor
+      await this.audit.log({
+        userId: actorId,
+        event: `workflow_${dto.action}` as any,
+        resource: 'workflow',
+        action: dto.action,
+        details: { instanceId, fromState: currentState, toState: nextState, comment: dto.comment },
+        ipAddress: dto.ipAddress,
+        userAgent: dto.userAgent,
+      });
+
+      return {
+        success: true,
+        instanceId,
+        fromState: currentState,
+        toState: nextState,
+        action: dto.action,
+        actionLabel: transition.label,
+        status: updateData.status || 'active',
+        message: `Workflow action "${dto.action}" executed: ${currentState} → ${nextState}`,
+      };
     });
-
-    return {
-      success: true,
-      instanceId,
-      fromState: currentState,
-      toState: nextState,
-      action: dto.action,
-      actionLabel: transition.label,
-      status: updateData.status || 'active',
-      message: `Workflow action "${dto.action}" executed: ${currentState} → ${nextState}`,
-    };
   }
 
   async getWorkflowState(instanceId: string) {
@@ -314,7 +448,11 @@ export class WorkflowInstancesService {
   }
 
   async getHistory(instanceId: string) {
-    const result = await this.database.workflowHistory.findAll({ page: 1, pageSize: 100, filter: { instanceId } } as any);
+    const result = await this.database.workflowHistory.findAll({
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'instanceId', operator: 'eq', value: instanceId }],
+    } as any);
     return result.data || [];
   }
 
@@ -357,8 +495,14 @@ export class WorkflowInstancesService {
   // ── Escalation Support ──────────────────────────────
   async getOverdueInstances() {
     const now = new Date().toISOString();
-    const result = await this.database.workflowInstances.findAll({ page: 1, pageSize: 100, filter: { status: 'active' } } as any);
-    if (!result.data) {return [];}
+    const result = await this.database.workflowInstances.findAll({
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'status', operator: 'eq', value: 'active' }],
+    } as any);
+    if (!result.data) {
+      return [];
+    }
     return result.data.filter((i: any) => i.dueDate && i.dueDate < now);
   }
 }

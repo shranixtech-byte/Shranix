@@ -24,7 +24,13 @@ export class CommentsService {
   constructor(private readonly database: DatabaseService) {}
 
   async findByInstance(instanceId: string) {
-    const result = await this.database.workflowComments.findAll({ page: 1, pageSize: 100, filter: { instanceId } } as any);
+    // `filters` array form — a plain `filter` object is silently ignored and
+    // would expose comments from every instance (H2 tenant-isolation fix).
+    const result = await this.database.workflowComments.findAll({
+      page: 1,
+      pageSize: 100,
+      filters: [{ field: 'instanceId', operator: 'eq', value: instanceId }],
+    } as any);
     return result.data || [];
   }
 

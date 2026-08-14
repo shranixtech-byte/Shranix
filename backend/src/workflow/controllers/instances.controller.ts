@@ -1,11 +1,25 @@
-import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { WorkflowInstancesService, StartWorkflowDto, ExecuteActionDto } from '../services/instances.service';
+import {
+  WorkflowInstancesService,
+  StartWorkflowDto,
+  ExecuteActionDto,
+} from '../services/instances.service';
 
 @ApiTags('Workflow - Instances')
 @ApiBearerAuth('access-token')
@@ -38,7 +52,10 @@ export class WorkflowInstancesController {
     @Query('status') status?: string,
     @Query('module') module?: string,
   ) {
-    return this.service.findAll(Number(page) || 1, Number(limit) || 50, undefined, { status, module });
+    return this.service.findAll(Number(page) || 1, Number(limit) || 50, undefined, {
+      status,
+      module,
+    });
   }
 
   @Get(':id')
@@ -69,11 +86,9 @@ export class WorkflowInstancesController {
     @Body() dto: ExecuteActionDto,
     @CurrentUser() u: { id: string },
   ) {
-    const fullDto: ExecuteActionDto = {
-      ...dto,
-      userId: u?.id || dto.userId,
-    };
-    return this.service.executeAction(id, fullDto);
+    // H2: the approval actor ALWAYS comes from the authenticated session.
+    // dto.userId (if any) is rejected by the service when it does not match.
+    return this.service.executeAction(id, dto, { id: u?.id, source: 'user' });
   }
 
   @Get(':id/state')

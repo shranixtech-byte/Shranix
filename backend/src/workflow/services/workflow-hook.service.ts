@@ -45,10 +45,14 @@ export class WorkflowHookService {
         userId: params.userId,
         metadata: params.metadata,
       });
-      this.logger.log(`Workflow auto-started for ${params.documentType} #${params.documentNumber || params.documentId}`);
+      this.logger.log(
+        `Workflow auto-started for ${params.documentType} #${params.documentNumber || params.documentId}`,
+      );
     } catch (error) {
       // Workflow start should never block document creation
-      this.logger.warn(`Failed to start workflow for ${params.documentType} #${params.documentId}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to start workflow for ${params.documentType} #${params.documentId}: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -65,26 +69,45 @@ export class WorkflowHookService {
     comment?: string;
   }): Promise<void> {
     try {
-      const instance = await this.integration['instancesService'].findByDocument(params.documentType, params.documentId);
-      if (!instance) {return;}
+      const instance = await this.integration['instancesService'].findByDocument(
+        params.documentType,
+        params.documentId,
+      );
+      if (!instance) {
+        return;
+      }
 
       const actionMap: Record<string, Record<string, string>> = {
         draft: { submitted: 'submit' },
-        submitted: { approved: 'approve', rejected: 'reject', draft: 'return', under_review: 'review' },
+        submitted: {
+          approved: 'approve',
+          rejected: 'reject',
+          draft: 'return',
+          under_review: 'review',
+        },
         under_review: { approved: 'approve', rejected: 'reject', draft: 'return' },
         approved: { completed: 'complete' },
       };
 
       const action = actionMap[params.oldStatus]?.[params.newStatus];
-      if (!action) {return;}
+      if (!action) {
+        return;
+      }
 
-      await this.integration['instancesService'].executeAction((instance as any).id, {
-        action,
-        userId: params.userId || 'system',
-        comment: params.comment,
-      });
+      // H2: system-triggered transitions carry a server-side system actor —
+      // they are document-status driven, not human approval decisions.
+      await this.integration['instancesService'].executeAction(
+        (instance as any).id,
+        {
+          action,
+          comment: params.comment,
+        },
+        { id: params.userId || 'system', source: 'system' },
+      );
     } catch (error) {
-      this.logger.warn(`Failed to execute workflow action for ${params.documentType} #${params.documentId}: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to execute workflow action for ${params.documentType} #${params.documentId}: ${(error as Error).message}`,
+      );
     }
   }
 

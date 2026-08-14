@@ -28,6 +28,16 @@ export class TransactionManager {
    * ALL database operations within the callback MUST use `context.tx` to participate
    * in the transaction. If ANY operation throws, EVERYTHING is rolled back.
    */
+  /**
+   * SQLite serializes write transactions; a concurrent write on another
+   * connection surfaces as SQLITE_BUSY. Retry with bounded backoff so the
+   * losing transaction re-reads committed state after the winner finishes.
+   * PostgreSQL never returns BUSY, so this is a no-op for production Postgres.
+   */
+  private isSqliteBusy(message?: string): boolean {
+    return /SQLITE_BUSY|database is locked|SQL statements in progress/i.test(message || '');
+  }
+
   async executeInTransaction<T>(
     fn: (context: TransactionContext) => Promise<T>,
     _options: { isolationLevel?: string; timeout?: number } = {},
@@ -48,34 +58,55 @@ export class TransactionManager {
       return fn(context);
     }
 
-    try {
-      if (typeof drizzleDb.transaction === 'function') {
-        return await drizzleDb.transaction(async (tx: any) => {
-          // Store the transaction on the drizzle db object so repositories can pick it up
-          (drizzleDb as any).__currentTx = tx;
+    const maxAttempts = 5;
+    let lastError: Error | undefined;
 
-          const txContext: TransactionContext = {
-            ...context,
-            operations: 0,
-            tx,
-          };
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        if (typeof drizzleDb.transaction === 'function') {
+          return await drizzleDb.transaction(async (tx: any) => {
+            // Store the transaction on the drizzle db object so repositories can pick it up
+            (drizzleDb as any).__currentTx = tx;
 
-          try {
-            const result = await fn(txContext);
-            return result;
-          } finally {
-            // Clean up the transaction reference
-            (drizzleDb as any).__currentTx = null;
-          }
-        });
+            const txContext: TransactionContext = {
+              ...context,
+              operations: 0,
+              tx,
+            };
+
+            try {
+              const result = await fn(txContext);
+              return result;
+            } finally {
+              // Clean up the transaction reference
+              (drizzleDb as any).__currentTx = null;
+            }
+          });
+        }
+
+        this.logger.warn('Database does not support transactions, running without');
+        return fn(context);
+      } catch (error) {
+        lastError = error as Error;
+        if (!this.isSqliteBusy(lastError.message)) {
+          this.logger.error(
+            `Transaction ${context.id} failed: ${lastError.message}. ALL changes rolled back.`,
+          );
+          throw error;
+        }
+        if (attempt < maxAttempts - 1) {
+          this.logger.warn(
+            `Transaction ${context.id} hit SQLITE_BUSY (attempt ${attempt + 1}/${maxAttempts}); retrying.`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+        }
       }
-
-      this.logger.warn('Database does not support transactions, running without');
-      return fn(context);
-    } catch (error) {
-      this.logger.error(`Transaction ${context.id} failed: ${(error as Error).message}. ALL changes rolled back.`);
-      throw error;
     }
+
+    this.logger.error(
+      `Transaction ${context.id} failed: ${(lastError as Error).message}. ALL changes rolled back.`,
+    );
+    throw lastError;
   }
 
   /**

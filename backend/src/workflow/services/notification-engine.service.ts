@@ -22,7 +22,9 @@ export class NotificationEngineService {
   constructor(private readonly database: DatabaseService) {}
 
   async createNotification(dto: CreateNotificationDto) {
-    if (!dto.userId) {return null;}
+    if (!dto.userId) {
+      return null;
+    }
 
     return this.database.notifications.create({
       userId: dto.userId,
@@ -66,12 +68,19 @@ export class NotificationEngineService {
 
     // Notify approvers
     if (dto.action === 'submit') {
-      // Find all users with matching roles for the next level
+      // Find all users with matching roles for the next level — `filters` array
+      // form (a plain `filter` object is silently ignored and would notify
+      // approvers of OTHER modules' rules, H2).
       const nextLevel = (instance.approvalLevel || 0) + 1;
       const matrixResult = await this.database.approvalMatrix.findAll({
         page: 1,
         pageSize: 10,
-        filter: { module, documentType: docType, level: nextLevel, isActive: true } as any,
+        filters: [
+          { field: 'module', operator: 'eq', value: module },
+          { field: 'documentType', operator: 'eq', value: docType },
+          { field: 'level', operator: 'eq', value: nextLevel },
+          { field: 'isActive', operator: 'eq', value: true },
+        ],
       } as any);
 
       if (matrixResult.data) {
@@ -129,27 +138,51 @@ export class NotificationEngineService {
   }
 
   async getUserNotifications(userId: string, page = 1, pageSize = 20, unreadOnly = false) {
-    const filter: Record<string, any> = { userId };
-    if (unreadOnly) {filter.isRead = false;}
-    return this.database.notifications.findAll({ page, pageSize, filter } as any);
+    // `filters` array form — a plain `filter` object is silently ignored and
+    // would return every user's notifications (H2 tenant-isolation fix).
+    const filters: any[] = [{ field: 'userId', operator: 'eq', value: userId }];
+    if (unreadOnly) {
+      filters.push({ field: 'isRead', operator: 'eq', value: false });
+    }
+    return this.database.notifications.findAll({ page, pageSize, filters } as any);
   }
 
   async markAsRead(notificationId: string) {
-    return this.database.notifications.update(notificationId, { isRead: true, readAt: new Date().toISOString() } as any);
+    return this.database.notifications.update(notificationId, {
+      isRead: true,
+      readAt: new Date().toISOString(),
+    } as any);
   }
 
   async markAllAsRead(userId: string) {
-    const result = await this.database.notifications.findAll({ page: 1, pageSize: 100, filter: { userId, isRead: false } } as any);
+    const result = await this.database.notifications.findAll({
+      page: 1,
+      pageSize: 100,
+      filters: [
+        { field: 'userId', operator: 'eq', value: userId },
+        { field: 'isRead', operator: 'eq', value: false },
+      ],
+    } as any);
     if (result.data) {
       for (const notif of result.data as any[]) {
-        await this.database.notifications.update(notif.id, { isRead: true, readAt: new Date().toISOString() } as any);
+        await this.database.notifications.update(notif.id, {
+          isRead: true,
+          readAt: new Date().toISOString(),
+        } as any);
       }
     }
     return { message: 'All notifications marked as read' };
   }
 
   async getUnreadCount(userId: string) {
-    const result = await this.database.notifications.findAll({ page: 1, pageSize: 1, filter: { userId, isRead: false } as any } as any);
+    const result = await this.database.notifications.findAll({
+      page: 1,
+      pageSize: 1,
+      filters: [
+        { field: 'userId', operator: 'eq', value: userId },
+        { field: 'isRead', operator: 'eq', value: false },
+      ],
+    } as any);
     return { count: (result as any).total || 0 };
   }
 
