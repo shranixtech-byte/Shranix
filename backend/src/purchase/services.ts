@@ -14,6 +14,7 @@ import type { EnterpriseQuery } from '@shranix/database';
 import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { InventoryPostingEngine } from '../inventory/services';
 import { BaseMasterService } from '../masters/base-master.service';
 
 import { PurchaseDebitNoteService } from './debit-note.service';
@@ -98,6 +99,7 @@ export class StockPostingService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly transactionManager: TransactionManager,
+    private readonly postingEngine?: InventoryPostingEngine,
   ) {}
 
   async postFromGrn(grn: any, userId?: string) {
@@ -179,51 +181,26 @@ export class StockPostingService {
           });
         }
 
-        // Warehouse stock update (m3 — beforeQty = existing qty)
-        const existingStockResult = await this.database.warehouseStock?.findAll({
-          page: 1,
-          pageSize: 1,
-          filters: [
-            { field: 'warehouseId', operator: 'eq', value: warehouseId },
-            { field: 'itemId', operator: 'eq', value: item.itemId },
-          ],
-        });
-        const existingStocks = existingStockResult?.data || [];
-        const existingStock = existingStocks.find(
-          (s: any) => s.warehouseId === warehouseId && s.itemId === item.itemId,
-        );
-        const beforeQty = existingStock ? Number(existingStock.quantity) || 0 : 0;
-        const afterQty = beforeQty + acceptedQty;
-        if (existingStock) {
-          await this.database.warehouseStock?.update(existingStock.id, {
-            quantity: afterQty,
+        // H1: canonical stock movement (purchase_receipt IN) — writes
+        // shranix_inv_stock_ledger + shranix_inv_stock_balance in this transaction.
+        if (this.postingEngine) {
+          await this.postingEngine.postMovementCore({
+            transactionType: 'purchase_receipt',
+            direction: 'IN',
+            itemId: item.itemId,
+            warehouseId,
+            batchNo: batchNo || null,
+            quantity: acceptedQty,
+            unitCost: item.rate || 0,
+            referenceNumber: grn.grnNumber,
+            documentRef: grn.grnNumber,
+            documentType: 'grn',
+            remarks: `Auto-posted from GRN ${grn.grnNumber}`,
+            createdBy: userId,
           });
         } else {
-          await this.database.warehouseStock?.create({
-            itemId: item.itemId,
-            batchNo,
-            warehouseId,
-            quantity: acceptedQty,
-            reservedQuantity: 0,
-          });
+          this.logger.warn(`GRN ${grn.grnNumber}: posting engine unavailable — stock not posted`);
         }
-
-        // Stock ledger (m3 — real before/after qty)
-        await this.database.stockLedger?.create({
-          itemId: item.itemId,
-          batchNo,
-          warehouseId,
-          transactionType: 'purchase_receipt',
-          documentRef: grn.grnNumber,
-          documentType: 'grn',
-          quantity: acceptedQty,
-          beforeQty,
-          afterQty,
-          rate: item.rate || 0,
-          amount: (item.rate || 0) * acceptedQty,
-          createdBy: userId,
-          remarks: `Auto-posted from GRN ${grn.grnNumber}`,
-        });
 
         // PO item received quantity update
         if (item.poItemId) {
@@ -275,41 +252,27 @@ export class StockPostingService {
           continue;
         }
 
-        const existingStockResult = await this.database.warehouseStock?.findAll({
-          page: 1,
-          pageSize: 1,
-          filters: [
-            { field: 'warehouseId', operator: 'eq', value: item.warehouseId },
-            { field: 'itemId', operator: 'eq', value: item.itemId },
-          ],
-        });
-        const existingStocks = existingStockResult?.data || [];
-        const existingStock = existingStocks.find(
-          (s: any) => s.warehouseId === item.warehouseId && s.itemId === item.itemId,
-        );
-        const beforeQty = existingStock ? Number(existingStock.quantity) || 0 : 0;
-        const afterQty = Math.max(0, beforeQty - qty);
-        if (existingStock) {
-          await this.database.warehouseStock?.update(existingStock.id, {
-            quantity: afterQty,
+        // H1: canonical stock movement (purchase_return OUT) — joins this transaction.
+        if (this.postingEngine) {
+          await this.postingEngine.postMovementCore({
+            transactionType: 'purchase_return',
+            direction: 'OUT',
+            itemId: item.itemId,
+            warehouseId: item.warehouseId,
+            batchNo: item.batchNo || null,
+            quantity: qty,
+            unitCost: item.rate || 0,
+            referenceNumber: returnRecord.returnNumber,
+            documentRef: returnRecord.returnNumber,
+            documentType: 'purchase_return',
+            remarks: `Auto-reversed from Return ${returnRecord.returnNumber}`,
+            createdBy: userId,
           });
+        } else {
+          this.logger.warn(
+            `Return ${returnRecord.returnNumber}: posting engine unavailable — stock not reversed`,
+          );
         }
-
-        await this.database.stockLedger?.create({
-          itemId: item.itemId,
-          batchNo: item.batchNo,
-          warehouseId: item.warehouseId,
-          transactionType: 'purchase_return',
-          documentRef: returnRecord.returnNumber,
-          documentType: 'purchase_return',
-          quantity: -qty,
-          beforeQty,
-          afterQty,
-          rate: item.rate || 0,
-          amount: -(item.rate || 0) * qty,
-          createdBy: userId,
-          remarks: `Auto-reversed from Return ${returnRecord.returnNumber}`,
-        });
       }
 
       this.logger.log(`Stock reversal complete for Return: ${returnRecord.returnNumber}`);

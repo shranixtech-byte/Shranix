@@ -31,6 +31,7 @@ import { ConflictException } from '@nestjs/common';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { TransactionManager } from '../../src/automation/transaction.manager';
+import { InventoryPostingEngine } from '../../src/inventory/services';
 import {
   PostingEngineService,
   type PostingPayload,
@@ -257,7 +258,11 @@ type FailureMode = 'none' | 'inventory' | 'journal' | 'gst' | 'ledger' | 'paymen
  * — the same mechanism the real TransactionManager uses. This allows us to
  * verify that repositories use `activeDb` (which checks `__currentTx`) correctly.
  */
-function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls: CallRecord[] } {
+function createMockDatabase(failureMode: FailureMode = 'none'): {
+  db: any;
+  calls: CallRecord[];
+  seed: (name: string, id: string, data: any) => void;
+} {
   const calls: CallRecord[] = [];
   let _stepCounter = 0; // step counter (rollback ordering diagnostics)
 
@@ -265,11 +270,42 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
     calls.push({ repository: repo, method, timestamp: Date.now() });
   };
 
-  const createRepo = (name: string) => ({
-    create: async (data: any) => {
-      record(name, 'create');
-      _stepCounter++;
-      if (failureMode === 'inventory' && name === 'stockLedger') {
+  // In-memory store per repository. drizzleDb.transaction snapshots the stores
+  // and RESTORES them on failure — a real simulation of database rollback, so
+  // tests can assert that no partial state survives a failed transaction.
+  const stores = new Map<string, Map<string, any>>();
+  const getStore = (name: string) => {
+    let rows = stores.get(name);
+    if (!rows) {
+      rows = new Map<string, any>();
+      stores.set(name, rows);
+    }
+    return rows;
+  };
+  const snapshotStores = () => {
+    const snap = new Map<string, Map<string, any>>();
+    for (const [name, rows] of stores) {
+      snap.set(name, new Map([...rows].map(([id, row]) => [id, { ...row }])));
+    }
+    return snap;
+  };
+  const restoreStores = (snap: Map<string, Map<string, any>>) => {
+    for (const [name, rows] of stores) {
+      rows.clear();
+      const saved = snap.get(name);
+      if (saved) {
+        for (const [id, row] of saved) {
+          rows.set(id, { ...row });
+        }
+      }
+    }
+  };
+
+  const createRepo = (name: string) => {
+    const rows = getStore(name);
+    let seq = 0;
+    const forcedFailure = () => {
+      if (failureMode === 'inventory' && name === 'invStockLedger') {
         throw new ConflictException(`Forced rollback: ${name}.create failed`);
       }
       if (failureMode === 'journal' && name === 'glEntries') {
@@ -287,29 +323,48 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
       if (failureMode === 'audit' && name === 'auditLogs') {
         throw new ConflictException(`Forced rollback: ${name}.create failed`);
       }
-      return { id: `mock-${Date.now()}`, ...data };
-    },
-    update: async (id: string, data: any) => {
-      record(name, 'update');
-      return { id, ...data };
-    },
-    findById: async (id: string) => {
-      record(name, 'findById');
-      return { id, status: 'draft' };
-    },
-    findAll: async (_params?: any) => {
-      record(name, 'findAll');
-      return { data: [], total: 0 };
-    },
-  });
+    };
+    return {
+      create: async (data: any) => {
+        record(name, 'create');
+        _stepCounter++;
+        const id = data?.id || `${name}-${Date.now()}-${++seq}`;
+        const row = { id, ...data };
+        rows.set(id, row);
+        // Fail AFTER the write so the rollback must actually undo it.
+        forcedFailure();
+        return row;
+      },
+      update: async (id: string, data: any) => {
+        record(name, 'update');
+        const existing = rows.get(id) || { id };
+        const row = { ...existing, ...data };
+        rows.set(id, row);
+        return row;
+      },
+      findById: async (id: string) => {
+        record(name, 'findById');
+        return rows.get(id) || null;
+      },
+      findAll: async (_params?: any) => {
+        record(name, 'findAll');
+        return { data: [...rows.values()], total: rows.size };
+      },
+    };
+  };
 
-  // Drizzle-like db object with transaction support
+  // Drizzle-like db object with transaction support + rollback simulation
   const drizzleDb: any = {};
   drizzleDb.db = drizzleDb;
   drizzleDb.transaction = async (fn: (tx: any) => Promise<any>) => {
     drizzleDb.__currentTx = drizzleDb;
+    const snap = snapshotStores();
     try {
       return await fn(drizzleDb);
+    } catch (e) {
+      // Simulate real database rollback: undo every write performed in the tx.
+      restoreStores(snap);
+      throw e;
     } finally {
       drizzleDb.__currentTx = null;
     }
@@ -318,6 +373,10 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
   const repos = {
     salesInvoices: createRepo('salesInvoices'),
     invoiceItems: createRepo('invoiceItems'),
+    // H1 canonical inventory ledger + balance projection (postMovementCore boundary)
+    invStockLedger: createRepo('invStockLedger'),
+    invStockBalance: createRepo('invStockBalance'),
+    warehouses: createRepo('warehouses'),
     warehouseStock: {
       ...createRepo('warehouseStock'),
       findAll: async (_params?: any) => {
@@ -349,12 +408,42 @@ function createMockDatabase(failureMode: FailureMode = 'none'): { db: any; calls
     },
   };
 
-  return { db: { ...repos, db: drizzleDb }, calls };
+  return {
+    db: { ...repos, db: drizzleDb },
+    calls,
+    /** Seed a pre-existing record into a repo's in-memory store. */
+    seed: (name: string, id: string, data: any) => {
+      getStore(name).set(id, data);
+    },
+  };
 }
 
 // ═════════════════════════════════════════════════════════
 // TESTS: PostingEngineService - Transaction Rollback
 // ═════════════════════════════════════════════════════════
+
+/**
+ * Builds a PostingEngineService wired with the REAL InventoryPostingEngine and
+ * a stocked balance row, so every test exercises the canonical postMovementCore
+ * boundary used in production (shranix_inv_stock_ledger + inv_stock_balance).
+ */
+function createPostingEngineWithMock(failureMode: FailureMode = 'none') {
+  const mock = createMockDatabase(failureMode);
+  mock.seed('invStockBalance', 'bal-001', {
+    id: 'bal-001',
+    warehouseId: 'Main',
+    itemId: 'prod-001',
+    onHand: 100,
+    available: 100,
+    reserved: 0,
+  });
+  const txManager = new TransactionManager(mock.db);
+  const postingEngine = new InventoryPostingEngine(mock.db, txManager, {
+    log: async () => {},
+  } as any);
+  const engine = new PostingEngineService(mock.db, txManager, postingEngine);
+  return { mock, engine };
+}
 
 describe('PostingEngineService - Transaction Rollback', () => {
   let input: InvoicePostingInput;
@@ -365,24 +454,35 @@ describe('PostingEngineService - Transaction Rollback', () => {
     payload = createMockPostingPayload(input);
   });
 
-  it('Test 1: Force Inventory Failure → expect rollback', async () => {
-    const mock = createMockDatabase('inventory');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+  it('Test 1: Force canonical inventory ledger write failure → expect full transactional rollback', async () => {
+    const { mock, engine } = createPostingEngineWithMock('inventory');
+    // Pre-existing state: a draft invoice for this posting.
+    mock.seed('salesInvoices', payload.invoiceId, { id: payload.invoiceId, status: 'draft' });
 
     await expect(engine.triggerPosting(payload, 'user-001')).rejects.toThrow(ConflictException);
 
-    // Verify that stockLedger.create was attempted (the failing step)
-    const stockLedgerCalls = mock.calls.filter(
-      (c) => c.repository === 'stockLedger' && c.method === 'create',
+    // The canonical ledger write was attempted (the failing step).
+    const ledgerCalls = mock.calls.filter(
+      (c) => c.repository === 'invStockLedger' && c.method === 'create',
     );
-    expect(stockLedgerCalls.length).toBeGreaterThan(0);
+    expect(ledgerCalls.length).toBeGreaterThan(0);
+
+    // ── REAL rollback verification — no partial state remains ──
+    // 1. The invoice header was flipped to 'posted' inside the tx and must be back to draft.
+    const invoice = await mock.db.salesInvoices.findById(payload.invoiceId);
+    expect(invoice?.status).toBe('draft');
+    // 2. No canonical ledger rows survive the rollback.
+    const ledgerRows = (await mock.db.invStockLedger.findAll({})) as any;
+    expect(ledgerRows.data.length).toBe(0);
+    // 3. The balance projection mutation (OUT 10 of 100) was rolled back too —
+    //    stock mutation and ledger write are atomic (H1.8).
+    const balanceRows = (await mock.db.invStockBalance.findAll({})) as any;
+    expect(balanceRows.data.length).toBe(1);
+    expect(balanceRows.data[0].onHand).toBe(100);
   });
 
   it('Test 2: Force Journal Failure → GL step is best-effort, posting still succeeds', async () => {
-    const mock = createMockDatabase('journal');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('journal');
 
     // GL entry is non-fatal — a failure must NOT roll back / fail the whole posting
     const result = await engine.triggerPosting(payload, 'user-001');
@@ -395,9 +495,7 @@ describe('PostingEngineService - Transaction Rollback', () => {
   });
 
   it('Test 3: Force GST Failure → GST step is best-effort, posting still succeeds', async () => {
-    const mock = createMockDatabase('gst');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('gst');
 
     const result = await engine.triggerPosting(payload, 'user-001');
     expect(result.success).toBe(true);
@@ -414,9 +512,7 @@ describe('PostingEngineService - Transaction Rollback', () => {
     // NOTE: the posting engine no longer writes ledgerMaster directly (customer
     // ledger is derived from GL + sales invoice). This test documents that a
     // ledgerMaster failure mode can never fire — posting simply succeeds.
-    const mock = createMockDatabase('ledger');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('ledger');
 
     const result = await engine.triggerPosting(payload, 'user-001');
     expect(result.success).toBe(true);
@@ -429,9 +525,7 @@ describe('PostingEngineService - Transaction Rollback', () => {
   });
 
   it('Test 5: Success path → all 10 operations succeed', async () => {
-    const mock = createMockDatabase('none');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('none');
 
     const result = await engine.triggerPosting(payload, 'user-001');
 
@@ -444,9 +538,7 @@ describe('PostingEngineService - Transaction Rollback', () => {
   });
 
   it('Test 6: Force Payment Failure → payment step is best-effort, posting still succeeds', async () => {
-    const mock = createMockDatabase('payment');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('payment');
 
     // Cash book path tabhi chalta hai jab payment amount > 0 ho
     payload.customerLedger.paymentAmount = 50000;
@@ -463,9 +555,7 @@ describe('PostingEngineService - Transaction Rollback', () => {
   });
 
   it('Test 7: Force Audit Failure → audit step is best-effort, posting still succeeds', async () => {
-    const mock = createMockDatabase('audit');
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
+    const { mock, engine } = createPostingEngineWithMock('audit');
 
     const result = await engine.triggerPosting(payload, 'user-001');
     expect(result.success).toBe(true);
@@ -479,21 +569,23 @@ describe('PostingEngineService - Transaction Rollback', () => {
   });
 
   it('Test 8: Already-posted invoice → posting is skipped (idempotency guard)', async () => {
-    const mock = createMockDatabase('none');
+    const { mock, engine } = createPostingEngineWithMock('none');
     // Simulate a retry / double-click / lost response: invoice is already posted
     mock.db.salesInvoices.findById = async () => ({ id: payload.invoiceId, status: 'posted' });
-    const txManager = new TransactionManager(mock.db);
-    const engine = new PostingEngineService(mock.db, txManager);
 
     const result = await engine.triggerPosting(payload, 'user-001');
     expect(result.success).toBe(true);
     expect(result.message).toContain('already posted');
 
-    // Stock must NOT be deducted a second time
-    const stockCalls = mock.calls.filter(
-      (c) => c.repository === 'stockLedger' && c.method === 'create',
+    // Stock must NOT be deducted a second time — no canonical ledger writes at all
+    const ledgerCalls = mock.calls.filter(
+      (c) => c.repository === 'invStockLedger' && c.method === 'create',
     );
-    expect(stockCalls.length).toBe(0);
+    expect(ledgerCalls.length).toBe(0);
+    const balanceCalls = mock.calls.filter(
+      (c) => c.repository === 'invStockBalance' && c.method === 'update',
+    );
+    expect(balanceCalls.length).toBe(0);
     const glCalls = mock.calls.filter((c) => c.repository === 'glEntries' && c.method === 'create');
     expect(glCalls.length).toBe(0);
   });

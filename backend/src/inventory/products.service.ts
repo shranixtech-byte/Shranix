@@ -196,11 +196,11 @@ export class ProductsService {
       return [];
     }
 
-    // Warehouse-stock is a secondary enrichment: its table may not carry
-    // soft-delete columns, so a lookup failure must not take down the search.
+    // Warehouse-stock enrichment — canonical balance projection (H1).
+    // A lookup failure must not take down the search.
     let stockRows: any[] = [];
     try {
-      const stockRes = await this.database.warehouseStock.findAll({
+      const stockRes = await this.database.invStockBalance.findAll({
         page: 1,
         pageSize: 1000,
       } as any);
@@ -250,7 +250,7 @@ export class ProductsService {
     for (const s of stockRows) {
       const wh = whMap.get(s.warehouseId);
       const list = stockByItem.get(s.itemId) || [];
-      list.push({ warehouse: wh?.name || s.warehouseId, qty: Number(s.quantity) || 0 });
+      list.push({ warehouse: wh?.name || s.warehouseId, qty: Number(s.onHand) || 0 });
       stockByItem.set(s.itemId, list);
     }
 

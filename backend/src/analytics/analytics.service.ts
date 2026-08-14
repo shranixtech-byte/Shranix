@@ -848,9 +848,9 @@ export class AnalyticsService {
   async getInventory(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
     const [items, movements, _stockBalance, warehouseStock, names] = await Promise.all([
       this.all<any>(this.database.items),
-      this.all<any>(this.database.stockLedger),
+      this.all<any>(this.database.invStockLedger),
       this.all<any>(this.database.invStockBalance),
-      this.all<any>(this.database.warehouseStock),
+      this.all<any>(this.database.invStockBalance),
       this.nameMaps(),
     ]);
 
@@ -917,11 +917,11 @@ export class AnalyticsService {
       Out: this.round(outMap.get(m.key) || 0, 0),
     }));
 
-    // Warehouse + category distribution
+    // Warehouse + category distribution (canonical balance projection)
     const itemRate = new Map(items.map((i: any) => [i.id, i.purchaseRate]));
     const whMap = new Map<string, number>();
     for (const ws of warehouseStock) {
-      const val = this.num(ws.quantity) * this.num(itemRate.get(ws.itemId) || 0);
+      const val = this.num(ws.onHand) * this.num(itemRate.get(ws.itemId) || 0);
       whMap.set(ws.warehouseId, (whMap.get(ws.warehouseId) || 0) + val);
     }
     const whSeries = Array.from(whMap.entries()).map(([id, v]) => ({
@@ -1688,7 +1688,7 @@ export class AnalyticsService {
 
   async getWarehouses(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
     const [warehouseStock, items, transfers, names] = await Promise.all([
-      this.all<any>(this.database.warehouseStock),
+      this.all<any>(this.database.invStockBalance),
       this.all<any>(this.database.items),
       this.all<any>(this.database.stockTransfers),
       this.nameMaps(),
@@ -1698,8 +1698,8 @@ export class AnalyticsService {
     const whMap = new Map<string, { qty: number; value: number }>();
     for (const ws of warehouseStock) {
       const cur = whMap.get(ws.warehouseId) || { qty: 0, value: 0 };
-      cur.qty += this.num(ws.quantity);
-      cur.value += this.num(ws.quantity) * this.num(itemRate.get(ws.itemId));
+      cur.qty += this.num(ws.onHand);
+      cur.value += this.num(ws.onHand) * this.num(itemRate.get(ws.itemId));
       whMap.set(ws.warehouseId, cur);
     }
 

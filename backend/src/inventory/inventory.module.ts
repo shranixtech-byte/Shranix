@@ -95,6 +95,7 @@ import {
   StockReservationService,
   StockReversalService,
   StockLedgerQueryService,
+  StockReconciliationService,
   EnterpriseTransferService,
   EnterpriseAdjustmentService,
   PhysicalCountService,
@@ -105,6 +106,7 @@ import {
   StockReservationController,
   StockReversalController,
   StockLedgerQueryController,
+  StockReconciliationController,
 } from './stock-ledger.controllers';
 import { EnterpriseTransferController } from './stock-transfer.controllers';
 
@@ -156,6 +158,7 @@ import { EnterpriseTransferController } from './stock-transfer.controllers';
     StockReservationController,
     StockReversalController,
     StockLedgerQueryController,
+    StockReconciliationController,
     EnterpriseTransferController,
     EnterpriseAdjustmentController,
     PhysicalCountController,
@@ -206,6 +209,7 @@ import { EnterpriseTransferController } from './stock-transfer.controllers';
     StockReservationService,
     StockReversalService,
     StockLedgerQueryService,
+    StockReconciliationService,
     EnterpriseTransferService,
     EnterpriseAdjustmentService,
     PhysicalCountService,
@@ -249,6 +253,7 @@ import { EnterpriseTransferController } from './stock-transfer.controllers';
     StockReservationService,
     StockReversalService,
     StockLedgerQueryService,
+    StockReconciliationService,
     EnterpriseTransferService,
     EnterpriseAdjustmentService,
     PhysicalCountService,

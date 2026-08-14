@@ -8,7 +8,11 @@ const summaryColumns: ColumnDef[] = [
   { key: 'reorderLevel', label: 'Reorder Level' },
   { key: 'stockValue', label: 'Stock Value ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'movementCount', label: 'Movements' },
-  { key: 'lastMovementDate', label: 'Last Movement', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : '—' },
+  {
+    key: 'lastMovementDate',
+    label: 'Last Movement',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : '—'),
+  },
 ];
 
 const summaryFields: FormField[] = [
@@ -30,18 +34,30 @@ export function InventorySummaryPage() {
 
 // ── Stock Ledger ────────────────────────────────────────
 const stockLedgerColumns: ColumnDef[] = [
-  { key: 'createdAt', label: 'Date', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : '—' },
-  { key: 'movementType', label: 'Type' },
+  {
+    key: 'createdAt',
+    label: 'Date',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : '—'),
+  },
+  { key: 'transactionType', label: 'Type' },
   { key: 'itemId', label: 'Item' },
   { key: 'batchNo', label: 'Batch' },
-  { key: 'quantity', label: 'Qty', render: (v, r) => {
-    const isIn = ['purchase_receipt', 'sales_return', 'opening', 'correction'].includes(String((r as any).movementType));
-    return <span className={isIn ? 'text-emerald-600' : 'text-red-600'}>{isIn ? '+' : '-'}{Number(v).toFixed(0)}</span>;
-  }},
-  { key: 'beforeQuantity', label: 'Before' },
-  { key: 'afterQuantity', label: 'After' },
-  { key: 'referenceType', label: 'Doc Type' },
-  { key: 'reason', label: 'Reason' },
+  {
+    key: 'quantity',
+    label: 'Qty',
+    render: (v, r) => {
+      const isIn = (r as any).direction === 'IN';
+      return (
+        <span className={isIn ? 'text-emerald-600' : 'text-red-600'}>
+          {isIn ? '+' : '-'}
+          {Number(v).toFixed(0)}
+        </span>
+      );
+    },
+  },
+  { key: 'balanceQuantity', label: 'Balance' },
+  { key: 'documentType', label: 'Doc Type' },
+  { key: 'remarks', label: 'Remarks' },
 ];
 
 const stockLedgerFields: FormField[] = [
@@ -68,8 +84,16 @@ const batchLedgerColumns: ColumnDef[] = [
   { key: 'lotNo', label: 'Lot' },
   { key: 'quantity', label: 'Stock' },
   { key: 'purchaseRate', label: 'Cost ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'mfgDate', label: 'Mfg', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : '—' },
-  { key: 'expDate', label: 'Expiry', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : '—' },
+  {
+    key: 'mfgDate',
+    label: 'Mfg',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : '—'),
+  },
+  {
+    key: 'expDate',
+    label: 'Expiry',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : '—'),
+  },
   { key: 'shelfLife', label: 'Shelf Life' },
 ];
 
@@ -94,13 +118,30 @@ export function BatchLedgerPage() {
 const expiryColumns: ColumnDef[] = [
   { key: 'itemId', label: 'Item' },
   { key: 'batchNo', label: 'Batch' },
-  { key: 'expDate', label: 'Expiry', render: (v) => {
-    const d = v ? new Date(v as string) : null;
-    if (!d) {return '—';}
-    const days = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    const color = days <= 0 ? 'text-red-600 font-bold' : days <= 15 ? 'text-red-500' : days <= 30 ? 'text-amber-500' : 'text-emerald-600';
-    return <span className={color}>{d.toLocaleDateString('en-IN')} ({days > 0 ? `${days}d` : 'Expired'})</span>;
-  }},
+  {
+    key: 'expDate',
+    label: 'Expiry',
+    render: (v) => {
+      const d = v ? new Date(v as string) : null;
+      if (!d) {
+        return '—';
+      }
+      const days = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      const color =
+        days <= 0
+          ? 'text-red-600 font-bold'
+          : days <= 15
+            ? 'text-red-500'
+            : days <= 30
+              ? 'text-amber-500'
+              : 'text-emerald-600';
+      return (
+        <span className={color}>
+          {d.toLocaleDateString('en-IN')} ({days > 0 ? `${days}d` : 'Expired'})
+        </span>
+      );
+    },
+  },
   { key: 'quantity', label: 'Qty at Risk' },
   { key: 'warehouseId', label: 'Warehouse' },
 ];
@@ -119,13 +160,17 @@ export function ExpiryReportPage() {
 
 // ── Movement Report ─────────────────────────────────────
 const movementReportColumns: ColumnDef[] = [
-  { key: 'createdAt', label: 'Date', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : '—' },
-  { key: 'movementType', label: 'Type' },
+  {
+    key: 'createdAt',
+    label: 'Date',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : '—'),
+  },
+  { key: 'transactionType', label: 'Type' },
   { key: 'itemId', label: 'Item' },
   { key: 'warehouseId', label: 'Warehouse' },
   { key: 'quantity', label: 'Qty' },
-  { key: 'rate', label: 'Rate ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'referenceType', label: 'Reference' },
+  { key: 'unitCost', label: 'Rate ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
+  { key: 'documentType', label: 'Reference' },
 ];
 
 export function MovementReportPage() {
@@ -146,7 +191,11 @@ const valuationColumns: ColumnDef[] = [
   { key: 'sku', label: 'SKU' },
   { key: 'currentStock', label: 'Stock' },
   { key: 'purchaseRate', label: 'Avg Cost ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'stockValue', label: 'Value ₹', render: (v, r) => `₹${(Number((r as any).currentStock || 0) * Number(v || 0)).toFixed(2)}` },
+  {
+    key: 'stockValue',
+    label: 'Value ₹',
+    render: (v, r) => `₹${(Number((r as any).currentStock || 0) * Number(v || 0)).toFixed(2)}`,
+  },
   { key: 'reorderLevel', label: 'Reorder' },
 ];
 
@@ -190,11 +239,27 @@ const deadStockColumns: ColumnDef[] = [
   { key: 'sku', label: 'SKU' },
   { key: 'currentStock', label: 'Stock' },
   { key: 'stockValue', label: 'Value ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
-  { key: 'lastMovementDate', label: 'Last Movement', render: (v) => v ? new Date(v as string).toLocaleDateString('en-IN') : 'No movement' },
-  { key: 'daysSinceMovement', label: 'Days Inactive', render: (v) => {
-    const d = Number(v);
-    return <span className={d > 180 ? 'text-red-600 font-semibold' : d > 90 ? 'text-amber-500' : 'text-slate-500'}>{d}d</span>;
-  }},
+  {
+    key: 'lastMovementDate',
+    label: 'Last Movement',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('en-IN') : 'No movement'),
+  },
+  {
+    key: 'daysSinceMovement',
+    label: 'Days Inactive',
+    render: (v) => {
+      const d = Number(v);
+      return (
+        <span
+          className={
+            d > 180 ? 'font-semibold text-red-600' : d > 90 ? 'text-amber-500' : 'text-slate-500'
+          }
+        >
+          {d}d
+        </span>
+      );
+    },
+  },
 ];
 
 export function DeadStockPage() {
@@ -238,10 +303,14 @@ const slowMovingColumns: ColumnDef[] = [
   { key: 'currentStock', label: 'Stock' },
   { key: 'stockValue', label: 'Value ₹', render: (v) => `₹${Number(v || 0).toFixed(2)}` },
   { key: 'monthlyMovement', label: 'Monthly' },
-  { key: 'daysSinceSale', label: 'Days Since Sale', render: (v) => {
-    const d = Number(v);
-    return <span className={d > 90 ? 'text-amber-600' : 'text-slate-500'}>{d}d</span>;
-  }},
+  {
+    key: 'daysSinceSale',
+    label: 'Days Since Sale',
+    render: (v) => {
+      const d = Number(v);
+      return <span className={d > 90 ? 'text-amber-600' : 'text-slate-500'}>{d}d</span>;
+    },
+  },
 ];
 
 export function SlowMovingPage() {

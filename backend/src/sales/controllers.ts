@@ -517,12 +517,21 @@ export class SalesInvoicesController {
       (allItems?.data || []).map((im: Record<string, unknown>) => [im.id as string, im]),
     );
 
-    const allStock = await this.database.warehouseStock
+    const allStock = await this.database.invStockBalance
       .findAll({ page: 1, pageSize: 10000 })
       .catch(() => ({ data: [] }));
-    const stockByItemId = new Map(
-      (allStock?.data || []).map((s: Record<string, unknown>) => [s.itemId as string, s]),
-    );
+    // Canonical balance projection — aggregate onHand across warehouses per item
+    const stockByItemId = new Map<string, Record<string, unknown>>();
+    for (const s of (allStock?.data || []) as Record<string, unknown>[]) {
+      const itemId = s.itemId as string;
+      const current = stockByItemId.get(itemId);
+      const onHand = Number(s.onHand || 0);
+      stockByItemId.set(itemId, {
+        ...(current || {}),
+        itemId,
+        quantity: (Number(current?.quantity || 0) || 0) + onHand,
+      });
+    }
 
     const postingInputItems: any[] = [];
     for (const item of invoiceItems.data || []) {

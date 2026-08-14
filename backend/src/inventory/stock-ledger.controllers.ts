@@ -30,6 +30,7 @@ import {
   StockReservationService,
   StockReversalService,
   StockLedgerQueryService,
+  StockReconciliationService,
 } from './services';
 
 // ═════════════════════════════════════════════════════════
@@ -157,6 +158,27 @@ export class StockReversalController {
       reason: dto.reason,
       userId: u?.id,
     });
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// H1: Stock Ledger Reconciliation (report-only)
+// ═════════════════════════════════════════════════════════
+@ApiTags('Inventory - Stock Ledger Reconciliation')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
+@Controller('inventory/reconciliation')
+export class StockReconciliationController {
+  constructor(private readonly reconciliationService: StockReconciliationService) {}
+
+  @Get('stock')
+  @Roles('admin', 'manager')
+  @Permissions('inventory.ledger.view')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Run a report-only stock ledger reconciliation' })
+  @ApiResponse({ status: 200, description: 'Reconciliation report (never mutates data)' })
+  async run() {
+    return this.reconciliationService.run();
   }
 }
 

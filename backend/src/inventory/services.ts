@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import type { EnterpriseQuery } from '@shranix/database';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  createSqliteClient,
+  getRawClient,
+  loadDatabaseConfig,
+  type EnterpriseQuery,
+} from '@shranix/database';
 
 import { TransactionManager, type TransactionContext } from '../automation/transaction.manager';
 
@@ -91,8 +96,16 @@ export class InventorySettingsService extends BaseMasterService {
 // ── PRM-015B: Batch Management (Enhanced) ──────────────
 @Injectable()
 export class BatchStockService extends BaseMasterService {
-  constructor(database: DatabaseService, audit: AuditService) {
+  private readonly databaseRef: DatabaseService;
+  private readonly postingEngineRef?: InventoryPostingEngine;
+  constructor(
+    database: DatabaseService,
+    audit: AuditService,
+    postingEngine?: InventoryPostingEngine,
+  ) {
     super((database as any).batchStock, 'Batch', audit, 'batchNo');
+    this.databaseRef = database;
+    this.postingEngineRef = postingEngine;
   }
 
   /** Auto-calculate batch expiry status and available quantity */
@@ -153,20 +166,28 @@ export class BatchStockService extends BaseMasterService {
 
   async recordEntry(data: any, userId?: string) {
     const entry = await this.create(data, userId);
-    await (this.databaseService as any)?.stockMovements?.create({
-      itemId: data.itemId,
-      batchNo: data.batchNo,
-      warehouseId: data.warehouseId,
-      movementType: data.entryType || 'opening',
-      quantity: data.quantity,
-      rate: data.purchaseRate,
-      amount: (data.quantity || 0) * (data.purchaseRate || 0),
-      afterQuantity: data.quantity,
-      referenceType: 'stock_entry',
-      referenceId: entry.id,
-      reason: data.remarks || `${data.entryType || 'Opening'} stock entry`,
-      notes: data.remarks,
-    });
+    // H1: canonical ledger write for opening/batch entries (previously the
+    // in-memory stockMovements write never had a backing table).
+    if (this.postingEngineRef && Number(data.quantity || 0) > 0) {
+      try {
+        await this.postingEngineRef.postMovementCore({
+          transactionType: data.entryType || 'opening',
+          direction: 'IN',
+          itemId: data.itemId,
+          warehouseId: data.warehouseId || null,
+          batchNo: data.batchNo || null,
+          quantity: Number(data.quantity || 0),
+          unitCost: Number(data.purchaseRate || 0),
+          referenceNumber: `BATCH-${entry?.id || data.batchNo || 'ENTRY'}`,
+          documentRef: data.batchNo || entry?.id || null,
+          documentType: 'stock_entry',
+          remarks: data.remarks || `${data.entryType || 'Opening'} stock entry`,
+          createdBy: userId,
+        });
+      } catch (e: any) {
+        this.logger?.warn?.(`Batch entry ledger write skipped: ${e.message}`);
+      }
+    }
     return entry;
   }
 
@@ -187,19 +208,27 @@ export class BatchStockService extends BaseMasterService {
       },
       userId,
     );
-    await (this.databaseService as any)?.stockMovements?.create({
-      itemId: batch.itemId,
-      batchNo: batch.batchNo,
-      warehouseId: batch.warehouseId,
-      movementType: 'stock_adjustment',
-      quantity: data.quantity,
-      beforeQuantity: oldQty,
-      afterQuantity: newQty,
-      referenceType: 'stock_adjustment',
-      referenceId: id,
-      reason: data.reason,
-      notes: data.remarks,
-    });
+    // H1: canonical ledger write for batch adjustments (previously in-memory only).
+    if (this.postingEngineRef && data.quantity > 0) {
+      try {
+        await this.postingEngineRef.postMovementCore({
+          transactionType: 'adjustment',
+          direction: data.type === 'increase' ? 'IN' : 'OUT',
+          itemId: batch.itemId,
+          warehouseId: batch.warehouseId || null,
+          batchNo: batch.batchNo || null,
+          quantity: data.quantity,
+          unitCost: 0,
+          referenceNumber: `BATCH-ADJ-${id}`,
+          documentRef: `BATCH-ADJ-${id}`,
+          documentType: 'stock_adjustment',
+          remarks: data.reason || data.remarks || 'Batch stock adjustment',
+          createdBy: userId,
+        });
+      } catch (e: any) {
+        this.logger?.warn?.(`Batch adjustment ledger write skipped: ${e.message}`);
+      }
+    }
     return updated;
   }
 
@@ -224,48 +253,181 @@ export class StockLedgerService {
     fromDate?: string;
     toDate?: string;
   }) {
-    const movements = (this.database as any).stockMovements;
-    if (!movements) {
-      return { data: [], total: 0, totalPages: 0 };
-    }
-    const result = await movements.findAll({
-      page: params.page || 1,
-      pageSize: params.pageSize || 50,
-    });
-    let data = (result.data || []) as any[];
+    // H1: stock ledger reads the canonical shranix_inv_stock_ledger instead of the
+    // legacy in-memory stockMovements repo (which had no table — data lost on restart).
+    const filters: any[] = [];
     if (params.itemId) {
-      data = data.filter((m: any) => m.itemId === params.itemId);
+      filters.push({ field: 'itemId', operator: 'eq', value: params.itemId });
     }
     if (params.batchNo) {
-      data = data.filter((m: any) => m.batchNo === params.batchNo);
+      filters.push({ field: 'batchNo', operator: 'eq', value: params.batchNo });
     }
     if (params.movementType) {
-      data = data.filter((m: any) => m.movementType === params.movementType);
+      filters.push({ field: 'transactionType', operator: 'eq', value: params.movementType });
     }
     if (params.fromDate) {
-      data = data.filter(
-        (m: any) => m.createdAt && new Date(m.createdAt) >= new Date(params.fromDate!),
-      );
+      filters.push({ field: 'transactionDate', operator: 'gte', value: params.fromDate });
     }
     if (params.toDate) {
-      data = data.filter(
-        (m: any) => m.createdAt && new Date(m.createdAt) <= new Date(params.toDate!),
-      );
+      filters.push({ field: 'transactionDate', operator: 'lte', value: params.toDate });
     }
-    data.sort((a: any, b: any) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-    const total = data.length;
-    const page = params.page || 1;
-    const ps = params.pageSize || 50;
-    const start = (page - 1) * ps;
-    return { data: data.slice(start, start + ps), total, totalPages: Math.ceil(total / ps) };
+    const result = await this.database.invStockLedger.findAll({
+      filters: filters.length > 0 ? filters : undefined,
+      page: params.page || 1,
+      pageSize: params.pageSize || 50,
+      sorts: [{ field: 'transactionDate', order: 'desc' as const }],
+    } as any);
+    return result;
   }
 }
 
 // ── PRM-015: Stock Movement ─────────────────────────────
+// H1: reads the canonical shranix_inv_stock_ledger (the legacy in-memory
+// stockMovements repo had no table, so historical data was lost on restart).
 @Injectable()
 export class StockMovementService extends BaseMasterService {
-  constructor(database: DatabaseService, audit: AuditService) {
+  private readonly databaseService: DatabaseService;
+  private static readonly IN_TYPES = new Set([
+    'opening',
+    'purchase_receipt',
+    'sales_return',
+    'transfer_in',
+    'production_receipt',
+    'cycle_count',
+  ]);
+  private static readonly OUT_TYPES = new Set([
+    'sales_issue',
+    'sales_delivery',
+    'purchase_return',
+    'transfer_out',
+    'production_issue',
+    'damage',
+    'scrap',
+  ]);
+  // Legacy/frontend movement names → canonical transaction types.
+  private static readonly TYPE_ALIASES: Record<string, string> = {
+    sales_delivery: 'sales_issue',
+    stock_adjustment: 'adjustment',
+    correction: 'adjustment',
+    reserve: 'reservation',
+  };
+  constructor(
+    database: DatabaseService,
+    audit: AuditService,
+    private readonly postingEngine: InventoryPostingEngine,
+  ) {
     super((database as any).stockMovements, 'StockMovement', audit);
+    this.databaseService = database;
+  }
+
+  async findAll(page = 1, ps = 50, q?: string): Promise<any> {
+    const filters: any[] = [];
+    if (q) {
+      filters.push({ field: 'itemId', operator: 'eq', value: q });
+    }
+    const result = (await this.databaseService.invStockLedger.findAll({
+      filters: filters.length > 0 ? filters : undefined,
+      page,
+      pageSize: ps,
+      sorts: [{ field: 'transactionDate', order: 'desc' as const }],
+    } as any)) as any;
+    return (
+      result || {
+        data: [],
+        total: 0,
+        totalPages: 0,
+      }
+    );
+  }
+
+  // H1: manual movement creation writes to the canonical shranix_inv_stock_ledger
+  // (the legacy in-memory stockMovements repo had no backing table).
+  async create(data: any, userId?: string): Promise<any> {
+    const rawType = String(
+      data?.movementType || data?.transactionType || 'adjustment',
+    ).toLowerCase();
+    const transactionType = StockMovementService.TYPE_ALIASES[rawType] || rawType;
+    let direction: 'IN' | 'OUT' | 'RESERVE' | 'RELEASE';
+    if (data?.direction === 'IN' || data?.direction === 'OUT') {
+      // Explicit direction wins (manual UI form)
+      direction = data.direction;
+    } else if (transactionType === 'reservation') {
+      direction = 'RESERVE';
+    } else if (transactionType === 'release') {
+      direction = 'RELEASE';
+    } else if (StockMovementService.IN_TYPES.has(transactionType)) {
+      direction = 'IN';
+    } else if (StockMovementService.OUT_TYPES.has(transactionType)) {
+      direction = 'OUT';
+    } else if (Number(data?.quantity || 0) < 0) {
+      // adjustment/correction: negative quantity means a decrease
+      direction = 'OUT';
+    } else {
+      // adjustment/correction with a positive quantity means an increase
+      direction = 'IN';
+    }
+    const qty = Math.abs(Number(data?.quantity || 0));
+    if (qty <= 0) {
+      throw new BadRequestException('Movement quantity must be greater than zero');
+    }
+    if (!data?.itemId) {
+      throw new BadRequestException('itemId is required for a stock movement');
+    }
+    const entry = await this.postingEngine.postMovementCore({
+      transactionType,
+      direction,
+      itemId: data.itemId,
+      warehouseId: data.warehouseId || null,
+      batchId: data.batchId || null,
+      batchNo: data.batchNo || null,
+      lotNo: data.lotNo || null,
+      variantId: data.variantId || null,
+      quantity: qty,
+      unitCost: Number(data.rate ?? data.unitCost ?? 0),
+      referenceNumber: data.referenceId ? `MOV-${data.referenceId}` : undefined,
+      documentRef: data.referenceId || null,
+      documentType: data.referenceType || 'manual_entry',
+      remarks: data.reason || data.notes || data.remarks || `Manual ${transactionType} entry`,
+      createdBy: userId,
+    });
+    if (this.audit && userId) {
+      await this.audit.log({
+        userId,
+        event: 'stockmovement_created' as any,
+        resource: 'stockmovement',
+        action: 'create',
+        entityId: entry.entryNumber,
+        module: 'Inventory',
+        actionType: 'create',
+        oldValues: null,
+        newValues: data,
+        details: { entryNumber: entry.entryNumber, type: transactionType, qty },
+      });
+    }
+    this.logger.log(`Stock movement posted to canonical ledger: ${entry.entryNumber}`);
+    return entry;
+  }
+
+  async findById(id: string) {
+    const record = await this.databaseService.invStockLedger.findById(id);
+    if (!record) {
+      throw new NotFoundException(`Stock movement with id "${id}" not found`);
+    }
+    return record;
+  }
+
+  // Ledger entries are append-only: edits/deletes are replaced by a new
+  // adjustment/reversal entry instead of mutating history.
+  async update(_id: string, _data?: any, _userId?: string): Promise<never> {
+    throw new BadRequestException(
+      'Ledger entries are immutable — post a new adjustment/reversal entry instead',
+    );
+  }
+
+  async delete(_id: string, _userId?: string): Promise<never> {
+    throw new BadRequestException(
+      'Ledger entries are immutable — post a new adjustment/reversal entry instead',
+    );
   }
 }
 
@@ -682,7 +844,6 @@ export class InventoryPostingEngine {
     }
     return `${inputRef}-${this.entryCounter++}`;
   }
-
   private async getBalanceRow(warehouseId: string, itemId: string): Promise<any> {
     const res = await this.database.invStockBalance.findAll({
       filters: [
@@ -695,8 +856,50 @@ export class InventoryPostingEngine {
   }
 
   /**
+   * Resolve a warehouse reference (UUID or display name/code like 'Main')
+   * to a real warehouse ID so sales/purchase postings can update the
+   * canonical balance projection even when the document only carries a name.
+   * Falls back to the main warehouse, then the first active warehouse.
+   */
+  async resolveWarehouseId(warehouse?: string | null): Promise<string | null> {
+    if (!warehouse) {
+      return null;
+    }
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(warehouse)) {
+      return warehouse;
+    }
+    try {
+      const res = (await this.database.warehouses.findAll({
+        page: 1,
+        pageSize: 1000,
+      } as any)) as any;
+      const all = res?.data || [];
+      const byName = all.find(
+        (w: any) =>
+          String(w.name || '').toLowerCase() === String(warehouse).toLowerCase() ||
+          String(w.code || '').toLowerCase() === String(warehouse).toLowerCase(),
+      );
+      if (byName) {
+        return byName.id;
+      }
+      const main = all.find((w: any) => w.isMain === true || w.isMain === 1);
+      if (main) {
+        return main.id;
+      }
+      const first = all.find((w: any) => w.isActive !== false && w.isActive !== 0);
+      return first?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Apply a quantity delta to the running balance row and return the row AFTER
    * the change (used to stamp running balanceQuantity/balanceCost on the entry).
+   *
+   * H1.7 — oversell policy: an OUT that would drive onHand below zero is a
+   * controlled business error when negative stock is not allowed; it is never
+   * silently clamped to zero.
    */
   private async applyBalanceDelta(
     warehouseId: string,
@@ -705,6 +908,7 @@ export class InventoryPostingEngine {
     quantity: number,
     unitCost: number,
     seed?: Partial<Record<string, any>>,
+    allowNegative = false,
   ): Promise<any> {
     const qty = Math.abs(quantity || 0);
     let bal = await this.getBalanceRow(warehouseId, itemId);
@@ -735,8 +939,14 @@ export class InventoryPostingEngine {
         row.available = (row.available || 0) + qty;
         break;
       case 'OUT':
-        row.onHand = Math.max(0, (row.onHand || 0) - qty);
-        row.available = Math.max(0, (row.available || 0) - qty);
+        if (!allowNegative && (row.onHand || 0) < qty) {
+          throw new Error(
+            `Insufficient stock for item ${itemId} in warehouse ${warehouseId}: ` +
+              `available ${row.onHand || 0}, requested ${qty}`,
+          );
+        }
+        row.onHand = (row.onHand || 0) - qty;
+        row.available = (row.available || 0) - qty;
         break;
       case 'RESERVE':
         row.reserved = (row.reserved || 0) + qty;
@@ -756,11 +966,18 @@ export class InventoryPostingEngine {
     return row;
   }
 
-  async postMovement(input: {
+  /**
+   * Core movement posting — performs the ledger write + balance projection update
+   * WITHOUT opening its own transaction. Callers that are already inside a
+   * transaction (sales/purchase/return posting engines) must use this so the
+   * movement joins their transaction and rolls back atomically with the document.
+   * Standalone callers should use postMovement() which wraps this in a transaction.
+   */
+  async postMovementCore(input: {
     transactionType: string;
     direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
     itemId: string;
-    warehouseId: string;
+    warehouseId?: string | null;
     quantity: number;
     unitCost?: number;
     batchId?: string;
@@ -781,76 +998,116 @@ export class InventoryPostingEngine {
     remarks?: string;
     createdBy?: string;
     approvedBy?: string;
+    allowNegative?: boolean;
   }) {
-    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
-      const entryNumber = this.generateEntryNumber();
-      const qty = Math.abs(input.quantity || 0);
-      const unitCost = input.unitCost || 0;
-      const amount = qty * unitCost;
-      const ts = new Date().toISOString();
-      const referenceNumber = this.uniqueReference(input.referenceNumber);
+    const entryNumber = this.generateEntryNumber();
+    const qty = Math.abs(input.quantity || 0);
+    const unitCost = input.unitCost || 0;
+    const amount = qty * unitCost;
+    const ts = new Date().toISOString();
+    const referenceNumber = this.uniqueReference(input.referenceNumber);
+    const allowNegative = input.allowNegative === true;
 
-      // Balance is only adjusted for real quantity movements; REVERSAL rows are
-      // posted by reverseMovement (which restores the balance itself).
-      let balance = null;
-      if (input.direction !== 'REVERSAL') {
+    // Balance is only adjusted for real quantity movements; REVERSAL rows are
+    // posted by reverseMovement (which restores the balance itself).
+    let balance = null;
+    if (input.direction !== 'REVERSAL') {
+      const whId =
+        input.warehouseId || (await this.resolveWarehouseId(input.warehouseId)) || undefined;
+      if (whId) {
         balance = await this.applyBalanceDelta(
-          input.warehouseId,
+          whId,
           input.itemId,
           input.direction,
           qty,
           unitCost,
           input as any,
+          allowNegative,
         );
       }
-      const balanceQuantity = balance?.onHand ?? 0;
-      const balanceCost = balanceQuantity * unitCost;
+    }
+    const balanceQuantity = balance?.onHand ?? 0;
+    const balanceCost = balanceQuantity * unitCost;
 
-      await this.database.invStockLedger.create({
+    await this.database.invStockLedger.create({
+      entryNumber,
+      transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+      referenceNumber,
+      transactionType: input.transactionType,
+      direction: input.direction,
+      transactionDate: ts,
+      postingDate: ts,
+      itemId: input.itemId,
+      variantId: input.variantId,
+      batchId: input.batchId,
+      batchNo: input.batchNo,
+      lotNo: input.lotNo,
+      serialNo: input.serialNo,
+      warehouseId: input.warehouseId,
+      zoneId: input.zoneId,
+      rackId: input.rackId,
+      shelfId: input.shelfId,
+      binId: input.binId,
+      fromWarehouseId: input.fromWarehouseId,
+      toWarehouseId: input.toWarehouseId,
+      uom: input.uom,
+      quantity: qty,
+      unitCost,
+      amount,
+      balanceQuantity,
+      balanceCost,
+      documentRef: input.documentRef || input.referenceNumber || null,
+      documentType: input.documentType,
+      remarks: input.remarks,
+      createdBy: input.createdBy,
+      approvedBy: input.approvedBy,
+    } as any);
+    await this.audit.log({
+      userId: input.createdBy || 'system',
+      event: `stock_${input.direction.toLowerCase()}`,
+      resource: '',
+      details: {
+        message: `${input.direction} ${qty} units of ${input.itemId}`,
         entryNumber,
-        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
         referenceNumber,
-        transactionType: input.transactionType,
-        direction: input.direction,
-        transactionDate: ts,
-        postingDate: ts,
-        itemId: input.itemId,
-        variantId: input.variantId,
-        batchId: input.batchId,
-        batchNo: input.batchNo,
-        lotNo: input.lotNo,
-        serialNo: input.serialNo,
-        warehouseId: input.warehouseId,
-        zoneId: input.zoneId,
-        rackId: input.rackId,
-        shelfId: input.shelfId,
-        binId: input.binId,
-        fromWarehouseId: input.fromWarehouseId,
-        toWarehouseId: input.toWarehouseId,
-        uom: input.uom,
-        quantity: qty,
-        unitCost,
-        amount,
-        balanceQuantity,
-        balanceCost,
-        documentRef: input.documentRef || input.referenceNumber || null,
-        documentType: input.documentType,
-        remarks: input.remarks,
-        createdBy: input.createdBy,
-        approvedBy: input.approvedBy,
-      } as any);
-      await this.audit.log({
-        userId: input.createdBy || 'system',
-        event: `stock_${input.direction.toLowerCase()}`,
-        resource: '',
-        details: {
-          message: `${input.direction} ${qty} units of ${input.itemId}`,
-          entryNumber,
-          referenceNumber,
-        } as any,
-      });
-      return { entryNumber, success: true, balanceQuantity };
+      } as any,
     });
+    return { entryNumber, success: true, balanceQuantity };
+  }
+
+  /**
+   * Public movement posting — wraps postMovementCore in its own transaction for
+   * standalone callers (controllers, transfers, adjustments). Business engines
+   * that already run inside a transaction must call postMovementCore directly.
+   */
+  async postMovement(input: {
+    transactionType: string;
+    direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
+    itemId: string;
+    warehouseId?: string | null;
+    quantity: number;
+    unitCost?: number;
+    batchId?: string;
+    batchNo?: string;
+    lotNo?: string;
+    serialNo?: string;
+    variantId?: string;
+    zoneId?: string;
+    rackId?: string;
+    shelfId?: string;
+    binId?: string;
+    fromWarehouseId?: string;
+    toWarehouseId?: string;
+    uom?: string;
+    referenceNumber?: string;
+    documentRef?: string;
+    documentType?: string;
+    remarks?: string;
+    createdBy?: string;
+    approvedBy?: string;
+    allowNegative?: boolean;
+  }) {
+    return this.transactionManager.executeInTransaction(() => this.postMovementCore(input));
   }
   async postTransfer(input: {
     itemId: string;
@@ -1192,6 +1449,182 @@ export class StockLedgerQueryService {
       page: params?.page || 1,
       pageSize: params?.pageSize || 50,
     } as any);
+  }
+}
+
+// ── H1: Stock Ledger Reconciliation (report-only) ───────
+// Detects balance/ledger mismatches, duplicate entries, impossible quantities
+// and orphan references. It NEVER mutates data — discrepancies must be reviewed
+// and repaired through an explicit, separately-authorized repair operation.
+@Injectable()
+export class StockReconciliationService {
+  async run(rawOverride?: any): Promise<any> {
+    // Ensure the raw client exists (idempotent — no-op when the app already
+    // initialised it at startup via createDatabaseClient). An explicit client
+    // (e.g. a migrated temp DB in tests) wins over the global one.
+    const config = loadDatabaseConfig();
+    createSqliteClient(config);
+    const raw = rawOverride || getRawClient(config);
+    const result: Record<string, any> = {
+      generatedAt: new Date().toISOString(),
+      checks: {},
+      findings: [],
+      healthy: true,
+    };
+
+    const addFinding = (check: string, severity: string, rows: any[], message: string) => {
+      if (!rows || rows.length === 0) {
+        return;
+      }
+      result.healthy = false;
+      result.findings.push({
+        check,
+        severity,
+        count: rows.length,
+        message,
+        sample: rows.slice(0, 10),
+      });
+    };
+
+    // 1. Balance projection vs ledger net movement (per warehouse + item)
+    const balanceRows = (
+      await raw.execute(
+        `SELECT b.warehouse_id, b.item_id, b.on_hand,
+                COALESCE(SUM(CASE WHEN l.direction = 'IN' THEN l.quantity
+                                  WHEN l.direction = 'OUT' THEN -l.quantity
+                                  ELSE 0 END), 0) AS ledger_qty
+         FROM shranix_inv_stock_balance b
+         LEFT JOIN shranix_inv_stock_ledger l
+           ON l.warehouse_id = b.warehouse_id AND l.item_id = b.item_id
+         GROUP BY b.warehouse_id, b.item_id, b.on_hand
+         HAVING ABS(COALESCE(b.on_hand, 0) - ledger_qty) > 0.001`,
+      )
+    ).rows as any[];
+    addFinding(
+      'balance_vs_ledger',
+      'HIGH',
+      balanceRows.map((r) => ({
+        warehouseId: r.warehouse_id,
+        itemId: r.item_id,
+        projectedOnHand: r.on_hand,
+        ledgerComputed: r.ledger_qty,
+      })),
+      'Stock balance projection does not match the canonical ledger net movement',
+    );
+
+    // 2. Balance rows that should exist but have no ledger movement at all
+    const orphanBalanceRows = (
+      await raw.execute(
+        `SELECT b.warehouse_id, b.item_id, b.on_hand
+         FROM shranix_inv_stock_balance b
+         LEFT JOIN shranix_inv_stock_ledger l
+           ON l.warehouse_id = b.warehouse_id AND l.item_id = b.item_id
+         WHERE l.id IS NULL AND ABS(b.on_hand) > 0.001`,
+      )
+    ).rows as any[];
+    addFinding(
+      'balance_without_ledger',
+      'MEDIUM',
+      orphanBalanceRows.map((r) => ({
+        warehouseId: r.warehouse_id,
+        itemId: r.item_id,
+        onHand: r.on_hand,
+      })),
+      'Balance rows carry stock but the canonical ledger has no matching movements',
+    );
+
+    // 3. Duplicate entry/reference numbers (unique constraints should prevent this)
+    const dupEntries = (
+      await raw.execute(
+        `SELECT entry_number, COUNT(*) AS c FROM shranix_inv_stock_ledger GROUP BY entry_number HAVING c > 1`,
+      )
+    ).rows as any[];
+    addFinding(
+      'duplicate_entry_numbers',
+      'CRITICAL',
+      dupEntries,
+      'Duplicate ledger entry numbers found (unique index violation)',
+    );
+
+    const dupRefs = (
+      await raw.execute(
+        `SELECT reference_number, COUNT(*) AS c FROM shranix_inv_stock_ledger WHERE reference_number IS NOT NULL GROUP BY reference_number HAVING c > 1`,
+      )
+    ).rows as any[];
+    addFinding(
+      'duplicate_reference_numbers',
+      'MEDIUM',
+      dupRefs,
+      'Duplicate ledger reference numbers found',
+    );
+
+    // 4. Impossible quantities
+    const badQty = (
+      await raw.execute(
+        `SELECT id, entry_number, item_id, transaction_type, direction, quantity, balance_quantity
+         FROM shranix_inv_stock_ledger WHERE quantity <= 0 OR balance_quantity < 0`,
+      )
+    ).rows as any[];
+    addFinding(
+      'impossible_quantities',
+      'HIGH',
+      badQty,
+      'Ledger rows with zero/negative quantity or negative balance quantity',
+    );
+
+    const negBalance = (
+      await raw.execute(
+        `SELECT warehouse_id, item_id, on_hand FROM shranix_inv_stock_balance WHERE on_hand < 0`,
+      )
+    ).rows as any[];
+    addFinding(
+      'negative_balance',
+      'HIGH',
+      negBalance,
+      'Balance rows with negative on-hand quantity',
+    );
+
+    // 5. Orphan ledger rows (warehouse reference no longer exists)
+    const orphanLedger = (
+      await raw.execute(
+        `SELECT l.id, l.entry_number, l.item_id, l.warehouse_id, l.direction, l.quantity
+         FROM shranix_inv_stock_ledger l
+         LEFT JOIN shranix_warehouses w ON w.id = l.warehouse_id
+         WHERE l.warehouse_id IS NOT NULL AND w.id IS NULL
+         LIMIT 100`,
+      )
+    ).rows as any[];
+    addFinding(
+      'orphan_ledger_warehouse',
+      'LOW',
+      orphanLedger,
+      'Ledger rows reference warehouses that no longer exist',
+    );
+
+    // 6. Missing required identifiers
+    const missingRefs = (
+      await raw.execute(
+        `SELECT id, entry_number FROM shranix_inv_stock_ledger
+         WHERE entry_number IS NULL OR entry_number = ''`,
+      )
+    ).rows as any[];
+    addFinding(
+      'missing_entry_number',
+      'CRITICAL',
+      missingRefs,
+      'Ledger rows without an entry number',
+    );
+
+    result.checks = {
+      balanceVsLedger: balanceRows.length,
+      balanceWithoutLedger: orphanBalanceRows.length,
+      duplicateEntryNumbers: dupEntries.length,
+      duplicateReferenceNumbers: dupRefs.length,
+      impossibleQuantities: badQty.length + negBalance.length,
+      orphanLedgerWarehouses: orphanLedger.length,
+      missingEntryNumbers: missingRefs.length,
+    };
+    return result;
   }
 }
 

@@ -1256,6 +1256,9 @@ export const sqliteInvStockLedger = sqliteTableBase(
   (table) => ({
     ledgerEntryNoIdx: uniqueIndex('inv_ledger_entry_no_idx').on(table.entryNumber),
     ledgerRefIdx: uniqueIndex('inv_ledger_ref_idx').on(table.referenceNumber),
+    ledgerItemIdx: sqliteIndex('inv_ledger_item_idx').on(table.itemId),
+    ledgerWhItemIdx: sqliteIndex('inv_ledger_wh_item_idx').on(table.warehouseId, table.itemId),
+    ledgerDateIdx: sqliteIndex('inv_ledger_date_idx').on(table.transactionDate),
   }),
 );
 
@@ -1301,6 +1304,9 @@ export const pgInvStockLedger = pgTableBase(
   (table) => ({
     ledgerEntryNoIdx: pgUniqueIndex('inv_ledger_entry_no_idx').on(table.entryNumber),
     ledgerRefIdx: pgUniqueIndex('inv_ledger_ref_idx').on(table.referenceNumber),
+    ledgerItemIdx: pgIndex('inv_ledger_item_idx').on(table.itemId),
+    ledgerWhItemIdx: pgIndex('inv_ledger_wh_item_idx').on(table.warehouseId, table.itemId),
+    ledgerDateIdx: pgIndex('inv_ledger_date_idx').on(table.transactionDate),
   }),
 );
 

@@ -3,6 +3,7 @@ import { Injectable, Logger, ConflictException } from '@nestjs/common';
 import { TransactionManager } from '../automation/transaction.manager';
 import type { TransactionContext } from '../automation/transaction.manager';
 import { DatabaseService } from '../database/database.service';
+import { InventoryPostingEngine } from '../inventory/services';
 
 // ═════════════════════════════════════════════════════════
 // TYPES
@@ -222,6 +223,7 @@ export class PostingEngineService {
   constructor(
     private readonly database: DatabaseService,
     private readonly transactionManager: TransactionManager,
+    private readonly postingEngine?: InventoryPostingEngine,
   ) {}
 
   /**
@@ -335,73 +337,42 @@ export class PostingEngineService {
       // ── 2. INVOICE ITEMS (already created via SalesInvoicesService.create) ─
       this.logger.log(`2/10 ✓ Invoice items already persisted`);
 
-      // ── 3. WAREHOUSE STOCK DEDUCTION (best-effort — non-fatal) ─
-      // shranix_warehouse_stock columns: item_id, warehouse_id, quantity, updated_at
-      for (const stock of payload.stockPostings) {
-        try {
-          const filters: any[] = [{ field: 'itemId', operator: 'eq', value: stock.itemId }];
-          const wh = stock.warehouse && stock.warehouse !== '—' ? stock.warehouse : null;
-          if (wh) {
-            filters.push({ field: 'warehouseId', operator: 'eq', value: wh });
-          }
-          const existing = await db.warehouseStock.findAll({
-            filters,
-            page: 1,
-            pageSize: 50,
-          } as any);
-          const stockRecord = existing?.data?.[0];
-          if (stockRecord) {
-            await db.warehouseStock.update(stockRecord.id, {
-              quantity: Math.max(
-                0,
-                Number(stockRecord.quantity || 0) - Number(stock.quantity || 0),
-              ),
-              updatedAt: timestamp,
-            });
-            this.logger.log(`3/10 ✓ Stock reduced for ${stock.productName} (-${stock.quantity})`);
-          } else {
-            this.logger.warn(
-              `3/10 ⚠ No stock record for ${stock.productName} — deduction skipped (invoice still posts)`,
-            );
-          }
-        } catch (e: any) {
-          this.logger.warn(`3/10 ⚠ Stock deduction skipped for ${stock.productName}: ${e.message}`);
-        }
-      }
-
-      // ── 4. INVENTORY MOVEMENT (Stock ledger — schema-correct columns) ─
-      // shranix_stock_ledger: item_id, warehouse_id, batch_no, transaction_type,
-      // document_ref, document_type, quantity, before_qty, after_qty, rate, amount
-      for (const stock of payload.stockPostings) {
-        try {
+      // ── 3+4. CANONICAL STOCK MOVEMENT (sales_issue OUT) ─
+      // H1: single source of truth = shranix_inv_stock_ledger + shranix_inv_stock_balance.
+      // postMovementCore joins this transaction (no nested tx) so the movement rolls
+      // back atomically with the invoice. Oversell is a controlled business error
+      // (H1.7) — never a silent Math.max(0, ...) clamp.
+      if (this.postingEngine) {
+        for (const stock of payload.stockPostings) {
           const quantity = Number(stock.quantity || 0);
-          const afterQty = Number(stock.closingQty || 0);
-          // invoice items don't carry a real warehouse UUID — only write a UUID, else null
-          const warehouseId =
-            stock.warehouse &&
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stock.warehouse)
-              ? stock.warehouse
-              : null;
-          await db.stockLedger.create({
-            itemId: stock.itemId,
-            warehouseId,
-            batchNo: stock.batchNo && stock.batchNo !== '—' ? stock.batchNo : null,
-            transactionType: 'sales_invoice',
-            documentRef: payload.invoiceNumber,
-            documentType: 'sales_invoice',
-            quantity,
-            beforeQty: afterQty + quantity,
-            afterQty,
-            rate: Number(stock.unitCost || 0),
-            amount: Number(stock.totalCost || 0),
-            createdBy: userId,
-            remarks: `Sales invoice ${payload.invoiceNumber}`,
-          });
-          this.logger.log(`4/10 ✓ Stock movement recorded for ${stock.productName}`);
-        } catch (e: any) {
-          errors.push(`Stock movement failed for ${stock.productName}: ${e.message}`);
-          throw new ConflictException(`Stock movement failed: ${e.message}`);
+          if (quantity <= 0) {
+            continue;
+          }
+          try {
+            await this.postingEngine.postMovementCore({
+              transactionType: 'sales_issue',
+              direction: 'OUT',
+              itemId: stock.itemId,
+              warehouseId: stock.warehouse && stock.warehouse !== '—' ? stock.warehouse : undefined,
+              batchNo: stock.batchNo && stock.batchNo !== '—' ? stock.batchNo : undefined,
+              quantity,
+              unitCost: Number(stock.unitCost || 0),
+              referenceNumber: payload.invoiceNumber,
+              documentRef: payload.invoiceNumber,
+              documentType: 'sales_invoice',
+              remarks: `Sales invoice ${payload.invoiceNumber}`,
+              createdBy: userId,
+            });
+            this.logger.log(
+              `3/10 ✓ Stock movement recorded for ${stock.productName} (-${quantity})`,
+            );
+          } catch (e: any) {
+            errors.push(`Stock movement failed for ${stock.productName}: ${e.message}`);
+            throw new ConflictException(`Stock movement failed: ${e.message}`);
+          }
         }
+      } else {
+        this.logger.warn('3/10 ⚠ InventoryPostingEngine not injected — stock movement skipped');
       }
 
       // ── 5. GL ENTRY (one summary row per invoice — gl_voucher_idx is unique per voucher) ─

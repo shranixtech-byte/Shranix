@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { InventoryPostingEngine } from '../inventory/services';
 
 import { SalesApprovalEngineService } from './approval-engine.service';
 
@@ -120,6 +121,7 @@ export class SalesReturnEngineService {
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
     private readonly approvalEngine: SalesApprovalEngineService,
+    private readonly postingEngine?: InventoryPostingEngine,
   ) {}
 
   // ═════════════════════════════════════════════════════════
@@ -375,23 +377,32 @@ export class SalesReturnEngineService {
     });
     const returnItems = itemsData?.data || [];
 
-    // ── Inventory Reversal: Stock Back ──
+    // ── Inventory Reversal: Stock Back (H1 — canonical ledger) ─
+    // Fixed: the legacy write used columns that do not exist on shranix_stock_ledger
+    // (warehouse/movementType/referenceType/openingQty...) so it silently failed.
+    // Now posts to the canonical shranix_inv_stock_ledger as sales_return IN.
     for (const item of returnItems) {
       try {
-        await this.database.stockLedger.create({
-          itemId: item.itemId,
-          warehouse: item.warehouse || 'Main',
-          batchNo: item.batchNo || '',
-          movementType: 'IN',
-          referenceType: 'sales_return',
-          referenceNo: returnRecord.returnNumber,
-          openingQty: 0,
-          receivedQty: item.quantity,
-          closingQty: item.quantity,
-          unitCost: item.rate,
-          totalCost: item.taxableValue,
-          createdAt: now,
-        });
+        if (this.postingEngine) {
+          await this.postingEngine.postMovementCore({
+            transactionType: 'sales_return',
+            direction: 'IN',
+            itemId: item.itemId,
+            warehouseId: item.warehouse || 'Main',
+            batchNo: item.batchNo || null,
+            quantity: Number(item.quantity || 0),
+            unitCost: Number(item.rate || 0),
+            referenceNumber: returnRecord.returnNumber,
+            documentRef: returnRecord.returnNumber,
+            documentType: 'sales_return',
+            remarks: `Sales return ${returnRecord.returnNumber}`,
+            createdBy: userId,
+          });
+        } else {
+          this.logger.warn(
+            `Inventory reversal skipped for item ${item.itemId}: posting engine unavailable`,
+          );
+        }
       } catch (e) {
         this.logger.warn(
           `Inventory reversal warning for item ${item.itemId}: ${(e as Error).message}`,

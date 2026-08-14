@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { AutomationModule } from '../automation/automation.module';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { InventoryModule } from '../inventory/inventory.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import {
@@ -50,7 +51,7 @@ import {
 import { SuppliersService } from './suppliers.service';
 
 @Module({
-  imports: [WorkflowModule, AutomationModule],
+  imports: [WorkflowModule, AutomationModule, InventoryModule],
   controllers: [
     PurchaseOrdersController,
     PurchaseQuotationsController,

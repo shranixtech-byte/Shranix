@@ -3,6 +3,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { AutomationModule } from '../automation/automation.module';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { InventoryModule } from '../inventory/inventory.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import { SalesApprovalEngineService } from './approval-engine.service';
@@ -47,7 +48,7 @@ import {
 } from './services';
 
 @Module({
-  imports: [WorkflowModule, forwardRef(() => AutomationModule)],
+  imports: [WorkflowModule, forwardRef(() => AutomationModule), InventoryModule],
   controllers: [
     SalesQuotationsController,
     SalesOrdersController,
