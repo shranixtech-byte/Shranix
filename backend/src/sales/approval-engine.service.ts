@@ -1,5 +1,12 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
+import { TransactionManager } from '../automation/transaction.manager';
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
 
@@ -73,6 +80,7 @@ export class SalesApprovalEngineService {
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
+    private readonly transactionManager?: TransactionManager,
   ) {}
 
   private async ensureSeeded(): Promise<void> {
@@ -518,96 +526,174 @@ export class SalesApprovalEngineService {
     return master;
   }
 
+  /**
+   * H3 — run a legacy approval mutation inside the shared transaction manager
+   * (atomic state + history + audit; re-read inside the tx so concurrent
+   * duplicates hit the guards instead of double-transitioning).
+   */
+  private async runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.transactionManager) {
+      return this.transactionManager.executeInTransaction(async () => fn());
+    }
+    return fn();
+  }
+
+  /**
+   * H3 — verify the authenticated (server-derived) actor is the designated
+   * approver for the CURRENT approval level of a legacy sales approval.
+   *
+   * Designated approvers come from the matrix `approvers` JSON for the record's
+   * documentType at `master.currentLevel`:
+   *  - entry.userId  → only that exact user may act
+   *  - entry.role    → the actor must hold that role (server-side, never client)
+   *  - entry.canOverride → the explicit legacy admin override at THAT level only
+   *
+   * A generic permission (e.g. sales.approve) is NOT sufficient. When no
+   * designated approver can be determined for the level, the action is safely
+   * denied (missing approver → safe failure).
+   */
+  private async verifyDesignatedApprover(master: any, userId: string): Promise<void> {
+    const level = master.currentLevel || 1;
+    const matrixResult = await this.database.approvalMatrices.findAll({
+      page: 1,
+      pageSize: 50,
+    });
+    const matrix = (matrixResult?.data || []).find(
+      (m: any) => m.documentType === master.documentType && m.isActive !== false,
+    );
+    let approvers: ApproverEntry[] = [];
+    if (matrix) {
+      try {
+        approvers = JSON.parse(matrix.approvers || '[]');
+      } catch {
+        approvers = [];
+      }
+    }
+    const levelEntries = approvers.filter((a: ApproverEntry) => a.level === level);
+
+    // Resolve the actor's server-side roles — never a client-supplied role.
+    let roles: string[] = [];
+    try {
+      const roleRows = await this.database.roles.getUserRoles(userId);
+      roles = (roleRows || []).map((r: any) => r.name);
+    } catch {
+      roles = [];
+    }
+
+    const eligible = levelEntries.some((entry: ApproverEntry) => {
+      if (entry.userId) {
+        return entry.userId === userId;
+      }
+      if (entry.role) {
+        return roles.includes(entry.role);
+      }
+      if (entry.canOverride) {
+        return roles.includes('admin');
+      }
+      return false;
+    });
+
+    if (!eligible) {
+      throw new ForbiddenException(
+        `You are not the designated approver for level ${level} of this approval`,
+      );
+    }
+  }
+
   async approve(
     approvalId: string,
     userId: string,
     userName: string,
     dto: ApproveRejectDto,
   ): Promise<any> {
-    const master = await this.database.salesApprovals.findById(approvalId);
-    if (!master) {
-      throw new NotFoundException('Approval record not found');
-    }
-    this.validateAction(master, 'approve');
-    const fromStatus = master.status;
-    const currentLevel = master.currentLevel || 1;
-    const totalLevels = master.totalLevels || 1;
-
-    let newStatus = '';
-    if (currentLevel >= totalLevels) {
-      newStatus = 'approved';
-    } else {
-      newStatus = 'under_review';
-    }
-
-    const newLevel = newStatus === 'approved' ? currentLevel : currentLevel + 1;
-
-    // Update master
-    const matrixResult = await this.database.approvalMatrices.findAll({ page: 1, pageSize: 50 });
-    const matrix = (matrixResult?.data || []).find(
-      (m: any) => m.documentType === master.documentType && m.isActive !== false,
-    );
-    let assignTo = '';
-    let assignToName = '';
-    if (matrix && newStatus !== 'approved') {
-      let approvers: ApproverEntry[] = [];
-      try {
-        approvers = JSON.parse(matrix.approvers || '[]');
-      } catch {
-        approvers = [];
+    return this.runInTransaction(async () => {
+      const master = await this.database.salesApprovals.findById(approvalId);
+      if (!master) {
+        throw new NotFoundException('Approval record not found');
       }
-      const nextApprover = approvers.find((a: ApproverEntry) => a.level === newLevel);
-      if (nextApprover) {
-        assignTo = nextApprover.userId || nextApprover.role || '';
-        assignToName = nextApprover.role || '';
+      this.validateAction(master, 'approve');
+      // H3 — designated-approver verification BEFORE any mutation.
+      await this.verifyDesignatedApprover(master, userId);
+      const fromStatus = master.status;
+      const currentLevel = master.currentLevel || 1;
+      const totalLevels = master.totalLevels || 1;
+
+      let newStatus = '';
+      if (currentLevel >= totalLevels) {
+        newStatus = 'approved';
+      } else {
+        newStatus = 'under_review';
       }
-    }
 
-    await this.database.salesApprovals.update(approvalId, {
-      status: newStatus,
-      currentLevel: newLevel,
-      assignedTo: assignTo,
-      assignedToName: assignToName,
-      updatedAt: new Date().toISOString(),
-    });
+      const newLevel = newStatus === 'approved' ? currentLevel : currentLevel + 1;
 
-    // Add history
-    await this.database.approvalHistory.create({
-      approvalId,
-      action: 'approve',
-      actionBy: userId,
-      actionByName: userName,
-      fromStatus,
-      toStatus: newStatus,
-      level: currentLevel,
-      comment: dto.comment || '',
-      timestamp: new Date().toISOString(),
-    });
+      // Update master
+      const matrixResult = await this.database.approvalMatrices.findAll({ page: 1, pageSize: 50 });
+      const matrix = (matrixResult?.data || []).find(
+        (m: any) => m.documentType === master.documentType && m.isActive !== false,
+      );
+      let assignTo = '';
+      let assignToName = '';
+      if (matrix && newStatus !== 'approved') {
+        let approvers: ApproverEntry[] = [];
+        try {
+          approvers = JSON.parse(matrix.approvers || '[]');
+        } catch {
+          approvers = [];
+        }
+        const nextApprover = approvers.find((a: ApproverEntry) => a.level === newLevel);
+        if (nextApprover) {
+          assignTo = nextApprover.userId || nextApprover.role || '';
+          assignToName = nextApprover.role || '';
+        }
+      }
 
-    this.sendNotifications(
-      approvalId,
-      master.documentNumber || '',
-      master.createdBy,
-      master.createdByName || '',
-      'approved',
-      `${master.documentNumber} was ${newStatus === 'approved' ? 'fully approved' : `approved at level ${currentLevel}`}`,
-    );
-
-    if (this.audit) {
-      await this.audit.log({
-        userId,
-        event: 'approval_approved',
-        resource: 'sales_approval',
-        action: 'approve',
-        details: { approvalId, documentNumber: master.documentNumber, level: currentLevel },
+      await this.database.salesApprovals.update(approvalId, {
+        status: newStatus,
+        currentLevel: newLevel,
+        assignedTo: assignTo,
+        assignedToName: assignToName,
+        updatedAt: new Date().toISOString(),
       });
-    }
 
-    // Keep the source document's status in sync: a fully-approved quotation
-    // becomes 'approved' so the workflow chain (Executive → Manager → Owner →
-    // Approved) is reflected on the quote itself.
-    await this.syncQuotationStatus(master, newStatus);
-    return { ...master, status: newStatus, currentLevel: newLevel };
+      // Add history
+      await this.database.approvalHistory.create({
+        approvalId,
+        action: 'approve',
+        actionBy: userId,
+        actionByName: userName,
+        fromStatus,
+        toStatus: newStatus,
+        level: currentLevel,
+        comment: dto.comment || '',
+        timestamp: new Date().toISOString(),
+      });
+
+      this.sendNotifications(
+        approvalId,
+        master.documentNumber || '',
+        master.createdBy,
+        master.createdByName || '',
+        'approved',
+        `${master.documentNumber} was ${newStatus === 'approved' ? 'fully approved' : `approved at level ${currentLevel}`}`,
+      );
+
+      if (this.audit) {
+        await this.audit.log({
+          userId,
+          event: 'approval_approved',
+          resource: 'sales_approval',
+          action: 'approve',
+          details: { approvalId, documentNumber: master.documentNumber, level: currentLevel },
+        });
+      }
+
+      // Keep the source document's status in sync: a fully-approved quotation
+      // becomes 'approved' so the workflow chain (Executive → Manager → Owner →
+      // Approved) is reflected on the quote itself.
+      await this.syncQuotationStatus(master, newStatus);
+      return { ...master, status: newStatus, currentLevel: newLevel };
+    });
   }
 
   /**
@@ -647,48 +733,52 @@ export class SalesApprovalEngineService {
     userName: string,
     dto: ApproveRejectDto,
   ): Promise<any> {
-    const master = await this.database.salesApprovals.findById(approvalId);
-    if (!master) {
-      throw new NotFoundException('Approval record not found');
-    }
-    if (!dto.comment || dto.comment.trim().length === 0) {
-      throw new BadRequestException('Comment is mandatory when rejecting');
-    }
-    this.validateAction(master, 'reject');
-    await this.database.salesApprovals.update(approvalId, {
-      status: 'rejected',
-      updatedAt: new Date().toISOString(),
-    });
-    await this.database.approvalHistory.create({
-      approvalId,
-      action: 'reject',
-      actionBy: userId,
-      actionByName: userName,
-      fromStatus: master.status,
-      toStatus: 'rejected',
-      level: master.currentLevel || 1,
-      comment: dto.comment,
-      timestamp: new Date().toISOString(),
-    });
-    this.sendNotifications(
-      approvalId,
-      master.documentNumber || '',
-      master.createdBy,
-      master.createdByName || '',
-      'rejected',
-      `${master.documentNumber} was rejected at level ${master.currentLevel}. Reason: ${dto.comment}`,
-    );
-    if (this.audit) {
-      await this.audit.log({
-        userId,
-        event: 'approval_rejected',
-        resource: 'sales_approval',
-        action: 'reject',
-        details: { approvalId, documentNumber: master.documentNumber, reason: dto.comment },
+    return this.runInTransaction(async () => {
+      const master = await this.database.salesApprovals.findById(approvalId);
+      if (!master) {
+        throw new NotFoundException('Approval record not found');
+      }
+      if (!dto.comment || dto.comment.trim().length === 0) {
+        throw new BadRequestException('Comment is mandatory when rejecting');
+      }
+      this.validateAction(master, 'reject');
+      // H3 — designated-approver verification BEFORE any mutation.
+      await this.verifyDesignatedApprover(master, userId);
+      await this.database.salesApprovals.update(approvalId, {
+        status: 'rejected',
+        updatedAt: new Date().toISOString(),
       });
-    }
-    await this.syncQuotationStatus({ ...master, documentType: master.documentType }, 'rejected');
-    return { ...master, status: 'rejected' };
+      await this.database.approvalHistory.create({
+        approvalId,
+        action: 'reject',
+        actionBy: userId,
+        actionByName: userName,
+        fromStatus: master.status,
+        toStatus: 'rejected',
+        level: master.currentLevel || 1,
+        comment: dto.comment,
+        timestamp: new Date().toISOString(),
+      });
+      this.sendNotifications(
+        approvalId,
+        master.documentNumber || '',
+        master.createdBy,
+        master.createdByName || '',
+        'rejected',
+        `${master.documentNumber} was rejected at level ${master.currentLevel}. Reason: ${dto.comment}`,
+      );
+      if (this.audit) {
+        await this.audit.log({
+          userId,
+          event: 'approval_rejected',
+          resource: 'sales_approval',
+          action: 'reject',
+          details: { approvalId, documentNumber: master.documentNumber, reason: dto.comment },
+        });
+      }
+      await this.syncQuotationStatus({ ...master, documentType: master.documentType }, 'rejected');
+      return { ...master, status: 'rejected' };
+    });
   }
 
   async sendBack(
@@ -697,50 +787,54 @@ export class SalesApprovalEngineService {
     userName: string,
     dto: SendBackDto,
   ): Promise<any> {
-    const master = await this.database.salesApprovals.findById(approvalId);
-    if (!master) {
-      throw new NotFoundException('Approval record not found');
-    }
-    if (!dto.comment || dto.comment.trim().length === 0) {
-      throw new BadRequestException('Comment is mandatory when sending back');
-    }
-    this.validateAction(master, 'send_back');
-    const targetLevel = dto.targetLevel || Math.max(1, (master.currentLevel || 1) - 1);
-    const newStatus = targetLevel === 0 ? 'draft' : 'pending';
-    await this.database.salesApprovals.update(approvalId, {
-      status: newStatus,
-      currentLevel: targetLevel,
-      updatedAt: new Date().toISOString(),
-    });
-    await this.database.approvalHistory.create({
-      approvalId,
-      action: 'send_back',
-      actionBy: userId,
-      actionByName: userName,
-      fromStatus: master.status,
-      toStatus: newStatus,
-      level: targetLevel,
-      comment: dto.comment,
-      timestamp: new Date().toISOString(),
-    });
-    this.sendNotifications(
-      approvalId,
-      master.documentNumber || '',
-      master.createdBy,
-      master.createdByName || '',
-      'send_back',
-      `${master.documentNumber} was sent back to level ${targetLevel}. Reason: ${dto.comment}`,
-    );
-    if (this.audit) {
-      await this.audit.log({
-        userId,
-        event: 'approval_sent_back',
-        resource: 'sales_approval',
-        action: 'send_back',
-        details: { approvalId, documentNumber: master.documentNumber, targetLevel },
+    return this.runInTransaction(async () => {
+      const master = await this.database.salesApprovals.findById(approvalId);
+      if (!master) {
+        throw new NotFoundException('Approval record not found');
+      }
+      if (!dto.comment || dto.comment.trim().length === 0) {
+        throw new BadRequestException('Comment is mandatory when sending back');
+      }
+      this.validateAction(master, 'send_back');
+      // H3 — designated-approver verification BEFORE any mutation.
+      await this.verifyDesignatedApprover(master, userId);
+      const targetLevel = dto.targetLevel || Math.max(1, (master.currentLevel || 1) - 1);
+      const newStatus = targetLevel === 0 ? 'draft' : 'pending';
+      await this.database.salesApprovals.update(approvalId, {
+        status: newStatus,
+        currentLevel: targetLevel,
+        updatedAt: new Date().toISOString(),
       });
-    }
-    return { ...master, status: newStatus, currentLevel: targetLevel };
+      await this.database.approvalHistory.create({
+        approvalId,
+        action: 'send_back',
+        actionBy: userId,
+        actionByName: userName,
+        fromStatus: master.status,
+        toStatus: newStatus,
+        level: targetLevel,
+        comment: dto.comment,
+        timestamp: new Date().toISOString(),
+      });
+      this.sendNotifications(
+        approvalId,
+        master.documentNumber || '',
+        master.createdBy,
+        master.createdByName || '',
+        'send_back',
+        `${master.documentNumber} was sent back to level ${targetLevel}. Reason: ${dto.comment}`,
+      );
+      if (this.audit) {
+        await this.audit.log({
+          userId,
+          event: 'approval_sent_back',
+          resource: 'sales_approval',
+          action: 'send_back',
+          details: { approvalId, documentNumber: master.documentNumber, targetLevel },
+        });
+      }
+      return { ...master, status: newStatus, currentLevel: targetLevel };
+    });
   }
 
   async assign(approvalId: string, userId: string, userName: string, dto: AssignDto): Promise<any> {
