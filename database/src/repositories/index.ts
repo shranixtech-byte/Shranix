@@ -271,3 +271,12 @@ export {
   LicenseTransfersRepository,
   LicenseTokensRepository,
 } from './license.repository';
+
+export { SecurityEventsRepository } from './security.repository';
+
+export {
+  SoftwareReleasesRepository,
+  ReleasePackagesRepository,
+  ReleaseChannelsRepository,
+  VersionCompatibilityRepository,
+} from './release.repository';

@@ -10,10 +10,7 @@ export class HealthService {
   constructor(private readonly database: DatabaseService) {}
 
   async getHealth() {
-    const [dbStatus, uptime] = await Promise.all([
-      this.checkDatabase(),
-      this.getUptime(),
-    ]);
+    const [dbStatus, uptime] = await Promise.all([this.checkDatabase(), this.getUptime()]);
 
     return {
       status: dbStatus.status === 'healthy' ? 'ok' : 'degraded',
@@ -46,6 +43,30 @@ export class HealthService {
       memory_total_mb: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
       cpu_usage: process.cpuUsage(),
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Phase 17.42 — customer-safe status page snapshot.
+   * Returns only high-level operational status per service. Never exposes
+   * hosts, IPs, internal paths, versions or stack traces.
+   */
+  async getStatusSnapshot() {
+    const [dbStatus, uptime] = await Promise.all([this.checkDatabase(), this.getUptime()]);
+    const dbOk = dbStatus.status === 'healthy';
+    return {
+      generatedAt: new Date().toISOString(),
+      overall: dbOk ? 'operational' : 'degraded',
+      services: [
+        { id: 'erp', name: 'ERP Application', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'portal', name: 'Customer Portal', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'license', name: 'License Service', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'activation', name: 'Activation Service', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'payments', name: 'Payments', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'downloads', name: 'Downloads', status: dbOk ? 'operational' : 'degraded' },
+        { id: 'updates', name: 'Updates', status: dbOk ? 'operational' : 'degraded' },
+      ],
+      uptime: `${uptime.days}d ${uptime.hours}h ${uptime.minutes}m`,
     };
   }
 

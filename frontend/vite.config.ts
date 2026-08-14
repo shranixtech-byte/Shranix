@@ -35,7 +35,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4MB for large images
+        // Main vendor bundle exceeds the workbox default (2 MB); 6 MB keeps
+        // the single-page chunk + large images precacheable offline.
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {

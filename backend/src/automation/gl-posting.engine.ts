@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { DatabaseService } from '../database/database.service';
 
@@ -152,7 +153,7 @@ export class GlPostingEngine {
         try {
           await this.database.glEntries.create({ ...glEntry, createdBy: options.userId } as any);
         } catch (err: any) {
-          if (/UNIQUE|SQLITE_CONSTRAINT|already exists/i.test(String(err?.message || ''))) {
+          if (isUniqueConstraintError(err)) {
             throw new Error(
               `Duplicate posting for voucher ${glEntry.voucherId} account ${glEntry.accountId}: ${err.message}`,
             );

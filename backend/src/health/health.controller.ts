@@ -41,4 +41,12 @@ export class HealthController {
   async metrics() {
     return this.health.getMetrics();
   }
+
+  @Get('status')
+  @Public()
+  @ApiOperation({ summary: 'Customer-safe status snapshot (status page, 17.42)' })
+  @HttpCode(HttpStatus.OK)
+  async statusSnapshot() {
+    return this.health.getStatusSnapshot();
+  }
 }

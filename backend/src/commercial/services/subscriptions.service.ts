@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
@@ -351,7 +352,8 @@ export class SubscriptionsService {
         });
         return this.findById(sub.id);
       } catch (err: any) {
-        const dup = /UNIQUE|already exists|subscription_number/i.test(String(err?.message || ''));
+        const dup =
+          isUniqueConstraintError(err) || /subscription_number/i.test(String(err?.message || ''));
         if (!dup || attempts >= 4) {
           throw err;
         }

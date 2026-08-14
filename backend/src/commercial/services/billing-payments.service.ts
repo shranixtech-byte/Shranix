@@ -4,11 +4,15 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
+
 
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
+import { SecurityEventsService } from '../../security/security-events.service';
 import { actor, nextCommercialNumber, round2 } from '../numbering.util';
 
 import { BillingService } from './billing.service';
@@ -134,6 +138,7 @@ export class BillingPaymentsService {
     private readonly billing: BillingService,
     private readonly subscriptions: SubscriptionsService,
     private readonly settings: CommercialSettingsService,
+    @Optional() private readonly security?: SecurityEventsService,
   ) {
     this.providers.set('simulated', new SimulatedGatewayProvider());
   }
@@ -294,7 +299,8 @@ export class BillingPaymentsService {
         });
         return this.getPaymentById(payment.id);
       } catch (err: any) {
-        const dup = /UNIQUE|already exists|idempotency_key/i.test(String(err?.message || ''));
+        const dup =
+          isUniqueConstraintError(err) || /idempotency_key/i.test(String(err?.message || ''));
         if (dup) {
           // Race — another request already created this payment. Return it.
           // A stale row left by a failed provider call (no gatewayRef) is
@@ -457,7 +463,30 @@ export class BillingPaymentsService {
     });
     const expected = hmacSign(secret, canonical);
     if (!signature || !timingSafeEqualStr(signature, expected)) {
+      await this.security?.record({
+        eventType: 'WEBHOOK_SIGNATURE_FAILURE',
+        severity: 'HIGH',
+        source: 'webhook',
+        metadata: { stage: 'signature', gatewayRef: String(data?.reference || '').slice(0, 40) },
+      });
       throw new UnauthorizedException('Invalid webhook signature');
+    }
+    // PHASE 15.22 — replay protection: reject stale or far-future events.
+    const eventTime = Number(event?.timestamp || event?.created_at || 0);
+    if (eventTime) {
+      const skewMs = Math.abs(Date.now() - eventTime * (eventTime < 1e12 ? 1000 : 1));
+      if (skewMs > 5 * 60_000) {
+        await this.security?.record({
+          eventType: 'REPLAY_DETECTED',
+          severity: 'MEDIUM',
+          source: 'webhook',
+          metadata: {
+            stage: 'timestamp_window',
+            gatewayRef: String(data?.reference || '').slice(0, 40),
+          },
+        });
+        throw new UnauthorizedException('Webhook timestamp outside allowed window');
+      }
     }
 
     const gatewayRef = String(data?.reference || '');

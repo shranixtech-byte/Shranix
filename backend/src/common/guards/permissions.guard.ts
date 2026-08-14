@@ -41,6 +41,8 @@ const permissionResourceFamilies: Record<string, readonly string[]> = {
   assets: ['asset', 'asset-category'],
   // integrations.* (seeded) grants the integration.api_key / integration.webhook / integration.import controllers
   integrations: ['integration'],
+  // license.* grants the Phase-15 security dashboard + Phase-16 central KPIs
+  license: ['security', 'central'],
 };
 
 export function grantsPermission(grantedPermission: string, requiredPermission: string): boolean {

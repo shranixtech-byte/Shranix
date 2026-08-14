@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { CommercialModule } from '../commercial/commercial.module';
 import { DatabaseService } from '../database/database.service';
+import { SecurityModule } from '../security/security.module';
 
 import { LicenseAdminController } from './controllers/license-admin.controller';
 import { LicenseActivationsService } from './services/license-activations.service';
@@ -17,7 +18,7 @@ import { LicenseSettingsController } from './settings.controller';
 import { LicenseSettingsService } from './settings.service';
 
 @Module({
-  imports: [CommercialModule],
+  imports: [CommercialModule, SecurityModule],
   controllers: [LicenseSettingsController, LicenseAdminController],
   providers: [
     LicenseSettingsService,

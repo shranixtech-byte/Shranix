@@ -8,6 +8,7 @@ import {
   isTauriRuntime,
   loadActivation,
   touchRevalidation,
+  verifyIntegrity,
 } from '@/lib/activation-state';
 import * as activationApi from '@/services/activation.service';
 
@@ -42,21 +43,24 @@ export function ActivationGate({ children }: { children: ReactNode }) {
     if (!state?.valid || !state.licenseReference) {
       return;
     }
-    if (!isRevalidationDue(state)) {
-      return;
-    }
+    const licenseReference = state.licenseReference;
 
     const device = getDeviceContext();
-    void activationApi
-      .revalidate({
-        licenseReference: state.licenseReference,
-        deviceIdentifierHash: device.deviceIdentifierHash,
-        applicationVersion: device.applicationVersion,
-        source: 'desktop-app',
-      })
-      .then((result) => {
+    const run = async () => {
+      // Phase 15.8 — local tampering detected → force online validation.
+      const tampered = !(await verifyIntegrity(loadActivation()));
+      if (!tampered && !isRevalidationDue(loadActivation())) {
+        return;
+      }
+      try {
+        const result = await activationApi.revalidate({
+          licenseReference,
+          deviceIdentifierHash: device.deviceIdentifierHash,
+          applicationVersion: device.applicationVersion,
+          source: 'desktop-app',
+        });
         if (result.valid) {
-          touchRevalidation(state, true);
+          touchRevalidation(state, true, undefined, result.serverTime);
           return;
         }
         // Terminal server verdicts invalidate local state (no offline bypass).
@@ -68,12 +72,13 @@ export function ActivationGate({ children }: { children: ReactNode }) {
         } else {
           touchRevalidation(state, false, result.reason || 'VALIDATION_FAILED');
         }
-      })
-      .catch(() => {
+      } catch {
         // Network failure — keep local state usable until token/license expiry
         // (bounded by the server, not by this client).
         touchRevalidation(state, false, 'NETWORK_ERROR');
-      });
+      }
+    };
+    void run();
   }, [enforcing]);
 
   if (!enforcing) {

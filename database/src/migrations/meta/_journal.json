@@ -176,6 +176,20 @@
       "when": 1786471871238,
       "tag": "0024_friendly_garia",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1786713193006,
+      "tag": "0025_kind_gladiator",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1786713943095,
+      "tag": "0026_complete_living_lightning",
+      "breakpoints": true
     }
   ]
 }

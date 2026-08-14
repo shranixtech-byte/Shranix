@@ -25,6 +25,10 @@ export interface ActivationState {
   tokenExpiresAt?: string;
   activationReference?: string;
   revalidateAfterHours?: number;
+  /** Phase 15.9 — server clock reference for local clock-rollback detection. */
+  serverTime?: string;
+  /** Phase 15.13 — device-confidence level returned by the activation engine. */
+  deviceConfidence?: string;
 }
 
 export interface RevalidateResult {
@@ -37,6 +41,8 @@ export interface RevalidateResult {
   limits?: Record<string, number>;
   licenseReference?: string;
   revalidateAfterHours?: number;
+  /** Phase 15.9 — server clock reference for local clock-rollback detection. */
+  serverTime?: string;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -110,11 +116,12 @@ export function offlineRequest(input: {
   return post('offline/request', input);
 }
 
-/** Verify an offline recovery token locally. */
+/** Verify an offline recovery token locally — bound to this installation. */
 export function offlineVerify(
   token: string,
+  deviceIdentifierHash?: string,
 ): Promise<{ valid: boolean; reason?: string; licenseNumber?: string }> {
-  return post('offline/verify', { token });
+  return post('offline/verify', { token, deviceIdentifierHash });
 }
 
 /** RSA public key for client-side token signature verification. */

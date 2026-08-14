@@ -308,6 +308,7 @@ const CUT_LINE = `<div class="cut-line"><span>✂ CUT HERE ✂</span></div>`;
 
 const COPY_TEMPLATE = `
 <div class="copy">
+  <div class="{{badgeClass}}">{{copyLabel}}</div>
   <div class="row-flex top-header-row">
     <div class="lic-box">
       <div class="line"><span>Pesticides L.No</span><span>: {{pesticidesLicense}}</span></div>

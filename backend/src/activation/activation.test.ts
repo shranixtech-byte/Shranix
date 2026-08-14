@@ -29,6 +29,7 @@ import { LicenseTokensService } from '../license/services/license-tokens.service
 import { LicenseValidationService } from '../license/services/license-validation.service';
 import { LicensesService } from '../license/services/licenses.service';
 import { PortalAuthService } from '../portal/services/portal-auth.service';
+import { SecurityEventsService } from '../security/security-events.service';
 
 import { ActivationConfigService } from './activation-config.service';
 import { ActivationService } from './activation.service';
@@ -56,6 +57,7 @@ describe('Activation module (real DB)', () => {
   let validation: LicenseValidationService;
   let tokens: LicenseTokensService;
   let events: LicenseEventsService;
+  let securityEvents: SecurityEventsService;
   let subscriptions: SubscriptionsService;
   let plans: PlansService;
   let config: ActivationConfigService;
@@ -120,17 +122,24 @@ describe('Activation module (real DB)', () => {
     const billing = new BillingService(database, audit, gl);
     subscriptions = new SubscriptionsService(database, audit, coupons, entitlements, billing);
     events = new LicenseEventsService(database);
-    tokens = new LicenseTokensService(database);
+    securityEvents = new SecurityEventsService(database);
+    tokens = new LicenseTokensService(database, securityEvents);
     licenses = new LicensesService(database, audit, entitlements, events, tokens);
     devices = new LicenseDevicesService(database, audit, licenses, events);
     activations = new LicenseActivationsService(database, audit, licenses, devices, events);
-    validation = new LicenseValidationService(database, entitlements, licenses, events);
     const portalAuth = new PortalAuthService(
       database,
       audit,
       new JwtService({ secret: 'test-secret' }),
     );
     config = new ActivationConfigService(database);
+    validation = new LicenseValidationService(
+      database,
+      entitlements,
+      licenses,
+      events,
+      securityEvents,
+    );
     service = new ActivationService(
       database,
       config,
@@ -140,6 +149,7 @@ describe('Activation module (real DB)', () => {
       validation,
       tokens,
       devices,
+      securityEvents,
     );
 
     // ── Master data ──────────────────────────────────────
@@ -411,6 +421,63 @@ describe('Activation module (real DB)', () => {
     expect(r2.activationReference).toBe(r1.activationReference);
     const fresh = await licenses.findById(licenseA.id);
     expect(fresh.activeDevices).toBe(2); // 2 distinct devices — no duplicate slot
+  });
+
+  // ═══════════════════════════════════════════════════════
+  // PHASE 15 — DEVICE CLONING + CONFIDENCE (15.13, 15.14)
+  // ═══════════════════════════════════════════════════════
+  it('returns device confidence and flags a cloned installation (same fingerprint, 2 devices)', async () => {
+    const customerF = await database.customers.create({
+      customerCode: 'CUS-9006',
+      name: 'Activate F',
+      firmName: 'Firm AF',
+      mobile: '9876509006',
+      email: 'af@test.in',
+    } as any);
+    const sub = await subscriptions.create(
+      { customerId: customerF.id, planId: twoDevice.id, source: 'admin' },
+      'u1',
+    );
+    await subscriptions.activate(sub.id, 'u1');
+    const lic = await licenses.createFromSubscription(sub.id);
+    await makePortalUser(customerF.id, 'af@test.in', 'Fia F');
+
+    const first = await service.activate({
+      email: 'af@test.in',
+      password: 'Passw0rd!23',
+      licenseReference: lic.licenseNumber,
+      activationReference: `clone-1-${crypto.randomBytes(4).toString('hex')}`,
+      deviceIdentifierHash: 'clone-pc-1',
+      deviceName: 'Clone PC 1',
+      platform: 'windows',
+      os: 'Windows 11',
+      applicationVersion: '1.0.0',
+      machineFingerprintHash: 'install-X',
+    });
+    // Phase 15.13 — all three signals present → high confidence.
+    expect(first.deviceConfidence).toBe('high');
+
+    // Same installation secret, different device identity → clone signal.
+    await service.activate({
+      email: 'af@test.in',
+      password: 'Passw0rd!23',
+      licenseReference: lic.licenseNumber,
+      activationReference: `clone-2-${crypto.randomBytes(4).toString('hex')}`,
+      deviceIdentifierHash: 'clone-pc-2',
+      deviceName: 'Clone PC 2',
+      platform: 'windows',
+      os: 'Windows 11',
+      applicationVersion: '1.0.0',
+      machineFingerprintHash: 'install-X',
+    });
+
+    const res = await securityEvents.query({
+      page: 1,
+      pageSize: 10,
+      eventType: 'SUSPICIOUS_ACTIVATION',
+      customerId: customerF.id,
+    });
+    expect(res.data.some((e: any) => e.metadata?.stage === 'installation_clone')).toBe(true);
   });
 
   // ═══════════════════════════════════════════════════════

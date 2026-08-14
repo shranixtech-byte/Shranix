@@ -214,6 +214,11 @@ import {
   DigitalSignaturesRepository,
   OcrResultsRepository,
   DocumentAccessLogsRepository,
+  SecurityEventsRepository,
+  SoftwareReleasesRepository,
+  ReleasePackagesRepository,
+  ReleaseChannelsRepository,
+  VersionCompatibilityRepository,
   loadDatabaseConfig,
   DatabaseClient,
   DatabaseConfig,
@@ -450,6 +455,11 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly licenseEvents: LicenseEventsRepository;
   public readonly licenseTransfers: LicenseTransfersRepository;
   public readonly licenseTokens: LicenseTokensRepository;
+  public readonly securityEvents: SecurityEventsRepository;
+  public readonly softwareReleases: SoftwareReleasesRepository;
+  public readonly releasePackages: ReleasePackagesRepository;
+  public readonly releaseChannels: ReleaseChannelsRepository;
+  public readonly versionCompatibility: VersionCompatibilityRepository;
   public readonly employeeDesignations: any;
   public readonly leaveTypes: any;
   public readonly budgets: any;
@@ -798,6 +808,11 @@ export class DatabaseService implements OnApplicationShutdown {
     this.licenseEvents = new LicenseEventsRepository(db as any, isPostgres);
     this.licenseTransfers = new LicenseTransfersRepository(db as any, isPostgres);
     this.licenseTokens = new LicenseTokensRepository(db as any, isPostgres);
+    this.securityEvents = new SecurityEventsRepository(db as any, isPostgres);
+    this.softwareReleases = new SoftwareReleasesRepository(db as any, isPostgres);
+    this.releasePackages = new ReleasePackagesRepository(db as any, isPostgres);
+    this.releaseChannels = new ReleaseChannelsRepository(db as any, isPostgres);
+    this.versionCompatibility = new VersionCompatibilityRepository(db as any, isPostgres);
     this.employeeDesignations = createGenericRepo('employeeDesignations');
     this.leaveTypes = createGenericRepo('leaveTypes');
     this.budgets = createGenericRepo('budgets');

@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 
 import { DatabaseService } from '../database/database.service';
@@ -14,6 +15,8 @@ import { LicenseTokensService } from '../license/services/license-tokens.service
 import { LicenseValidationService } from '../license/services/license-validation.service';
 import { LicensesService } from '../license/services/licenses.service';
 import { PortalAuthService } from '../portal/services/portal-auth.service';
+import { ReleasesService, UPDATE_VERDICTS } from '../releases/releases.service';
+import { SecurityEventsService } from '../security/security-events.service';
 
 import { ActivationConfigService } from './activation-config.service';
 
@@ -46,6 +49,8 @@ export class ActivationService {
     private readonly validation: LicenseValidationService,
     private readonly tokens: LicenseTokensService,
     private readonly devices: LicenseDevicesService,
+    @Optional() private readonly security?: SecurityEventsService,
+    @Optional() private readonly releases?: ReleasesService,
   ) {}
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -129,10 +134,85 @@ export class ActivationService {
     return session;
   }
 
-  private assertOwnership(license: any, customerId: string) {
+  private assertOwnership(license: any, customerId: string, actorId?: string) {
     // 404 — never reveal that another customer's license exists.
     if (String(license.customerId) !== String(customerId)) {
+      // PHASE 15.16 — record the attempted cross-customer access without
+      // revealing anything to the caller (they still see a generic 404).
+      void this.security?.record({
+        eventType: 'UNAUTHORIZED_LICENSE_ACCESS',
+        severity: 'HIGH',
+        customerId: String(customerId),
+        licenseId: license.id,
+        source: 'api',
+        actor: actorId || null,
+        metadata: { stage: 'activation_ownership' },
+      });
       throw new NotFoundException({ reason: 'LICENSE_NOT_FOUND' }, 'License not found');
+    }
+  }
+
+  /**
+   * PHASE 15.13 — device-confidence model. The installation-bound identity is
+   * the strong signal; supporting signals raise confidence. A single changed
+   * component never invalidates a device.
+   */
+  private deviceConfidence(input: {
+    deviceIdentifierHash?: string;
+    machineFingerprintHash?: string;
+    platform?: string;
+  }): { level: 'high' | 'medium' | 'low'; signals: number } {
+    const signals = [
+      Boolean(input.deviceIdentifierHash),
+      Boolean(input.machineFingerprintHash),
+      Boolean(input.platform),
+    ].filter(Boolean).length;
+    const level = signals >= 3 ? 'high' : signals === 2 ? 'medium' : 'low';
+    return { level, signals };
+  }
+
+  /**
+   * PHASE 15.14 — device cloning detection. The same installation secret
+   * (machineFingerprintHash) registered under two different device identities
+   * on the same license is a strong copy signal — flag for admin review.
+   */
+  private async detectDeviceCloning(
+    license: any,
+    input: {
+      deviceIdentifierHash?: string;
+      machineFingerprintHash?: string;
+    },
+  ): Promise<void> {
+    if (!input.machineFingerprintHash || !input.deviceIdentifierHash) {
+      return;
+    }
+    try {
+      const fingerprintHash = sha256(String(input.machineFingerprintHash));
+      const deviceHash = sha256(String(input.deviceIdentifierHash));
+      const instRes = await this.database.licenseInstallations.findAll({
+        page: 1,
+        pageSize: 50,
+        filters: [{ field: 'licenseId', operator: 'eq', value: license.id }],
+      } as any);
+      const seen = (instRes?.data || []).filter(
+        (i: any) =>
+          !i.isDeleted &&
+          String(i.machineFingerprintHash) === fingerprintHash &&
+          String(i.deviceIdentifierHash) !== deviceHash,
+      );
+      if (seen.length > 0) {
+        await this.security?.record({
+          eventType: 'SUSPICIOUS_ACTIVATION',
+          severity: 'HIGH',
+          customerId: license.customerId,
+          licenseId: license.id,
+          installationRef: seen[0]?.installationPublicId || null,
+          source: 'api',
+          metadata: { stage: 'installation_clone', matchedInstallations: seen.length },
+        });
+      }
+    } catch {
+      /* detection is best-effort — never blocks activation */
     }
   }
 
@@ -160,9 +240,12 @@ export class ActivationService {
       input.userAgent,
     );
     const license = await this.resolveLicense(input.licenseReference);
-    this.assertOwnership(license, session.user.customerId);
+    this.assertOwnership(license, session.user.customerId, session.user.id);
 
     try {
+      // PHASE 15.14 — flag a copied installation BEFORE claiming a slot.
+      await this.detectDeviceCloning(license, input);
+      const confidence = this.deviceConfidence(input);
       const activation = await this.activations.requestActivation({
         licenseReference: license.licensePublicId,
         activationReference: input.activationReference,
@@ -181,6 +264,16 @@ export class ActivationService {
       // Phase 13 reports a full device limit by returning a REJECTED
       // activation (history preserved) — surface it as a controlled error.
       if (String(activation?.status) === 'REJECTED') {
+        await this.security?.record({
+          eventType: 'ACTIVATION_LIMIT_REACHED',
+          severity: 'MEDIUM',
+          customerId: license.customerId,
+          licenseId: license.id,
+          deviceRef: activation?.devicePublicId || null,
+          source: 'api',
+          actor: session.user.id,
+          metadata: { stage: 'online_activation', activationReference: input.activationReference },
+        });
         throw new BadRequestException(
           { reason: 'DEVICE_LIMIT_REACHED' },
           'Device activation limit reached',
@@ -198,7 +291,12 @@ export class ActivationService {
       });
 
       const state = await this.buildActivationState(fresh, issued.token, issued.expiresAt);
-      return { ...state, activationReference: activation.activationReference };
+      return {
+        ...state,
+        activationReference: activation.activationReference,
+        deviceConfidence: confidence.level,
+        serverTime: new Date().toISOString(),
+      };
     } catch (err: any) {
       const reason = String(err?.message || '');
       // Fallback mapping — the REJECTED-status branch above is the primary
@@ -270,6 +368,8 @@ export class ActivationService {
       limits: result.limits,
       licenseReference: result.licenseReference,
       revalidateAfterHours: revalidateHours,
+      // PHASE 15.9 — server time reference for local clock-rollback detection.
+      serverTime: new Date().toISOString(),
     };
   }
 
@@ -369,16 +469,21 @@ export class ActivationService {
       offlineToken: token,
       expiresInDays: ttlDays,
       expiresAt: new Date(Date.now() + ttlDays * 86_400_000).toISOString(),
+      serverTime: new Date().toISOString(),
       note: 'Offline mode is a limited recovery path — online validation is required after expiry.',
     };
   }
 
-  async offlineVerify(token: string): Promise<Record<string, any>> {
+  async offlineVerify(token: string, deviceIdentifierHash?: string): Promise<Record<string, any>> {
     if (!token) {
       return { valid: false, reason: 'TOKEN_REQUIRED' };
     }
     try {
-      const { payload } = await this.tokens.verifyOfflineLicenseToken(String(token));
+      const { payload } = await this.tokens.verifyOfflineLicenseToken(String(token), {
+        // PHASE 15.36 — offline tokens are bound to the requesting device;
+        // verifying with a different device fails locally.
+        deviceIdentifierHash,
+      });
       return {
         valid: true,
         licenseReference: payload.licPublicId || payload.sub,
@@ -386,6 +491,7 @@ export class ActivationService {
         planId: payload.plan,
         status: payload.status || 'ACTIVE',
         expiresAt: payload.exp ? new Date(payload.exp * 1000).toISOString() : null,
+        serverTime: new Date().toISOString(),
       };
     } catch (err: any) {
       return { valid: false, reason: String(err?.message || 'OFFLINE_TOKEN_INVALID') };
@@ -400,14 +506,53 @@ export class ActivationService {
   }
 
   // ── Update metadata ─────────────────────────────────────────────────────
-
+  // PHASE 16 — resolves from the persistent release registry when populated;
+  // falls back to the legacy KV configuration so existing Phase-14 clients
+  // keep working (16.6 backward compatibility).
   async getUpdateInfo(currentVersion?: string): Promise<Record<string, any>> {
+    const current = String(currentVersion || '').trim();
+    const hasRegistry = Boolean(this.releases) && (await this.releases?.hasReleases());
+    if (hasRegistry) {
+      const resolved = await this.releases!.resolveUpdate({
+        currentVersion: current || undefined,
+        platform: 'windows',
+        architecture: 'x64',
+        channel: 'STABLE',
+      });
+      const pkg = resolved.packageMetadata || null;
+      return {
+        ok: true,
+        // New Phase-16 contract
+        verdict: resolved.verdict,
+        releaseId: resolved.releaseId || null,
+        releaseChannel: resolved.releaseChannel || 'STABLE',
+        minimumSupportedVersion: resolved.minimumSupportedVersion,
+        recommendedVersion: resolved.recommendedVersion,
+        updateRequired: Boolean(resolved.updateRequired),
+        updateRecommended: Boolean(resolved.updateRecommended),
+        critical: Boolean(resolved.critical),
+        releaseNotes: resolved.releaseNotes || null,
+        packageMetadata: pkg,
+        blockedReason: resolved.blockedReason || null,
+        // Legacy Phase-14 fields (16.6 — old clients keep working)
+        channel: (resolved.releaseChannel || 'STABLE').toLowerCase(),
+        currentVersion: resolved.currentVersion || null,
+        latestVersion: resolved.latestVersion || null,
+        minVersion: resolved.minimumSupportedVersion || null,
+        updateAvailable: Boolean(resolved.updateAvailable),
+        updateUrl: pkg?.packageUrl || '',
+        signatureRequired: Boolean(pkg?.checksum),
+      };
+    }
+    // Legacy KV fallback
     const cfg = await this.config.getConfig();
     const latest = String(cfg.latestVersion || '').trim();
-    const current = String(currentVersion || '').trim();
     const updateAvailable = Boolean(latest) && (!current || latest !== current);
     return {
       ok: true,
+      verdict: updateAvailable
+        ? UPDATE_VERDICTS.UPDATE_AVAILABLE
+        : UPDATE_VERDICTS.VERSION_SUPPORTED,
       channel: cfg.updateChannel || 'stable',
       currentVersion: current || null,
       latestVersion: latest || null,
@@ -415,6 +560,7 @@ export class ActivationService {
       updateAvailable,
       updateUrl: cfg.updateUrl || '',
       signatureRequired: cfg.signatureRequired !== false,
+      releaseChannel: String(cfg.updateChannel || 'stable').toUpperCase(),
     };
   }
 

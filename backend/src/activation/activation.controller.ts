@@ -153,7 +153,7 @@ export class ActivationController {
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Verify an offline recovery token' })
   async offlineVerify(@Body() body: any) {
-    return this.service.offlineVerify(body.token);
+    return this.service.offlineVerify(body.token, body.deviceIdentifierHash);
   }
 
   @Public()

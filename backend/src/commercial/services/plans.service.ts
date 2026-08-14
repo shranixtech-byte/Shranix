@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
@@ -165,7 +166,7 @@ export class PlansService {
         });
         return this.findById(plan.id);
       } catch (err: any) {
-        const dup = /UNIQUE|already exists|plan_code/i.test(String(err?.message || ''));
+        const dup = isUniqueConstraintError(err) || /plan_code/i.test(String(err?.message || ''));
         if (!dup || attempts >= 4) {
           throw err;
         }

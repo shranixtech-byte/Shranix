@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { Logger, VersioningType , ValidationPipe } from '@nestjs/common';
+import { Logger, VersioningType, ValidationPipe } from '@nestjs/common';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -10,6 +10,7 @@ import * as express from 'express';
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { API_PREFIX, API_VERSION, SWAGGER_DESCRIPTION, APP_NAME } from './constants/app.constants';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
@@ -32,6 +33,12 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-csrf-token'],
   });
+
+  // ── Request ID / correlation ID (17.23) ─────────────────
+  const requestIdMiddleware = new RequestIdMiddleware();
+  app.use((req: express.Request, res: express.Response, next: express.NextFunction) =>
+    requestIdMiddleware.use(req, res, next),
+  );
 
   // ── Request parsing & limits ──────────────────────────
   app.use(express.json({ limit: '10mb' }));
@@ -75,10 +82,7 @@ async function bootstrap() {
       .setTitle(APP_NAME)
       .setDescription(SWAGGER_DESCRIPTION)
       .setVersion(API_VERSION)
-      .addBearerAuth(
-        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        'access-token',
-      )
+      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
       .addServer(`http://localhost:${process.env.APP_PORT || 4001}`, 'Local Development')
       .build();
 

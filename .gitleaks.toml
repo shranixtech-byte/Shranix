@@ -1,0 +1,26 @@
+# SHRANIX Krushi ERP — Gitleaks configuration (Phase 17.17)
+# Used by .github/workflows/ci.yml (gitleaks/gitleaks-action).
+
+title = "SHRANIX Krushi ERP secret scan"
+
+[extend]
+useDefault = true
+
+# Documented dev/test placeholders — allowlisted to avoid false positives.
+[[allowlist]]
+description = "Development defaults and placeholders"
+regexes = [
+  '''change_me''',
+  '''change-me''',
+  '''dev-secret-change-in-production''',
+  '''shranix123''',
+  '''REPLACE_ME''',
+  '''replace-me''',
+  '''example\.com''',
+]
+paths = [
+  '''\.env\.example$''',
+  '''deployment/\.env\..*template$''',
+  '''scripts/qa-settings\.sh$''',
+  '''docs/''',
+]

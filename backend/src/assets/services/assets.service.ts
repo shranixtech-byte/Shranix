@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { GlPostingEngine } from '../../automation/gl-posting.engine';
 import { AuditService } from '../../common/services/audit.service';
@@ -42,9 +43,8 @@ export class AssetsService {
       try {
         return await this.createOnce(data, userId);
       } catch (err: any) {
-        const isDuplicate = /UNIQUE|already exists|asset_code|assetCode/i.test(
-          String(err?.message || ''),
-        );
+        const isDuplicate =
+          isUniqueConstraintError(err) || /asset_code|assetCode/i.test(String(err?.message || ''));
         if (!isDuplicate || attempts >= 4) {
           throw err;
         }

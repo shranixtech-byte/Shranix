@@ -146,6 +146,14 @@ export class LicenseAdminController {
     });
   }
 
+  // ── PHASE 15 — key management ──────────────────────────
+  @Post('keys/rotate')
+  @Permissions('license.manage')
+  @ApiOperation({ summary: 'Rotate the license signing key (retired keys stay verifiable)' })
+  async rotateKeys() {
+    return this.tokens.rotateSigningKey();
+  }
+
   // ── Validation / tokens ────────────────────────────────
   @Post(':id/validate')
   @Permissions('license.view')

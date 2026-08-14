@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   ExceptionFilter,
   ArgumentsHost,
@@ -16,6 +18,8 @@ interface ErrorResponse {
   timestamp: string;
   path: string;
   method: string;
+  errorId?: string; // correlated with server logs (17.25)
+  requestId?: string; // echoed x-request-id (17.23)
   errors?: Record<string, string[]>;
   stack?: string;
 }
@@ -57,6 +61,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
+    // Phase 17.25 — every unexpected error gets an opaque error id; the
+    // client-facing response never exposes stack traces in production.
+    const requestId =
+      (request as Request & { requestId?: string }).requestId ||
+      (request.headers['x-request-id'] as string | undefined);
+    const errorId = randomUUID().slice(0, 8);
+
     const errorResponse: ErrorResponse = {
       statusCode,
       message,
@@ -64,6 +75,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
+      ...(requestId ? { requestId } : {}),
+      ...(statusCode >= 500 ? { errorId } : {}),
       ...(errors && { errors }),
     };
 
@@ -72,7 +85,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     this.logger.error(
-      `${request.method} ${request.url} - ${statusCode} ${message}`,
+      `${request.method} ${request.url} - ${statusCode} ${message} [requestId=${requestId || '-'} errorId=${statusCode >= 500 ? errorId : '-'}]`,
       exception instanceof Error ? exception.stack : undefined,
     );
 

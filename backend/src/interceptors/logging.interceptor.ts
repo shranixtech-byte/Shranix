@@ -10,6 +10,7 @@ export class LoggingInterceptor implements NestInterceptor {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
     const { method, url } = request;
+    const requestId = request.requestId || request.headers?.['x-request-id'] || '-';
     const startTime = Date.now();
 
     return next.handle().pipe(
@@ -17,12 +18,14 @@ export class LoggingInterceptor implements NestInterceptor {
         next: () => {
           const duration = Date.now() - startTime;
           const response = ctx.getResponse();
-          this.logger.log(`${method} ${url} ${response.statusCode} - ${duration}ms`);
+          this.logger.log(
+            `[requestId=${requestId}] ${method} ${url} ${response.statusCode} - ${duration}ms`,
+          );
         },
         error: (error) => {
           const duration = Date.now() - startTime;
           this.logger.error(
-            `${method} ${url} - ${error.status || 500} - ${duration}ms`,
+            `[requestId=${requestId}] ${method} ${url} - ${error.status || 500} - ${duration}ms`,
             error.stack,
           );
         },

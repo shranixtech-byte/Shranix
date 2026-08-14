@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+
 
 import { ActivationModule } from './activation/activation.module';
 import { AiModule } from './ai/ai.module';
@@ -10,6 +10,7 @@ import { AuditTrailModule } from './audit/audit-trail.module';
 import { AuthModule } from './auth/auth.module';
 import { AutomationModule } from './automation/automation.module';
 import { BackupModule } from './backup/backup.module';
+import { CentralModule } from './central/central.module';
 import { CommercialModule } from './commercial/commercial.module';
 import { CommonModule } from './common/common.module';
 import { CsrfGuard } from './common/guards/csrf.guard';
@@ -31,6 +32,7 @@ import { DmsModule } from './dms/dms.module';
 import { FinanceModule } from './finance/finance.module';
 import { GlModule } from './gl/gl.module';
 import { GstAuditModule } from './gst_audit/gst_audit.module';
+import { ThrottlerBehindProxyGuard } from './guards/throttler-behind-proxy.guard';
 import { HealthModule } from './health/health.module';
 import { HrModule } from './hr/hr.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -45,8 +47,10 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { PortalModule } from './portal/portal.module';
 import { PrinterModule } from './printer/printer.module';
 import { PurchaseModule } from './purchase/purchase.module';
+import { ReleasesModule } from './releases/releases.module';
 import { RolesModule } from './roles/roles.module';
 import { SalesModule } from './sales/sales.module';
+import { SecurityModule } from './security/security.module';
 import { SharedModule } from './shared/shared.module';
 import { UsersModule } from './users/users.module';
 import { WorkflowModule } from './workflow/workflow.module';
@@ -107,6 +111,9 @@ const permissionsGuardProvider = {
     DashboardModule,
     DataManagementModule,
     ActivationModule,
+    SecurityModule,
+    ReleasesModule,
+    CentralModule,
   ],
   providers: [
     rolesGuardProvider,
@@ -114,7 +121,7 @@ const permissionsGuardProvider = {
     CsrfService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ThrottlerBehindProxyGuard,
     },
     {
       provide: APP_GUARD,

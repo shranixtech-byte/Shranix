@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 
 import { EntitlementsService } from '../../commercial/services/entitlements.service';
 import { DatabaseService } from '../../database/database.service';
+import { SecurityEventsService } from '../../security/security-events.service';
 import { publicId, sha256 } from '../numbering';
 
 import { LicenseEventsService } from './license-events.service';
@@ -22,6 +23,7 @@ export class LicenseValidationService {
     private readonly entitlements: EntitlementsService,
     private readonly licenses: LicensesService,
     private readonly events: LicenseEventsService,
+    @Optional() private readonly security?: SecurityEventsService,
   ) {}
 
   async validateLicense(input: {
@@ -159,6 +161,23 @@ export class LicenseValidationService {
       }
       if (String(device.status) === 'inactive') {
         return fail('DEVICE_DEACTIVATED', license);
+      }
+      // PHASE 15.9 — a stored validation timestamp in the FUTURE means the
+      // device previously reported a clock ahead of the server (roll-forward
+      // attempt). Flag it; never block a legitimate user permanently.
+      if (device.lastValidationAt) {
+        const storedMs = new Date(String(device.lastValidationAt)).getTime();
+        if (Number.isFinite(storedMs) && storedMs > Date.now() + 5 * 60_000) {
+          await this.security?.record({
+            eventType: 'CLOCK_ROLLBACK',
+            severity: 'MEDIUM',
+            customerId: license.customerId,
+            licenseId: license.id,
+            deviceRef: device.devicePublicId,
+            source: input.source || 'api',
+            metadata: { stage: 'validation', storedFutureTimestamp: device.lastValidationAt },
+          });
+        }
       }
       const actRes = await this.database.licenseActivations.findAll({
         page: 1,

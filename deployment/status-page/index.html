@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHRANIX Services Status</title>
+  <style>
+    :root { --ok:#16a34a; --degraded:#f59e0b; --down:#dc2626; --maint:#6b7280; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background:#f8fafc; color:#0f172a; padding: 40px 20px; }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .sub { color:#64748b; font-size: .9rem; margin-bottom: 24px; }
+    .overall { padding: 16px; border-radius: 10px; color:#fff; font-weight: 600; margin-bottom: 24px; }
+    .overall.ok { background: var(--ok); }
+    .overall.degraded { background: var(--degraded); }
+    .overall.outage { background: var(--down); }
+    .service { display:flex; justify-content: space-between; align-items:center; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding: 14px 16px; margin-bottom:10px; }
+    .service .name { font-weight:600; }
+    .badge { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding: 4px 10px; border-radius: 999px; color:#fff; }
+    .badge.operational { background: var(--ok); }
+    .badge.degraded { background: var(--degraded); }
+    .badge.outage { background: var(--down); }
+    .badge.maintenance { background: var(--maint); }
+    .note { margin-top: 28px; font-size:.8rem; color:#94a3b8; line-height:1.5; }
+    .updated { margin-top: 8px; font-size:.8rem; color:#64748b; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SHRANIX Services Status</h1>
+    <div class="sub">Live status of SHRANIX Central services (ERP, License, Activation, Payments, Downloads, Updates)</div>
+
+    <div id="overall" class="overall ok">Checking…</div>
+    <div id="services"></div>
+
+    <div class="note">
+      This page exposes only high-level operational status. It intentionally never shows
+      internal infrastructure details (hosts, IPs, versions, paths) — per Phase 17.42.
+    </div>
+    <div class="updated" id="updated"></div>
+  </div>
+
+  <script>
+    // ── Health endpoints — configure per environment ──────────────
+    // These are server-side proxies/static snapshots so no infra is exposed.
+    // Replace with the deployed status endpoint (e.g. https://status.shranix.in/health.json).
+    const SERVICES = [
+      { id: 'erp',        name: 'ERP Application',   url: '/health/erp.json' },
+      { id: 'portal',     name: 'Customer Portal',   url: '/health/portal.json' },
+      { id: 'license',    name: 'License Service',   url: '/health/license.json' },
+      { id: 'activation', name: 'Activation Service',url: '/health/activation.json' },
+      { id: 'payments',   name: 'Payments',          url: '/health/payments.json' },
+      { id: 'downloads',  name: 'Downloads',         url: '/health/downloads.json' },
+      { id: 'updates',    name: 'Updates',           url: '/health/updates.json' },
+    ];
+
+    function statusOf(s) {
+      if (!s || s.status === 'maintenance') return 'maintenance';
+      if (s.status === 'ok' || s.status === 'operational' || s.status === 'ready') return 'operational';
+      if (s.status === 'degraded' || s.status === 'degrading') return 'degraded';
+      return 'outage';
+    }
+    const LABEL = { operational: 'Operational', degraded: 'Degraded', outage: 'Outage', maintenance: 'Maintenance' };
+
+    async function check() {
+      const rows = [];
+      for (const svc of SERVICES) {
+        let st = 'outage';
+        try {
+          const res = await fetch(svc.url, { cache: 'no-store' });
+          if (!res.ok) throw new Error('http ' + res.status);
+          const body = await res.json().catch(() => ({}));
+          st = statusOf(body);
+        } catch { /* outage */ }
+        rows.push({ ...svc, st });
+      }
+
+      const worst = rows.some(r => r.st === 'outage') ? 'outage'
+                  : rows.some(r => r.st === 'degraded') ? 'degraded' : 'operational';
+      const overall = document.getElementById('overall');
+      overall.className = 'overall ' + worst;
+      overall.textContent = worst === 'operational' ? 'All Systems Operational'
+        : worst === 'degraded' ? 'Partial Service Degradation'
+        : 'Service Outage';
+
+      document.getElementById('services').innerHTML = rows.map(r =>
+        `<div class="service"><span class="name">${r.name}</span><span class="badge ${r.st}">${LABEL[r.st]}</span></div>`
+      ).join('');
+      document.getElementById('updated').textContent = 'Last checked: ' + new Date().toLocaleString();
+    }
+
+    check();
+    setInterval(check, 60000);
+  </script>
+</body>
+</html>

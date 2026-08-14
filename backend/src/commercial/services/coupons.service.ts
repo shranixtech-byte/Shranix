@@ -6,6 +6,17 @@ import { actor, round2 } from '../numbering.util';
 
 const COUPON_STATUSES = ['active', 'inactive', 'expired'];
 
+/**
+ * Drizzle (>=0.45) wraps driver errors as { query, params, cause } where the
+ * original error lives on `.cause` (code e.g. SQLITE_CONSTRAINT_UNIQUE / 23505).
+ * Detect unique-constraint violations across both shapes.
+ */
+function isUniqueConstraintError(err: unknown): boolean {
+  const e = err as { message?: string; cause?: { message?: string; code?: string } };
+  const msg = `${e?.message || ''} ${e?.cause?.message || ''}`;
+  return /UNIQUE|already exists|duplicate/i.test(msg);
+}
+
 @Injectable()
 export class CouponsService {
   constructor(
@@ -108,7 +119,7 @@ export class CouponsService {
         });
         return this.findById(coupon.id);
       } catch (err: any) {
-        const dup = /UNIQUE|already exists|coupon_code/i.test(String(err?.message || ''));
+        const dup = isUniqueConstraintError(err) || /coupon_code/i.test(String(err?.message || ''));
         if (!dup || attempts >= 4) {
           throw err;
         }
@@ -334,8 +345,7 @@ export class CouponsService {
       });
       return redemption;
     } catch (err: any) {
-      const dup = /UNIQUE|already exists/i.test(String(err?.message || ''));
-      if (dup) {
+      if (isUniqueConstraintError(err)) {
         throw new BadRequestException('Coupon already used for this customer');
       }
       throw err;

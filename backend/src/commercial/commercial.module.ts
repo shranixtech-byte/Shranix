@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { AutomationModule } from '../automation/automation.module';
 import { DatabaseService } from '../database/database.service';
+import { SecurityModule } from '../security/security.module';
 
 import { BillingController } from './controllers/billing.controller';
 import { CommercialController } from './controllers/commercial.controller';
@@ -21,7 +22,7 @@ import { RemindersService } from './services/reminders.service';
 import { SubscriptionsService } from './services/subscriptions.service';
 
 @Module({
-  imports: [AutomationModule],
+  imports: [AutomationModule, SecurityModule],
   controllers: [
     PlansController,
     SubscriptionsController,

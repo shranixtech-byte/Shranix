@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { GlPostingEngine } from '../../automation/gl-posting.engine';
 import { AuditService } from '../../common/services/audit.service';
@@ -130,7 +131,8 @@ export class BillingService {
         });
         return invoice;
       } catch (err: any) {
-        const dup = /UNIQUE|already exists|invoice_number/i.test(String(err?.message || ''));
+        const dup =
+          isUniqueConstraintError(err) || /invoice_number/i.test(String(err?.message || ''));
         if (!dup || attempts >= 4) {
           throw err;
         }

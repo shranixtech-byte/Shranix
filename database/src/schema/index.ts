@@ -514,3 +514,16 @@ export {
   sqliteDocumentAccessLogs,
   pgDocumentAccessLogs,
 } from './dms';
+
+export { sqliteSecurityEvents, pgSecurityEvents } from './security';
+
+export {
+  sqliteSoftwareReleases,
+  pgSoftwareReleases,
+  sqliteReleasePackages,
+  pgReleasePackages,
+  sqliteReleaseChannels,
+  pgReleaseChannels,
+  sqliteVersionCompatibility,
+  pgVersionCompatibility,
+} from './release';

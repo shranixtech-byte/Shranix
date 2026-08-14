@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isUniqueConstraintError } from '@shranix/database';
 
 import { DatabaseService } from '../../database/database.service';
 
@@ -34,7 +35,7 @@ export class RemindersService {
       } as any);
       return { created: true, reminder };
     } catch (err: any) {
-      if (/UNIQUE|already exists/i.test(String(err?.message || ''))) {
+      if (isUniqueConstraintError(err)) {
         return { created: false };
       }
       return { created: false };
