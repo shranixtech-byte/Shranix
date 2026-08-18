@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
+import { DistributedLockService } from '../common/services/distributed-lock.service';
+
 import { CommunicationService } from './communication.service';
 import { ReminderEngineService } from './reminder-engine.service';
 import { TemplateEngineService } from './template-engine.service';
@@ -18,10 +20,14 @@ export class CommunicationSchedulerService implements OnModuleInit, OnModuleDest
   private timer: NodeJS.Timeout | null = null;
   private running = false;
 
+  /** H5 — Lock lease: 50s (tick interval = 60s). */
+  private static readonly LOCK_LEASE_MS = 50 * 1000;
+
   constructor(
     private readonly communications: CommunicationService,
     private readonly reminders: ReminderEngineService,
     private readonly templates: TemplateEngineService,
+    private readonly distributedLock: DistributedLockService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -49,21 +55,30 @@ export class CommunicationSchedulerService implements OnModuleInit, OnModuleDest
     }
   }
 
-  /** Single tick — serialize to avoid overlapping runs. */
+  /** Single tick — H5: distributed lock prevents duplicate dispatch across replicas. */
   private async tick(): Promise<void> {
     if (this.running) {
       return;
     }
     this.running = true;
     try {
-      const { processed } = await this.communications.processDue();
-      if (processed > 0) {
-        this.logger.log(`Communication worker dispatched ${processed} messages`);
-      }
-      const reminders = await this.reminders.runAll();
-      const anySent = Object.values(reminders).some((v) => v > 0);
-      if (anySent) {
-        this.logger.log(`Reminder run: ${JSON.stringify(reminders)}`);
+      const { acquired } = await this.distributedLock.runWithDistributedLock(
+        'communication_scheduler',
+        { leaseMs: CommunicationSchedulerService.LOCK_LEASE_MS },
+        async () => {
+          const { processed } = await this.communications.processDue();
+          if (processed > 0) {
+            this.logger.log(`Communication worker dispatched ${processed} messages`);
+          }
+          const reminders = await this.reminders.runAll();
+          const anySent = Object.values(reminders).some((v) => v > 0);
+          if (anySent) {
+            this.logger.log(`Reminder run: ${JSON.stringify(reminders)}`);
+          }
+        },
+      );
+      if (!acquired) {
+        this.logger.debug('Communication worker: lock not acquired, skipping tick');
       }
     } catch (err: any) {
       this.logger.error(`Communication worker tick failed: ${err?.message}`);
@@ -72,10 +87,20 @@ export class CommunicationSchedulerService implements OnModuleInit, OnModuleDest
     }
   }
 
-  /** Manual trigger (admin endpoint). */
+  /** Manual trigger (admin endpoint) — H5: protected by distributed lock. */
   async runNow(): Promise<Record<string, unknown>> {
-    const { processed } = await this.communications.processDue();
-    const reminders = await this.reminders.runAll();
-    return { processed, reminders };
+    const { acquired, result } = await this.distributedLock.runWithDistributedLock(
+      'communication_scheduler',
+      { leaseMs: CommunicationSchedulerService.LOCK_LEASE_MS },
+      async () => {
+        const { processed } = await this.communications.processDue();
+        const reminders = await this.reminders.runAll();
+        return { processed, reminders };
+      },
+    );
+    if (!acquired) {
+      this.logger.warn('Communication runNow: lock not acquired');
+    }
+    return (result as Record<string, unknown>) ?? {};
   }
 }

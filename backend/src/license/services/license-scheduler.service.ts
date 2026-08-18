@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
+import { DistributedLockService } from '../../common/services/distributed-lock.service';
 import { DatabaseService } from '../../database/database.service';
 
 import { LicenseEventsService } from './license-events.service';
@@ -21,10 +22,14 @@ export class LicenseSchedulerService implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
 
+  /** H5 — Lock lease: 50s (tick interval = 60s by default). */
+  private static readonly LOCK_LEASE_MS = 50 * 1000;
+
   constructor(
     private readonly database: DatabaseService,
     private readonly licenses: LicensesService,
     private readonly events: LicenseEventsService,
+    private readonly distributedLock: DistributedLockService,
   ) {}
 
   onModuleInit(): void {
@@ -49,8 +54,17 @@ export class LicenseSchedulerService implements OnModuleInit, OnModuleDestroy {
     }
     this.running = true;
     try {
-      await this.syncAll();
-      await this.markStaleInstallations();
+      const { acquired } = await this.distributedLock.runWithDistributedLock(
+        'license_scheduler',
+        { leaseMs: LicenseSchedulerService.LOCK_LEASE_MS },
+        async () => {
+          await this.syncAll();
+          await this.markStaleInstallations();
+        },
+      );
+      if (!acquired) {
+        this.logger.debug('License sync worker: lock not acquired, skipping tick');
+      }
     } catch (err) {
       this.logger.error(`License sync tick failed: ${(err as Error).message}`);
     } finally {

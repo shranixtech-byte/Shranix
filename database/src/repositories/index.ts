@@ -274,6 +274,8 @@ export {
 
 export { SecurityEventsRepository } from './security.repository';
 
+export { JobLocksRepository } from './job-lock.repository';
+
 export {
   SoftwareReleasesRepository,
   ReleasePackagesRepository,

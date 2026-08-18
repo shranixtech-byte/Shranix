@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 
+import { DistributedLockService } from '../../common/services/distributed-lock.service';
 import { DatabaseService } from '../../database/database.service';
 
 import { BillingPaymentsService } from './billing-payments.service';
@@ -23,6 +24,9 @@ export class CommercialSchedulerService implements OnModuleInit, OnModuleDestroy
   private timer: NodeJS.Timeout | null = null;
   private running = false;
 
+  /** H5 — Lock lease slightly shorter than tick interval to avoid overlap. */
+  private static readonly LOCK_LEASE_MS = 50 * 1000; // 50s lease (tick = 60s)
+
   constructor(
     private readonly database: DatabaseService,
     private readonly settings: CommercialSettingsService,
@@ -30,6 +34,7 @@ export class CommercialSchedulerService implements OnModuleInit, OnModuleDestroy
     private readonly reminders: RemindersService,
     private readonly subscriptions: SubscriptionsService,
     private readonly payments: BillingPaymentsService,
+    private readonly distributedLock: DistributedLockService,
   ) {}
 
   onModuleInit(): void {
@@ -45,24 +50,34 @@ export class CommercialSchedulerService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  /** Single tick — serialize to avoid overlapping runs. */
+  /** Single tick — H5: distributed lock prevents duplicate execution across replicas. */
   private async tick(): Promise<void> {
     if (this.running) {
       return;
     }
     this.running = true;
     try {
-      const result = await this.runAll();
-      const total =
-        result.trialExpired +
-        result.graceStarted +
-        result.suspended +
-        result.expired +
-        result.renewals +
-        result.reminders +
-        result.couponsExpired;
-      if (total > 0) {
-        this.logger.log(`Commercial worker: ${JSON.stringify(result)}`);
+      const { acquired } = await this.distributedLock.runWithDistributedLock(
+        'commercial_scheduler',
+        { leaseMs: CommercialSchedulerService.LOCK_LEASE_MS },
+        async () => {
+          const result = await this.runAll();
+          const total =
+            result.trialExpired +
+            result.graceStarted +
+            result.suspended +
+            result.expired +
+            result.renewals +
+            result.reminders +
+            result.couponsExpired;
+          if (total > 0) {
+            this.logger.log(`Commercial worker: ${JSON.stringify(result)}`);
+          }
+          return result;
+        },
+      );
+      if (!acquired) {
+        this.logger.debug('Commercial worker: lock not acquired, skipping tick');
       }
     } catch (err: any) {
       this.logger.error(`Commercial worker tick failed: ${err?.message}`);
@@ -71,9 +86,17 @@ export class CommercialSchedulerService implements OnModuleInit, OnModuleDestroy
     }
   }
 
-  /** Manual trigger (admin endpoint). */
+  /** Manual trigger (admin endpoint) — H5: also protected by distributed lock. */
   async runNow(): Promise<Record<string, number>> {
-    return this.runAll();
+    const { acquired, result } = await this.distributedLock.runWithDistributedLock(
+      'commercial_scheduler',
+      { leaseMs: CommercialSchedulerService.LOCK_LEASE_MS },
+      async () => this.runAll(),
+    );
+    if (!acquired) {
+      this.logger.warn('Commercial runNow: lock not acquired — another instance is running');
+    }
+    return result ?? {};
   }
 
   private async runAll(): Promise<Record<string, number>> {

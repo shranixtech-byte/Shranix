@@ -219,6 +219,7 @@ import {
   ReleasePackagesRepository,
   ReleaseChannelsRepository,
   VersionCompatibilityRepository,
+  JobLocksRepository,
   loadDatabaseConfig,
   DatabaseClient,
   DatabaseConfig,
@@ -460,6 +461,8 @@ export class DatabaseService implements OnApplicationShutdown {
   public readonly releasePackages: ReleasePackagesRepository;
   public readonly releaseChannels: ReleaseChannelsRepository;
   public readonly versionCompatibility: VersionCompatibilityRepository;
+  // H5: Distributed Lock
+  public readonly jobLocks: JobLocksRepository;
   public readonly employeeDesignations: any;
   public readonly leaveTypes: any;
   public readonly budgets: any;
@@ -813,6 +816,8 @@ export class DatabaseService implements OnApplicationShutdown {
     this.releasePackages = new ReleasePackagesRepository(db as any, isPostgres);
     this.releaseChannels = new ReleaseChannelsRepository(db as any, isPostgres);
     this.versionCompatibility = new VersionCompatibilityRepository(db as any, isPostgres);
+    // H5: Distributed Lock
+    this.jobLocks = new JobLocksRepository(db as any, isPostgres);
     this.employeeDesignations = createGenericRepo('employeeDesignations');
     this.leaveTypes = createGenericRepo('leaveTypes');
     this.budgets = createGenericRepo('budgets');
@@ -834,7 +839,7 @@ export class DatabaseService implements OnApplicationShutdown {
     (this as any)['stockTransfers'] = createGenericRepo('stockTransfers');
 
     this.logger.log(
-      `DatabaseService initialized with 88 repositories + 15 PRM-013 adapters + 9 PRM-015x inventory repos (provider: ${this.config.provider})`,
+      `DatabaseService initialized with 89 repositories + 15 PRM-013 adapters + 9 PRM-015x inventory repos (provider: ${this.config.provider})`,
     );
   }
 

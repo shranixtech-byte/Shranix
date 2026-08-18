@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+import { DistributedLockService } from '../common/services/distributed-lock.service';
 import { DatabaseService } from '../database/database.service';
 
 import { GlPostingEngine } from './gl-posting.engine';
@@ -29,42 +30,61 @@ export class FinancialScheduler {
   private jobs: ScheduledJob[] = [];
   private _isRunning = false;
 
+  /** H5 — Lock lease: 2 minutes (financial jobs can run longer). */
+  private static readonly LOCK_LEASE_MS = 2 * 60 * 1000;
+
   constructor(
     private readonly database: DatabaseService,
     private readonly glPosting: GlPostingEngine,
     private readonly reportEngine: ReportEngine,
+    private readonly distributedLock: DistributedLockService,
   ) {}
 
   /**
-   * Auto-post pending tax entries.
+   * Auto-post pending tax entries — H5: distributed lock prevents duplicate postings.
    */
   async autoPostPendingEntries(): Promise<void> {
-    if (this._isRunning) {return;}
+    if (this._isRunning) {
+      return;
+    }
     this._isRunning = true;
-    this.logger.log('Scheduler: Auto-posting pending tax entries...');
-
     try {
-      const pendingPostings = await this.database.taxPostings.findAll({ page: 1, pageSize: 100 } as any);
-      if (!pendingPostings.data || pendingPostings.data.length === 0) {
-        this.logger.log('No pending postings found');
-        return;
-      }
+      const { acquired } = await this.distributedLock.runWithDistributedLock(
+        'financial_auto_post',
+        { leaseMs: FinancialScheduler.LOCK_LEASE_MS },
+        async () => {
+          this.logger.log('Scheduler: Auto-posting pending tax entries...');
+          const pendingPostings = await this.database.taxPostings.findAll({
+            page: 1,
+            pageSize: 100,
+          } as any);
+          if (!pendingPostings.data || pendingPostings.data.length === 0) {
+            this.logger.log('No pending postings found');
+            return;
+          }
 
-      for (const posting of pendingPostings.data as any[]) {
-        if (posting.status === 'posted' || posting.status === 'cancelled') {continue;}
-        try {
-          const result = await this.glPosting.applyPostingRules({
-            id: posting.id,
-            type: posting.sourceType || 'auto',
-            number: posting.sourceNumber || posting.id,
-            date: posting.createdAt || new Date().toISOString(),
-            amount: Number(posting.amount || 0),
-            financialYearId: posting.financialYearId,
-          });
-          this.logger.log(`Auto-posted ${posting.id}: ${result.message}`);
-        } catch (error) {
-          this.logger.error(`Failed to auto-post ${posting.id}: ${(error as Error).message}`);
-        }
+          for (const posting of pendingPostings.data as any[]) {
+            if (posting.status === 'posted' || posting.status === 'cancelled') {
+              continue;
+            }
+            try {
+              const result = await this.glPosting.applyPostingRules({
+                id: posting.id,
+                type: posting.sourceType || 'auto',
+                number: posting.sourceNumber || posting.id,
+                date: posting.createdAt || new Date().toISOString(),
+                amount: Number(posting.amount || 0),
+                financialYearId: posting.financialYearId,
+              });
+              this.logger.log(`Auto-posted ${posting.id}: ${result.message}`);
+            } catch (error) {
+              this.logger.error(`Failed to auto-post ${posting.id}: ${(error as Error).message}`);
+            }
+          }
+        },
+      );
+      if (!acquired) {
+        this.logger.debug('Financial auto-post: lock not acquired, skipping');
       }
     } finally {
       this._isRunning = false;
@@ -72,42 +92,47 @@ export class FinancialScheduler {
   }
 
   /**
-   * Generate daily financial snapshots.
+   * Generate daily financial snapshots — H5: distributed lock prevents duplicates.
    */
   async generateDailySnapshots(): Promise<void> {
-    this.logger.log('Scheduler: Generating daily financial snapshots...');
-    try {
-      const trialBalance = await this.reportEngine.generateTrialBalance({});
-      const profitLoss = await this.reportEngine.generateProfitLoss({});
-      const balanceSheet = await this.reportEngine.generateBalanceSheet({});
+    const { acquired } = await this.distributedLock.runWithDistributedLock(
+      'financial_snapshots',
+      { leaseMs: FinancialScheduler.LOCK_LEASE_MS },
+      async () => {
+        this.logger.log('Scheduler: Generating daily financial snapshots...');
+        const trialBalance = await this.reportEngine.generateTrialBalance({});
+        const profitLoss = await this.reportEngine.generateProfitLoss({});
+        const balanceSheet = await this.reportEngine.generateBalanceSheet({});
 
-      await this.database.financialSnapshots.create({
-        snapshotType: 'trial_balance',
-        snapshotDate: new Date().toISOString().split('T')[0],
-        data: JSON.stringify(trialBalance),
-        totalDebit: trialBalance.summary.totalDebit,
-        totalCredit: trialBalance.summary.totalCredit,
-      } as any);
+        await this.database.financialSnapshots.create({
+          snapshotType: 'trial_balance',
+          snapshotDate: new Date().toISOString().split('T')[0],
+          data: JSON.stringify(trialBalance),
+          totalDebit: trialBalance.summary.totalDebit,
+          totalCredit: trialBalance.summary.totalCredit,
+        } as any);
 
-      await this.database.financialSnapshots.create({
-        snapshotType: 'profit_loss',
-        snapshotDate: new Date().toISOString().split('T')[0],
-        data: JSON.stringify(profitLoss),
-        totalDebit: profitLoss.netProfit > 0 ? profitLoss.netProfit : 0,
-        totalCredit: profitLoss.netProfit < 0 ? Math.abs(profitLoss.netProfit) : 0,
-      } as any);
+        await this.database.financialSnapshots.create({
+          snapshotType: 'profit_loss',
+          snapshotDate: new Date().toISOString().split('T')[0],
+          data: JSON.stringify(profitLoss),
+          totalDebit: profitLoss.netProfit > 0 ? profitLoss.netProfit : 0,
+          totalCredit: profitLoss.netProfit < 0 ? Math.abs(profitLoss.netProfit) : 0,
+        } as any);
 
-      await this.database.financialSnapshots.create({
-        snapshotType: 'balance_sheet',
-        snapshotDate: new Date().toISOString().split('T')[0],
-        data: JSON.stringify(balanceSheet),
-        totalDebit: balanceSheet.assets.total,
-        totalCredit: balanceSheet.liabilities.total + balanceSheet.equity.total,
-      } as any);
+        await this.database.financialSnapshots.create({
+          snapshotType: 'balance_sheet',
+          snapshotDate: new Date().toISOString().split('T')[0],
+          data: JSON.stringify(balanceSheet),
+          totalDebit: balanceSheet.assets.total,
+          totalCredit: balanceSheet.liabilities.total + balanceSheet.equity.total,
+        } as any);
 
-      this.logger.log('Daily snapshots generated successfully');
-    } catch (error) {
-      this.logger.error(`Failed to generate daily snapshots: ${(error as Error).message}`);
+        this.logger.log('Daily snapshots generated successfully');
+      },
+    );
+    if (!acquired) {
+      this.logger.debug('Financial snapshots: lock not acquired, skipping');
     }
   }
 
@@ -118,11 +143,15 @@ export class FinancialScheduler {
     this.logger.log('Scheduler: Checking period locks...');
     try {
       const locks = await this.database.periodLocks.findAll({ page: 1, pageSize: 100 } as any);
-      if (!locks.data) {return;}
+      if (!locks.data) {
+        return;
+      }
 
       const now = new Date().toISOString().split('T')[0];
       for (const lock of locks.data as any[]) {
-        if (lock.isLocked) {continue;}
+        if (lock.isLocked) {
+          continue;
+        }
         if (lock.periodEnd && lock.periodEnd < now) {
           await this.database.periodLocks.update(lock.id, { isLocked: true } as any);
           this.logger.log(`Auto-locked period: ${lock.periodKey} (${lock.periodType})`);
@@ -178,13 +207,20 @@ export class FinancialScheduler {
 
   async retryJob(id: string): Promise<ScheduledJob | null> {
     const job = this.jobs.find((j) => j.id === id);
-    if (!job || job.status !== 'failed') {return null;}
+    if (!job || job.status !== 'failed') {
+      return null;
+    }
     job.status = 'pending';
     job.error = undefined;
     return job;
   }
 
-  getHealth(): { isRunning: boolean; activeJobs: number; completedJobs: number; failedJobs: number } {
+  getHealth(): {
+    isRunning: boolean;
+    activeJobs: number;
+    completedJobs: number;
+    failedJobs: number;
+  } {
     return {
       isRunning: this._isRunning,
       activeJobs: this.jobs.filter((j) => j.status === 'running').length,

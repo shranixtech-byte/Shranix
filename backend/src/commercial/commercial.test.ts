@@ -82,6 +82,16 @@ describe('Commercial module (real DB)', () => {
     billing = new BillingService(database, audit, gl);
     subscriptions = new SubscriptionsService(database, audit, coupons, entitlements, billing);
     payments = new BillingPaymentsService(database, audit, billing, subscriptions, settings);
+    // H5 — mock distributed lock for single-process tests
+    const mockLock = {
+      runWithDistributedLock: async <T>(_k: string, _o: any, handler: () => Promise<T>) => {
+        try {
+          return { acquired: true, result: await handler() };
+        } catch (e) {
+          return { acquired: true, error: e as Error };
+        }
+      },
+    };
     scheduler = new CommercialSchedulerService(
       database,
       settings,
@@ -89,6 +99,7 @@ describe('Commercial module (real DB)', () => {
       new RemindersService(database),
       subscriptions,
       payments,
+      mockLock as any,
     );
 
     // ── Master data ──────────────────────────────────────

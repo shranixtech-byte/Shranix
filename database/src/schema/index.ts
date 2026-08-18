@@ -527,3 +527,5 @@ export {
   sqliteVersionCompatibility,
   pgVersionCompatibility,
 } from './release';
+
+export { sqliteJobLocks, pgJobLocks } from './job-lock';
