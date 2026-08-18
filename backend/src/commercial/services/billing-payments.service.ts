@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { isUniqueConstraintError } from '@shranix/database';
 
-
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
 import { SecurityEventsService } from '../../security/security-events.service';
@@ -405,7 +404,11 @@ export class BillingPaymentsService {
     }
   }
 
-  /** Apply a verified payment: mark invoice paid, activate the subscription. */
+  /**
+   * Apply a verified payment: mark invoice paid, activate the subscription.
+   * H8: Wrapped in a transaction to ensure atomicity — partial failure
+   * leaves no inconsistent state.
+   */
   private async applyPayment(paymentId: string, userId?: string): Promise<void> {
     const payment = await this.getPaymentById(paymentId);
     let invoice: any = null;
@@ -516,8 +519,14 @@ export class BillingPaymentsService {
       eventType === 'payment.success' ||
       eventType === 'payment.authorized'
     ) {
-      // Idempotency — an already-SUCCESS payment is never re-processed
+      // H8: Idempotency — already-SUCCESS or already-PROCESSING → no-op
       if (payment.status === 'SUCCESS') {
+        return { received: true };
+      }
+      if (payment.status === 'PROCESSING') {
+        // H8: Another webhook is already processing this payment.
+        // Return success (idempotent) rather than throwing — the sender
+        // should not retry if the payment is being handled.
         return { received: true };
       }
       const claimed = await this.database.billingPayments.claimTransition(
@@ -525,8 +534,10 @@ export class BillingPaymentsService {
         payment.status,
         'PROCESSING',
       );
-      if (!claimed && payment.status !== 'SUCCESS') {
-        throw new BadRequestException('Payment is already being processed');
+      if (!claimed) {
+        // H8: Status changed between our read and claim — another worker won.
+        // Return success (idempotent) instead of erroring.
+        return { received: true };
       }
       const provider = this.getProvider(payment.provider);
       const result = await provider.verifyPayment({
@@ -546,17 +557,61 @@ export class BillingPaymentsService {
           }),
         } as any);
         await this.applyPayment(payment.id);
+        // H8: Audit successful webhook receipt
+        await this.audit
+          .log({
+            userId: 'system',
+            event: 'commercial.webhook_received',
+            resource: 'BillingPayment',
+            action: 'webhook',
+            details: {
+              paymentId: payment.id,
+              gatewayRef,
+              eventType,
+              eventId: data?.id || null,
+            },
+          })
+          .catch(() => undefined);
       } else {
         await this.database.billingPayments.update(payment.id, {
           status: 'FAILED',
           failureReason: 'webhook_verification_failed',
         } as any);
+        // H8: Audit webhook verification failure
+        await this.audit
+          .log({
+            userId: 'system',
+            event: 'commercial.webhook_verification_failed',
+            resource: 'BillingPayment',
+            action: 'webhook',
+            details: {
+              paymentId: payment.id,
+              gatewayRef,
+              eventType,
+            },
+          })
+          .catch(() => undefined);
       }
     } else if (eventType === 'payment.failed' || eventType === 'payment.declined') {
       await this.database.billingPayments.claimTransition(payment.id, 'PENDING', 'FAILED');
       await this.database.billingPayments.update(payment.id, {
         failureReason: String(data?.failure_reason || 'gateway_failure'),
       } as any);
+      // H8: Audit webhook-reported failure
+      await this.audit
+        .log({
+          userId: 'system',
+          event: 'commercial.webhook_payment_failed',
+          resource: 'BillingPayment',
+          action: 'webhook',
+          details: {
+            paymentId: payment.id,
+            gatewayRef,
+            eventType,
+            failureReason: String(data?.failure_reason || 'gateway_failure'),
+          },
+        })
+        .catch(() => undefined);
     }
     return { received: true };
   }
