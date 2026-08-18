@@ -40,22 +40,40 @@ export class WebhookDeliveriesRepository {
     attempt: number;
     status: string;
     triggeredAt: string;
+    eventType?: string;
+    payloadRef?: string;
   }): Promise<void> {
     if (this.isPostgres) {
       const sql = this.rawClient;
       await sql.unsafe(
-        `INSERT INTO shranix_webhook_deliveries (id, webhook_id, attempt, status, triggered_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [data.id, data.webhookId, data.attempt, data.status, data.triggeredAt],
+        `INSERT INTO shranix_webhook_deliveries (id, webhook_id, attempt, status, event_type, payload_ref, triggered_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          data.id,
+          data.webhookId,
+          data.attempt,
+          data.status,
+          data.eventType || null,
+          data.payloadRef || null,
+          data.triggeredAt,
+        ],
       );
       return;
     }
 
     const client = this.rawClient;
     await client.execute({
-      sql: `INSERT INTO shranix_webhook_deliveries (id, webhook_id, attempt, status, triggered_at)
-            VALUES (?, ?, ?, ?, ?)`,
-      args: [data.id, data.webhookId, data.attempt, data.status, data.triggeredAt],
+      sql: `INSERT INTO shranix_webhook_deliveries (id, webhook_id, attempt, status, event_type, payload_ref, triggered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        data.id,
+        data.webhookId,
+        data.attempt,
+        data.status,
+        data.eventType || null,
+        data.payloadRef || null,
+        data.triggeredAt,
+      ],
     });
   }
 
@@ -81,6 +99,10 @@ export class WebhookDeliveriesRepository {
     if (data.completedAt !== undefined) {
       setClauses.push('completed_at = ?');
       args.push(data.completedAt);
+    }
+    if (data.providerReference !== undefined) {
+      setClauses.push('provider_reference = ?');
+      args.push(data.providerReference);
     }
 
     if (setClauses.length === 0) {
@@ -145,5 +167,59 @@ export class WebhookDeliveriesRepository {
       args: [params.webhookId, pageSize, offset],
     });
     return { data: result.rows || [], total };
+  }
+
+  /**
+   * H7 — Find the most recent delivery with a payload_ref for a webhook.
+   * Used by processRetries() to reconstruct the original event for retry.
+   */
+  async findLatestPayload(
+    webhookId: string,
+  ): Promise<{ eventType: string | null; payloadRef: string | null } | null> {
+    if (this.isPostgres) {
+      const sql = this.rawClient;
+      const rows = await sql.unsafe(
+        `SELECT event_type, payload_ref FROM shranix_webhook_deliveries
+         WHERE webhook_id = $1 AND payload_ref IS NOT NULL
+         ORDER BY triggered_at DESC LIMIT 1`,
+        [webhookId],
+      );
+      const row = (rows as any[])[0];
+      return row ? { eventType: row.event_type, payloadRef: row.payload_ref } : null;
+    }
+
+    const client = this.rawClient;
+    const result = await client.execute({
+      sql: `SELECT event_type, payload_ref FROM shranix_webhook_deliveries
+            WHERE webhook_id = ? AND payload_ref IS NOT NULL
+            ORDER BY triggered_at DESC LIMIT 1`,
+      args: [webhookId],
+    });
+    const row = result.rows?.[0];
+    return row ? { eventType: row.event_type, payloadRef: row.payload_ref } : null;
+  }
+
+  /**
+   * H7 — Delete delivery records older than the given number of days.
+   * Returns the number of records deleted.
+   */
+  async cleanupOlderThan(days: number): Promise<number> {
+    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+
+    if (this.isPostgres) {
+      const sql = this.rawClient;
+      const result = await sql.unsafe(
+        `DELETE FROM shranix_webhook_deliveries WHERE triggered_at < $1`,
+        [cutoff],
+      );
+      return (result as any).count || 0;
+    }
+
+    const client = this.rawClient;
+    const result = await client.execute({
+      sql: `DELETE FROM shranix_webhook_deliveries WHERE triggered_at < ?`,
+      args: [cutoff],
+    });
+    return (result as any).rowsAffected || 0;
   }
 }

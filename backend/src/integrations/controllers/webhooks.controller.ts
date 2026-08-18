@@ -69,4 +69,11 @@ export class WebhooksController {
   async processRetries() {
     return this.service.processRetries();
   }
+
+  @Post('deliveries/cleanup')
+  @Permissions('integration.webhook.update')
+  @ApiOperation({ summary: 'Cleanup old webhook delivery records' })
+  async cleanupDeliveries(@Query('retentionDays') retentionDays?: number) {
+    return this.service.cleanupOldDeliveries(retentionDays ? Number(retentionDays) : undefined);
+  }
 }

@@ -27,6 +27,10 @@ export const sqliteWebhookDeliveries = sqliteTableBase('shranix_webhook_deliveri
   status: sqliteText('status').notNull().default('sending'),
   httpStatus: sqliteInteger('http_status'),
   error: sqliteText('error'),
+  // H7: event context for reliable retry
+  eventType: sqliteText('event_type'),
+  payloadRef: sqliteText('payload_ref'),
+  providerReference: sqliteText('provider_reference'),
   triggeredAt: sqliteText('triggered_at').notNull(),
   completedAt: sqliteText('completed_at'),
 });
@@ -38,6 +42,10 @@ export const pgWebhookDeliveries = pgTableBase('shranix_webhook_deliveries', {
   status: pgText('status').notNull().default('sending'),
   httpStatus: pgInteger('http_status'),
   error: pgText('error'),
+  // H7: event context for reliable retry
+  eventType: pgText('event_type'),
+  payloadRef: pgText('payload_ref'),
+  providerReference: pgText('provider_reference'),
   triggeredAt: pgTimestamp('triggered_at', { withTimezone: true }).notNull(),
   completedAt: pgTimestamp('completed_at', { withTimezone: true }),
 });

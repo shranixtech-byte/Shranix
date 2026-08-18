@@ -6,6 +6,12 @@ import { DatabaseService } from '../../database/database.service';
 /** H6 — Retryable HTTP status codes (server errors + rate limit). */
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
+/** H7 — Maximum payload_ref size in bytes (4KB). */
+const MAX_PAYLOAD_REF_BYTES = 4096;
+
+/** H7 — Default delivery retention in days. */
+const DEFAULT_RETENTION_DAYS = 90;
+
 /** H6 — Maximum delivery attempts (default). */
 const DEFAULT_MAX_ATTEMPTS = 3;
 
@@ -80,10 +86,11 @@ export class WebhooksService {
   }
 
   /**
-   * H6 — Fire outbound webhook with timeout, retry metadata, and delivery history.
+   * H6+H7 — Fire outbound webhook with timeout, retry metadata, delivery history,
+   * and event context persistence for reliable retry.
    *
    * Flow:
-   *   1. Create delivery record (attempt 1)
+   *   1. Create delivery record with event_type + payload_ref (attempt 1)
    *   2. POST with AbortSignal.timeout(10s)
    *   3. On success → mark delivered
    *   4. On retryable failure → set nextRetryAt (exponential backoff)
@@ -99,7 +106,43 @@ export class WebhooksService {
   }
 
   /**
-   * H6 — Single delivery attempt with history recording.
+   * H7 — Sanitize payload for storage: remove secrets, truncate to MAX_PAYLOAD_REF_BYTES.
+   */
+  private sanitizePayload(payload: any): string {
+    try {
+      const safe = { ...payload };
+      // Remove known secret fields
+      delete safe.secret;
+      delete safe.signature;
+      delete safe.headers;
+      const json = JSON.stringify(safe);
+      if (json.length > MAX_PAYLOAD_REF_BYTES) {
+        return `${json.slice(0, MAX_PAYLOAD_REF_BYTES)}...[truncated]`;
+      }
+      return json;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * H7 — Extract event type from payload (best-effort).
+   */
+  private extractEventType(payload: any): string {
+    if (payload?.event?.type) {
+      return String(payload.event.type);
+    }
+    if (payload?.event_type) {
+      return String(payload.event_type);
+    }
+    if (payload?.event) {
+      return String(payload.event);
+    }
+    return 'unknown';
+  }
+
+  /**
+   * H6+H7 — Single delivery attempt with history recording and event context.
    */
   private async attemptDelivery(
     webhook: any,
@@ -109,14 +152,18 @@ export class WebhooksService {
   ): Promise<void> {
     const deliveryId = crypto.randomUUID();
     const triggeredAt = new Date().toISOString();
+    const eventType = this.extractEventType(payload);
+    const payloadRef = this.sanitizePayload(payload);
 
-    // Create delivery history record
+    // Create delivery history record with H7 event context
     await this.createDeliveryRecord({
       id: deliveryId,
       webhookId: webhook.id,
       attempt,
       status: 'sending',
       triggeredAt,
+      eventType,
+      payloadRef,
     });
 
     try {
@@ -203,7 +250,10 @@ export class WebhooksService {
   }
 
   /**
-   * H6 — Process pending webhook retries (called by communication scheduler or manually).
+   * H6+H7 — Process pending webhook retries with original event context.
+   *
+   * H7: Reads the stored payload_ref from the most recent delivery record
+   * and uses it for retry instead of a synthetic payload.
    */
   async processRetries(): Promise<{ processed: number }> {
     const now = new Date().toISOString();
@@ -234,19 +284,38 @@ export class WebhooksService {
         retryAttempt: null,
         retryMaxAttempts: null,
       });
+
+      // H7: Reconstruct retry payload from stored event context
+      let retryPayload: any;
       try {
-        await this.attemptDelivery(
-          wh,
-          { event: 'webhook.retry', webhookId: wh.id, timestamp: now },
-          attempt,
-          maxAttempts,
-        );
+        const stored = await this.database.webhookDeliveries.findLatestPayload(wh.id);
+        if (stored?.payloadRef) {
+          retryPayload = JSON.parse(stored.payloadRef);
+        }
+      } catch {
+        /* best-effort: if payload lookup fails, fall through to synthetic */
+      }
+      if (!retryPayload) {
+        retryPayload = { event: 'webhook.retry', webhookId: wh.id, timestamp: now };
+      }
+
+      try {
+        await this.attemptDelivery(wh, retryPayload, attempt, maxAttempts);
         processed += 1;
       } catch {
         /* continue */
       }
     }
     return { processed };
+  }
+
+  /**
+   * H7 — Cleanup old delivery records. Returns count of deleted records.
+   */
+  async cleanupOldDeliveries(retentionDays?: number): Promise<{ deleted: number }> {
+    const days = retentionDays || DEFAULT_RETENTION_DAYS;
+    const deleted = await this.database.webhookDeliveries.cleanupOlderThan(days);
+    return { deleted };
   }
 
   /**
@@ -258,6 +327,8 @@ export class WebhooksService {
     attempt: number;
     status: string;
     triggeredAt: string;
+    eventType?: string;
+    payloadRef?: string;
   }): Promise<void> {
     try {
       await this.database.webhookDeliveries.create(data as any);
