@@ -51,4 +51,22 @@ export class WebhooksController {
   async test(@Param('id') id: string) {
     return this.service.test(id);
   }
+
+  @Get(':id/deliveries')
+  @Permissions('integration.webhook.read')
+  @ApiOperation({ summary: 'List webhook delivery history' })
+  async listDeliveries(
+    @Param('id') id: string,
+    @Query('page') page = 1,
+    @Query('pageSize') pageSize = 20,
+  ) {
+    return this.service.listDeliveries(id, { page: Number(page), pageSize: Number(pageSize) });
+  }
+
+  @Post('retries/process')
+  @Permissions('integration.webhook.update')
+  @ApiOperation({ summary: 'Process pending webhook retries' })
+  async processRetries() {
+    return this.service.processRetries();
+  }
 }

@@ -1,9 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
 
 import { NotificationEngineService } from './notification-engine.service';
 import { TaskEngineService } from './task-engine.service';
+
+/** H6 — Maximum auto-approve hours for safety. */
+const MAX_AUTO_APPROVE_HOURS = 72;
 
 @Injectable()
 export class EscalationEngineService {
@@ -27,11 +30,11 @@ export class EscalationEngineService {
     let reminded = 0;
     let autoApproved = 0;
 
-    // Get all active escalation rules
+    // Get all active escalation rules — H6: use `filters` array form
     const rulesResult = await this.database.escalationRules.findAll({
       page: 1,
       pageSize: 50,
-      filter: { isActive: true } as any,
+      filters: [{ field: 'isActive', operator: 'eq', value: true }],
     } as any);
 
     const rules = rulesResult.data || [];
@@ -105,8 +108,10 @@ export class EscalationEngineService {
             );
           }
 
-          // Auto-approve if configured
-          const autoApproveAfter = Number(rule.autoApproveAfterHours || 0);
+          // Auto-approve if configured — H6: enforce safety cap
+          const rawAutoApprove = Number(rule.autoApproveAfterHours || 0);
+          const autoApproveAfter =
+            rawAutoApprove > MAX_AUTO_APPROVE_HOURS ? MAX_AUTO_APPROVE_HOURS : rawAutoApprove;
           if (autoApproveAfter > 0 && hoursOverdue >= autoApproveAfter) {
             await this.database.workflowTasks.update(task.id, {
               status: 'completed',
@@ -115,7 +120,9 @@ export class EscalationEngineService {
             } as any);
 
             autoApproved++;
-            this.logger.log(`Task ${task.id} auto-approved after ${Math.round(hoursOverdue)}h`);
+            this.logger.log(
+              `Task ${task.id} auto-approved after ${Math.round(hoursOverdue)}h (cap: ${MAX_AUTO_APPROVE_HOURS}h)`,
+            );
           }
 
           // Send reminder
@@ -169,18 +176,34 @@ export class EscalationEngineService {
   }
 
   async createRule(data: any, userId?: string) {
+    // H6: validate auto-approve safety cap at configuration boundary
+    const rawAutoApprove = data.autoApproveAfterHours ? Number(data.autoApproveAfterHours) : null;
+    if (rawAutoApprove !== null && rawAutoApprove > MAX_AUTO_APPROVE_HOURS) {
+      throw new BadRequestException(
+        `autoApproveAfterHours cannot exceed ${MAX_AUTO_APPROVE_HOURS}h (got ${rawAutoApprove}h)`,
+      );
+    }
     return this.database.escalationRules.create({
       ...data,
       timeoutHours: Number(data.timeoutHours || 24),
       reminderIntervalHours: data.reminderIntervalHours ? Number(data.reminderIntervalHours) : null,
       maxReminders: data.maxReminders ? Number(data.maxReminders) : null,
       escalateToLevel: data.escalateToLevel ? Number(data.escalateToLevel) : null,
-      autoApproveAfterHours: data.autoApproveAfterHours ? Number(data.autoApproveAfterHours) : null,
+      autoApproveAfterHours: rawAutoApprove,
       createdBy: userId || null,
     } as any);
   }
 
   async updateRule(id: string, data: any) {
+    // H6: validate auto-approve safety cap at configuration boundary
+    if (data.autoApproveAfterHours !== undefined) {
+      const raw = Number(data.autoApproveAfterHours);
+      if (raw > MAX_AUTO_APPROVE_HOURS) {
+        throw new BadRequestException(
+          `autoApproveAfterHours cannot exceed ${MAX_AUTO_APPROVE_HOURS}h (got ${raw}h)`,
+        );
+      }
+    }
     return this.database.escalationRules.update(id, data as any);
   }
 

@@ -529,3 +529,5 @@ export {
 } from './release';
 
 export { sqliteJobLocks, pgJobLocks } from './job-lock';
+
+export { sqliteWebhookDeliveries, pgWebhookDeliveries } from './webhook-delivery';

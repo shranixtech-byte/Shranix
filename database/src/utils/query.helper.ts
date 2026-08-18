@@ -1,5 +1,5 @@
-import type {
- AnyColumn ,
+import type { AnyColumn, SQL } from 'drizzle-orm';
+import {
   and,
   asc,
   desc,
@@ -13,7 +13,7 @@ import type {
   ne,
   notInArray,
   or,
-  type SQL } from 'drizzle-orm';
+} from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { SQLiteTable } from 'drizzle-orm/sqlite-core';
 
@@ -37,10 +37,14 @@ export function buildSortOrder(
   sortBy?: string,
   sortOrder?: 'asc' | 'desc',
 ): SQL[] | undefined {
-  if (!sortBy) {return undefined;}
+  if (!sortBy) {
+    return undefined;
+  }
 
   const column = (table as any)[sortBy] as AnyColumn | undefined;
-  if (!column) {return undefined;}
+  if (!column) {
+    return undefined;
+  }
 
   return sortOrder === 'desc' ? [desc(column)] : [asc(column)];
 }
@@ -50,7 +54,9 @@ export function buildSearchCondition(
   searchFields: (keyof typeof table)[],
   search?: string,
 ): SQL | undefined {
-  if (!search || searchFields.length === 0) {return undefined;}
+  if (!search || searchFields.length === 0) {
+    return undefined;
+  }
 
   const pattern = `%${search}%`;
   const conditions = searchFields
@@ -60,7 +66,9 @@ export function buildSearchCondition(
     })
     .filter((c): c is SQL => c !== undefined);
 
-  if (conditions.length === 0) {return undefined;}
+  if (conditions.length === 0) {
+    return undefined;
+  }
   return or(...conditions);
 }
 
@@ -98,7 +106,9 @@ export function buildFilterConditions(
   const conditions: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null || value === '') {continue;}
+    if (value === undefined || value === null || value === '') {
+      continue;
+    }
     const dbField = fieldMap[key] || key;
     conditions[dbField] = value;
   }
@@ -118,7 +128,9 @@ export function buildFilterCondition(
   filter: FilterCondition,
 ): SQL | undefined {
   const column = table[filter.field];
-  if (!column) {return undefined;}
+  if (!column) {
+    return undefined;
+  }
 
   switch (filter.operator) {
     case 'eq':
@@ -148,7 +160,9 @@ export function buildFilterCondition(
         ? notInArray(column, filter.value as (string | number)[])
         : undefined;
     case 'between': {
-      if (!Array.isArray(filter.value) || filter.value.length !== 2) {return undefined;}
+      if (!Array.isArray(filter.value) || filter.value.length !== 2) {
+        return undefined;
+      }
       return and(
         gte(column, filter.value[0] as string | number | Date),
         lte(column, filter.value[1] as string | number | Date),
@@ -219,7 +233,9 @@ export function buildEnterpriseConditions(
   if (query.filters && query.filters.length > 0) {
     for (const filter of query.filters) {
       const cond = buildFilterCondition(table, filter);
-      if (cond) {conditions.push(cond);}
+      if (cond) {
+        conditions.push(cond);
+      }
     }
   }
 

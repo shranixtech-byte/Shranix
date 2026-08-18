@@ -1,10 +1,24 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
 
+/** H6 — Retryable HTTP status codes (server errors + rate limit). */
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
+/** H6 — Maximum delivery attempts (default). */
+const DEFAULT_MAX_ATTEMPTS = 3;
+
+/** H6 — Retry delay in minutes (doubles each attempt). */
+const BASE_RETRY_DELAY_MIN = 5;
+
+/** H6 — Request timeout for outbound webhook calls. */
+const WEBHOOK_TIMEOUT_MS = 10_000;
+
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
@@ -65,25 +79,201 @@ export class WebhooksService {
     });
   }
 
+  /**
+   * H6 — Fire outbound webhook with timeout, retry metadata, and delivery history.
+   *
+   * Flow:
+   *   1. Create delivery record (attempt 1)
+   *   2. POST with AbortSignal.timeout(10s)
+   *   3. On success → mark delivered
+   *   4. On retryable failure → set nextRetryAt (exponential backoff)
+   *   5. On permanent failure → mark failed, stop retrying
+   */
   async trigger(webhookId: string, payload: any) {
     const webhook = await this.database.webhooks.findById(webhookId);
     if (!webhook || !webhook.isActive) {
       return;
     }
+    const maxAttempts = Number(webhook.maxAttempts) || DEFAULT_MAX_ATTEMPTS;
+    await this.attemptDelivery(webhook, payload, 1, maxAttempts);
+  }
+
+  /**
+   * H6 — Single delivery attempt with history recording.
+   */
+  private async attemptDelivery(
+    webhook: any,
+    payload: any,
+    attempt: number,
+    maxAttempts: number,
+  ): Promise<void> {
+    const deliveryId = crypto.randomUUID();
+    const triggeredAt = new Date().toISOString();
+
+    // Create delivery history record
+    await this.createDeliveryRecord({
+      id: deliveryId,
+      webhookId: webhook.id,
+      attempt,
+      status: 'sending',
+      triggeredAt,
+    });
+
     try {
-      await fetch(webhook.url, {
+      const res = await fetch(webhook.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(webhook.secret ? { 'X-Webhook-Secret': String(webhook.secret) } : {}),
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
       });
-      await this.database.webhooks.update(webhookId, { lastTriggeredAt: new Date().toISOString() });
+
+      if (res.ok) {
+        // Success
+        await this.updateDeliveryRecord(deliveryId, {
+          status: 'delivered',
+          httpStatus: res.status,
+          completedAt: new Date().toISOString(),
+        });
+        await this.database.webhooks.update(webhook.id, {
+          lastTriggeredAt: new Date().toISOString(),
+          failureCount: 0,
+        });
+        return;
+      }
+
+      // Non-2xx response
+      const isRetryable = RETRYABLE_STATUS.has(res.status);
+      const errorMsg = `HTTP ${res.status}`;
+
+      await this.updateDeliveryRecord(deliveryId, {
+        status: isRetryable && attempt < maxAttempts ? 'retrying' : 'failed',
+        httpStatus: res.status,
+        error: errorMsg,
+        completedAt: new Date().toISOString(),
+      });
+
+      if (isRetryable && attempt < maxAttempts) {
+        await this.scheduleRetry(webhook, attempt, maxAttempts);
+      } else {
+        // Permanent failure (4xx business error or max attempts reached)
+        await this.database.webhooks.update(webhook.id, {
+          failureCount: (webhook.failureCount || 0) + 1,
+        });
+      }
+    } catch (err: any) {
+      const errorMsg = String(err?.message || 'delivery error');
+      const isTimeout = err?.name === 'TimeoutError' || errorMsg.includes('timeout');
+      const isRetryable =
+        isTimeout || err?.name === 'AbortError' || !errorMsg.includes('ENOTFOUND');
+
+      await this.updateDeliveryRecord(deliveryId, {
+        status: isRetryable && attempt < maxAttempts ? 'retrying' : 'failed',
+        error: errorMsg,
+        completedAt: new Date().toISOString(),
+      });
+
+      if (isRetryable && attempt < maxAttempts) {
+        await this.scheduleRetry(webhook, attempt, maxAttempts);
+      } else {
+        await this.database.webhooks.update(webhook.id, {
+          failureCount: (webhook.failureCount || 0) + 1,
+        });
+      }
+    }
+  }
+
+  /**
+   * H6 — Schedule next retry with exponential backoff.
+   */
+  private async scheduleRetry(webhook: any, attempt: number, maxAttempts: number): Promise<void> {
+    const delayMin = BASE_RETRY_DELAY_MIN * Math.pow(2, attempt - 1);
+    const nextRetryAt = new Date(Date.now() + delayMin * 60_000).toISOString();
+    await this.database.webhooks.update(webhook.id, {
+      nextRetryAt,
+      retryAttempt: attempt + 1,
+      retryMaxAttempts: maxAttempts,
+      failureCount: (webhook.failureCount || 0) + 1,
+    });
+    this.logger.log(
+      `Webhook ${webhook.id} retry scheduled: attempt ${attempt + 1}/${maxAttempts} in ${delayMin}min`,
+    );
+  }
+
+  /**
+   * H6 — Process pending webhook retries (called by communication scheduler or manually).
+   */
+  async processRetries(): Promise<{ processed: number }> {
+    const now = new Date().toISOString();
+    const webhooks = await this.database.webhooks.findAll({
+      page: 1,
+      pageSize: 100,
+      filters: [
+        { field: 'nextRetryAt', operator: 'lte', value: now },
+        { field: 'nextRetryAt', operator: 'ne', value: null },
+      ],
+    } as any);
+    let processed = 0;
+    for (const wh of (webhooks.data || []) as any[]) {
+      const attempt = Number(wh.retryAttempt) || 1;
+      const maxAttempts = Number(wh.retryMaxAttempts) || DEFAULT_MAX_ATTEMPTS;
+      if (attempt > maxAttempts) {
+        // Exceeded max attempts — clear retry metadata
+        await this.database.webhooks.update(wh.id, {
+          nextRetryAt: null,
+          retryAttempt: null,
+          retryMaxAttempts: null,
+        });
+        continue;
+      }
+      // Clear retry metadata before re-triggering to prevent duplicate processing
+      await this.database.webhooks.update(wh.id, {
+        nextRetryAt: null,
+        retryAttempt: null,
+        retryMaxAttempts: null,
+      });
+      try {
+        await this.attemptDelivery(
+          wh,
+          { event: 'webhook.retry', webhookId: wh.id, timestamp: now },
+          attempt,
+          maxAttempts,
+        );
+        processed += 1;
+      } catch {
+        /* continue */
+      }
+    }
+    return { processed };
+  }
+
+  /**
+   * H6 — Create a webhook delivery history record.
+   */
+  private async createDeliveryRecord(data: {
+    id: string;
+    webhookId: string;
+    attempt: number;
+    status: string;
+    triggeredAt: string;
+  }): Promise<void> {
+    try {
+      await this.database.webhookDeliveries.create(data as any);
     } catch {
-      await this.database.webhooks.update(webhookId, {
-        failureCount: (webhook.failureCount || 0) + 1,
-      });
+      /* best-effort — delivery history is observability, not correctness */
+    }
+  }
+
+  /**
+   * H6 — Update a webhook delivery history record.
+   */
+  private async updateDeliveryRecord(id: string, data: Record<string, unknown>): Promise<void> {
+    try {
+      await this.database.webhookDeliveries.update(id, data as any);
+    } catch {
+      /* best-effort */
     }
   }
 
@@ -93,6 +283,15 @@ export class WebhooksService {
     if (!webhook) {
       throw new NotFoundException('Webhook not found');
     }
+    const deliveryId = crypto.randomUUID();
+    const triggeredAt = new Date().toISOString();
+    await this.createDeliveryRecord({
+      id: deliveryId,
+      webhookId,
+      attempt: 1,
+      status: 'sending',
+      triggeredAt,
+    });
     try {
       const res = await fetch(webhook.url, {
         method: 'POST',
@@ -101,7 +300,12 @@ export class WebhooksService {
           ...(webhook.secret ? { 'X-Webhook-Secret': String(webhook.secret) } : {}),
         },
         body: JSON.stringify({ event: 'test', timestamp: new Date().toISOString() }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+      });
+      await this.updateDeliveryRecord(deliveryId, {
+        status: res.ok ? 'delivered' : 'failed',
+        httpStatus: res.status,
+        completedAt: new Date().toISOString(),
       });
       await this.database.webhooks.update(webhookId, { lastTriggeredAt: new Date().toISOString() });
       return {
@@ -110,10 +314,26 @@ export class WebhooksService {
         message: res.ok ? 'Webhook delivered ✓' : `Webhook responded with HTTP ${res.status}`,
       };
     } catch (err) {
+      await this.updateDeliveryRecord(deliveryId, {
+        status: 'failed',
+        error: String((err as Error).message),
+        completedAt: new Date().toISOString(),
+      });
       await this.database.webhooks.update(webhookId, {
         failureCount: (webhook.failureCount || 0) + 1,
       });
       return { success: false, message: `Delivery failed: ${(err as Error).message}` };
     }
+  }
+
+  /**
+   * H6 — List delivery history for a webhook.
+   */
+  async listDeliveries(webhookId: string, params?: { page?: number; pageSize?: number }) {
+    return this.database.webhookDeliveries.findAll({
+      page: params?.page || 1,
+      pageSize: params?.pageSize || 20,
+      filters: [{ field: 'webhookId', operator: 'eq', value: webhookId }],
+    } as any);
   }
 }

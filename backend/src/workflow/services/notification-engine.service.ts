@@ -23,28 +23,40 @@ export class NotificationEngineService {
 
   async createNotification(dto: CreateNotificationDto) {
     if (!dto.userId) {
+      // H6: Log missing userId as a structured warning — failure is visible
+      this.logger.warn(
+        `Notification skipped: missing userId for "${dto.title}" (module: ${dto.module || 'n/a'}, document: ${dto.documentId || 'n/a'})`,
+      );
       return null;
     }
 
-    return this.database.notifications.create({
-      userId: dto.userId,
-      title: dto.title,
-      message: dto.message,
-      type: dto.type || 'info',
-      module: dto.module || null,
-      documentId: dto.documentId || null,
-      documentType: dto.documentType || null,
-      instanceId: dto.instanceId || null,
-      taskId: dto.taskId || null,
-      isRead: false,
-      isEmailSent: false,
-      isSmsSent: false,
-      isPushSent: false,
-      emailReady: null,
-      smsReady: null,
-      pushReady: null,
-      metadata: dto.metadata ? JSON.stringify(dto.metadata) : null,
-    } as any);
+    try {
+      return await this.database.notifications.create({
+        userId: dto.userId,
+        title: dto.title,
+        message: dto.message,
+        type: dto.type || 'info',
+        module: dto.module || null,
+        documentId: dto.documentId || null,
+        documentType: dto.documentType || null,
+        instanceId: dto.instanceId || null,
+        taskId: dto.taskId || null,
+        isRead: false,
+        isEmailSent: false,
+        isSmsSent: false,
+        isPushSent: false,
+        emailReady: null,
+        smsReady: null,
+        pushReady: null,
+        metadata: dto.metadata ? JSON.stringify(dto.metadata) : null,
+      } as any);
+    } catch (err) {
+      // H6: Log create failure — do not swallow silently
+      this.logger.error(
+        `Notification create failed: "${dto.title}" for user ${dto.userId} — ${(err as Error).message}`,
+      );
+      return null;
+    }
   }
 
   async notifyAction(instance: any, dto: any, _transition: any, nextState: string) {
@@ -101,7 +113,9 @@ export class NotificationEngineService {
       }
     }
 
-    this.logger.log(`Notifications sent for ${instance.id}: ${dto.action}`);
+    this.logger.log(
+      `Notifications dispatched for ${docType} #${docNumber} (${instance.id}): ${dto.action} → ${nextState}`,
+    );
   }
 
   async notifyEscalation(instance: any, escalationRule: any) {

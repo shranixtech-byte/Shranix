@@ -41,6 +41,9 @@ export class CommunicationService {
   private readonly logger = new Logger(CommunicationService.name);
   private readonly rateWindow = new Map<string, number[]>(); // channel → timestamps
 
+  /** H6 — Maximum retry age in days. Messages older than this are permanently failed. */
+  static readonly MAX_RETRY_AGE_DAYS = 7;
+
   constructor(
     private readonly database: DatabaseService,
     private readonly audit: AuditService,
@@ -261,7 +264,10 @@ export class CommunicationService {
     } as any);
   }
 
-  /** Background worker — process due queued/failed messages. */
+  /**
+   * Background worker — process due queued/failed messages.
+   * H6: Failed messages older than MAX_RETRY_AGE_DAYS are permanently failed.
+   */
   async processDue(): Promise<{ processed: number }> {
     // Queued rows (scheduled time reached)
     const queued = await this.database.communications.findAll({
@@ -282,13 +288,17 @@ export class CommunicationService {
       }
     }
 
-    // Failed rows past their retry window
+    // H6: Failed rows past their retry window — but not older than MAX_RETRY_AGE_DAYS
+    const maxRetryAge = new Date(
+      Date.now() - CommunicationService.MAX_RETRY_AGE_DAYS * 86_400_000,
+    ).toISOString();
     const retryable = await this.database.communications.findAll({
       page: 1,
       pageSize: 50,
       filters: [
         { field: 'status', operator: 'eq', value: 'failed' },
         { field: 'nextRetryAt', operator: 'lte', value: new Date().toISOString() },
+        { field: 'createdAt', operator: 'gte', value: maxRetryAge },
       ],
     } as any);
     for (const row of retryable.data || []) {
@@ -299,6 +309,28 @@ export class CommunicationService {
         /* continue */
       }
     }
+
+    // H6: Permanently fail messages older than max retry age
+    const expired = await this.database.communications.findAll({
+      page: 1,
+      pageSize: 50,
+      filters: [
+        { field: 'status', operator: 'eq', value: 'failed' },
+        { field: 'nextRetryAt', operator: 'lte', value: new Date().toISOString() },
+        { field: 'createdAt', operator: 'lt', value: maxRetryAge },
+      ],
+    } as any);
+    for (const row of expired.data || []) {
+      try {
+        await this.database.communications.update(row.id, {
+          status: 'expired',
+          failureReason: `Exceeded max retry age (${CommunicationService.MAX_RETRY_AGE_DAYS} days)`,
+        } as any);
+      } catch {
+        /* continue */
+      }
+    }
+
     return { processed };
   }
 
