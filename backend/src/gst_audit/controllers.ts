@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { WorkflowDocument } from '../common/decorators/workflow-document.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 import {
@@ -64,15 +66,15 @@ import {
 @ApiTags('GST Registrations')
 @ApiBearerAuth()
 @Controller('gst/registrations')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstRegistrationsController {
   constructor(private readonly service: GstRegistrationsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create GST Registration' })
-  create(@Body() dto: CreateGstRegistrationDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateGstRegistrationDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -101,15 +103,19 @@ export class GstRegistrationsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update GST Registration' })
-  update(@Param('id') id: string, @Body() dto: UpdateGstRegistrationDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateGstRegistrationDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete GST Registration' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -119,15 +125,15 @@ export class GstRegistrationsController {
 @ApiTags('GST Ledger')
 @ApiBearerAuth()
 @Controller('gst/ledger')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstLedgerController {
   constructor(private readonly service: GstLedgerService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create GST Ledger entry' })
-  create(@Body() dto: CreateGstLedgerDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateGstLedgerDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -156,15 +162,19 @@ export class GstLedgerController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update GST Ledger entry' })
-  update(@Param('id') id: string, @Body() dto: UpdateGstLedgerDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateGstLedgerDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete GST Ledger entry' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -174,7 +184,7 @@ export class GstLedgerController {
 @ApiTags('GST Returns')
 @ApiBearerAuth()
 @Controller('gst/returns')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstReturnsController {
   constructor(private readonly service: GstReturnsService) {}
 
@@ -188,8 +198,8 @@ export class GstReturnsController {
     templateName: 'GST Return Workflow',
     amountField: 'totalTax',
   })
-  create(@Body() dto: CreateGstReturnDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateGstReturnDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -218,15 +228,19 @@ export class GstReturnsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update GST Return' })
-  update(@Param('id') id: string, @Body() dto: UpdateGstReturnDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateGstReturnDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete GST Return' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -236,15 +250,15 @@ export class GstReturnsController {
 @ApiTags('Tax Postings')
 @ApiBearerAuth()
 @Controller('gst/tax-postings')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class TaxPostingsController {
   constructor(private readonly service: TaxPostingsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Tax Posting' })
-  create(@Body() dto: CreateTaxPostingDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateTaxPostingDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -273,15 +287,19 @@ export class TaxPostingsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Tax Posting' })
-  update(@Param('id') id: string, @Body() dto: UpdateTaxPostingDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateTaxPostingDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Tax Posting' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -291,15 +309,15 @@ export class TaxPostingsController {
 @ApiTags('Year Closing')
 @ApiBearerAuth()
 @Controller('gst/year-closing')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class YearClosingController {
   constructor(private readonly service: YearClosingRecordsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Year Closing record' })
-  create(@Body() dto: CreateYearClosingDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateYearClosingDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -328,15 +346,19 @@ export class YearClosingController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Year Closing record' })
-  update(@Param('id') id: string, @Body() dto: UpdateYearClosingDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateYearClosingDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Year Closing record' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -346,15 +368,15 @@ export class YearClosingController {
 @ApiTags('Period Locks')
 @ApiBearerAuth()
 @Controller('gst/period-locks')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PeriodLocksController {
   constructor(private readonly service: PeriodLocksService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Period Lock' })
-  create(@Body() dto: CreatePeriodLockDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreatePeriodLockDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -383,15 +405,19 @@ export class PeriodLocksController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Period Lock' })
-  update(@Param('id') id: string, @Body() dto: UpdatePeriodLockDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePeriodLockDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Period Lock' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -401,15 +427,15 @@ export class PeriodLocksController {
 @ApiTags('Opening Balance Transfers')
 @ApiBearerAuth()
 @Controller('gst/opening-balance-transfers')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class OpeningBalanceTransfersController {
   constructor(private readonly service: OpeningBalanceTransfersService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Opening Balance Transfer' })
-  create(@Body() dto: CreateOpeningBalanceTransferDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateOpeningBalanceTransferDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -438,15 +464,19 @@ export class OpeningBalanceTransfersController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Opening Balance Transfer' })
-  update(@Param('id') id: string, @Body() dto: UpdateOpeningBalanceTransferDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateOpeningBalanceTransferDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Opening Balance Transfer' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -456,15 +486,15 @@ export class OpeningBalanceTransfersController {
 @ApiTags('Year-End Entries')
 @ApiBearerAuth()
 @Controller('gst/year-end-entries')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class YearEndEntriesController {
   constructor(private readonly service: YearEndEntriesService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Year-End Entry' })
-  create(@Body() dto: CreateYearEndEntryDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateYearEndEntryDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -493,15 +523,19 @@ export class YearEndEntriesController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Year-End Entry' })
-  update(@Param('id') id: string, @Body() dto: UpdateYearEndEntryDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateYearEndEntryDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Year-End Entry' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -511,15 +545,15 @@ export class YearEndEntriesController {
 @ApiTags('Audit Details')
 @ApiBearerAuth()
 @Controller('gst/audit-details')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AuditDetailsController {
   constructor(private readonly service: AuditDetailsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Audit Detail entry' })
-  create(@Body() dto: CreateAuditDetailDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateAuditDetailDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -548,15 +582,19 @@ export class AuditDetailsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Audit Detail' })
-  update(@Param('id') id: string, @Body() dto: UpdateAuditDetailDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateAuditDetailDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Audit Detail' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -566,15 +604,15 @@ export class AuditDetailsController {
 @ApiTags('Number Series')
 @ApiBearerAuth()
 @Controller('gst/number-series')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class NumberSeriesController {
   constructor(private readonly service: NumberSeriesService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Number Series' })
-  create(@Body() dto: CreateNumberSeriesDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateNumberSeriesDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -603,15 +641,19 @@ export class NumberSeriesController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Number Series' })
-  update(@Param('id') id: string, @Body() dto: UpdateNumberSeriesDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateNumberSeriesDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Number Series' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -621,15 +663,15 @@ export class NumberSeriesController {
 @ApiTags('Voucher Approvals')
 @ApiBearerAuth()
 @Controller('gst/voucher-approvals')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class VoucherApprovalsController {
   constructor(private readonly service: VoucherApprovalsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Voucher Approval' })
-  create(@Body() dto: CreateVoucherApprovalDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateVoucherApprovalDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -658,15 +700,19 @@ export class VoucherApprovalsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Voucher Approval' })
-  update(@Param('id') id: string, @Body() dto: UpdateVoucherApprovalDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateVoucherApprovalDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Voucher Approval' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -676,15 +722,15 @@ export class VoucherApprovalsController {
 @ApiTags('Finance Analytics')
 @ApiBearerAuth()
 @Controller('gst/finance-analytics')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class FinanceAnalyticsController {
   constructor(private readonly service: FinanceAnalyticsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Finance Analytics entry' })
-  create(@Body() dto: CreateFinanceAnalyticsDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateFinanceAnalyticsDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -713,15 +759,19 @@ export class FinanceAnalyticsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Finance Analytics' })
-  update(@Param('id') id: string, @Body() dto: UpdateFinanceAnalyticsDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateFinanceAnalyticsDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Finance Analytics' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -731,15 +781,15 @@ export class FinanceAnalyticsController {
 @ApiTags('GST/Audit Settings')
 @ApiBearerAuth()
 @Controller('gst/settings')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstAuditSettingsController {
   constructor(private readonly service: GstAuditSettingsService) {}
 
   @Post()
   @Permissions('finance.create')
   @ApiOperation({ summary: 'Create Setting' })
-  create(@Body() dto: CreateGstAuditSettingDto) {
-    return this.service.create(dto as any);
+  create(@Body() dto: CreateGstAuditSettingDto, @CurrentUser() u: { id: string }) {
+    return this.service.create(dto as any, u?.id);
   }
 
   @Get()
@@ -768,15 +818,19 @@ export class GstAuditSettingsController {
   @Put(':id')
   @Permissions('finance.update')
   @ApiOperation({ summary: 'Update Setting' })
-  update(@Param('id') id: string, @Body() dto: UpdateGstAuditSettingDto) {
-    return this.service.update(id, dto as any);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateGstAuditSettingDto,
+    @CurrentUser() u: { id: string },
+  ) {
+    return this.service.update(id, dto as any, u?.id);
   }
 
   @Delete(':id')
   @Permissions('finance.delete')
   @ApiOperation({ summary: 'Soft delete Setting' })
-  remove(@Param('id') id: string) {
-    return this.service.delete(id);
+  remove(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.delete(id, u?.id);
   }
 }
 
@@ -787,7 +841,7 @@ export class GstAuditSettingsController {
 @ApiTags('GST Config')
 @ApiBearerAuth()
 @Controller('gst/config')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstConfigController {
   constructor(private readonly service: GstConfigService) {}
 
@@ -815,7 +869,7 @@ export class GstConfigController {
 @ApiTags('GST Reports')
 @ApiBearerAuth()
 @Controller('gst/reports')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstReportsController {
   constructor(
     private readonly gstSummary: GstSummaryService,
@@ -876,7 +930,7 @@ export class GstReportsController {
 @ApiTags('GST Engine')
 @ApiBearerAuth()
 @Controller('gst/engine')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class GstEngineController {
   constructor(
     private readonly taxPostingEngine: TaxPostingEngineService,

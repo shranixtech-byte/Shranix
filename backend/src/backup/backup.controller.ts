@@ -14,13 +14,14 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 import { BackupService } from './backup.service';
 
 @ApiTags('Backup & Restore')
 @ApiBearerAuth('access-token')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('backup')
 export class BackupController {
   constructor(private readonly service: BackupService) {}

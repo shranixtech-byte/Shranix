@@ -1,4 +1,7 @@
+import * as path from 'path';
+
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -15,13 +18,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 import { DataManagementService, type ImportResult } from './data-management.service';
 
 @ApiTags('Data Management')
 @ApiBearerAuth('access-token')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('data-management')
 export class DataManagementController {
   constructor(private readonly service: DataManagementService) {}
@@ -52,7 +56,33 @@ export class DataManagementController {
 
   @Post('import')
   @Permissions('companies.update')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 50 * 1024 * 1024 }, // H11: 50 MB max — matches DMS module
+      fileFilter: (_req, file, cb) => {
+        const allowedExts = ['.csv', '.json', '.xlsx', '.xls'];
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const allowedMimes = [
+          'text/csv',
+          'application/json',
+          'text/plain',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'application/octet-stream',
+        ];
+        if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Unsupported file type. Allowed: CSV, JSON, Excel (.xlsx/.xls)',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Import master data from Excel / CSV / JSON (insert or upsert)' })
   @HttpCode(HttpStatus.OK)

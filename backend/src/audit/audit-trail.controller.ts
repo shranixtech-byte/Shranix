@@ -2,13 +2,14 @@ import { Controller, Get, Query, StreamableFile, UseGuards } from '@nestjs/commo
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 import { AuditTrailService } from './audit-trail.service';
 
 @ApiTags('Audit Trail')
 @ApiBearerAuth('access-token')
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('audit-trail')
 export class AuditTrailController {
   constructor(private readonly service: AuditTrailService) {}
