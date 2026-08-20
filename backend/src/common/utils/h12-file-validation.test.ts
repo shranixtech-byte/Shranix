@@ -241,6 +241,67 @@ describe('H12 — File Validation Utilities', () => {
     });
   });
 
+  describe('Bypass attempts', () => {
+    const importFilter = createFileFilter(
+      IMPORT_ALLOWED_MIMES,
+      IMPORT_ALLOWED_EXTENSIONS,
+      'import',
+    );
+    const dmsFilter = createFileFilter(DMS_ALLOWED_MIMES, DMS_ALLOWED_EXTENSIONS, 'document');
+
+    it('should reject valid extension with dangerous MIME (PDF content disguised as CSV)', async () => {
+      // Attacker sends application/pdf with .csv extension
+      const result = await runFilter(importFilter, mockFile('trick.csv', 'application/pdf'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject valid MIME with dangerous extension (.exe with text/csv)', async () => {
+      const result = await runFilter(importFilter, mockFile('trick.exe', 'text/csv'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject case variation (.CSV uppercase)', async () => {
+      // .CSV is not in allowlist (only .csv is) — but extension is lowercased
+      const result = await runFilter(importFilter, mockFile('data.CSV', 'text/csv'));
+      expect(result.accepted).toBe(true); // toLowerCase handles this
+    });
+
+    it('should reject case variation (.EXE uppercase)', async () => {
+      const result = await runFilter(importFilter, mockFile('hack.EXE', 'text/csv'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject empty filename', async () => {
+      const result = await runFilter(importFilter, mockFile('', 'text/csv'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject filename with only dots', async () => {
+      const result = await runFilter(importFilter, mockFile('...', 'text/csv'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject .JS extension (dangerous)', async () => {
+      const result = await runFilter(dmsFilter, mockFile('script.js', 'text/javascript'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject .VBS extension (dangerous)', async () => {
+      const result = await runFilter(dmsFilter, mockFile('macro.vbs', 'text/vbscript'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject .PS1 extension (dangerous)', async () => {
+      const result = await runFilter(dmsFilter, mockFile('powershell.ps1', 'text/plain'));
+      expect(result.accepted).toBe(false);
+    });
+
+    it('should reject .CMD extension (dangerous)', async () => {
+      const result = await runFilter(dmsFilter, mockFile('script.cmd', 'text/plain'));
+      expect(result.accepted).toBe(false);
+    });
+  });
+
   describe('Constants', () => {
     it('should have DANGEROUS_EXTENSIONS with no overlaps in ALLOWED lists', () => {
       const dangerousSet = new Set(DANGEROUS_EXTENSIONS);
