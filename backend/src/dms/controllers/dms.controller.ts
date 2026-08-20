@@ -26,6 +26,13 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { WorkflowDocument } from '../../common/decorators/workflow-document.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import {
+  createFileFilter,
+  createUploadLimits,
+  DMS_ALLOWED_MIMES,
+  DMS_ALLOWED_EXTENSIONS,
+  DMS_MAX_FILES,
+} from '../../common/utils/file-validation';
 import { DigitalSignatureService } from '../services/digital-signature.service';
 import { DmsService } from '../services/dms.service';
 import { FileStorageService } from '../services/file-storage.service';
@@ -314,33 +321,18 @@ export class DmsController {
   @Post('documents/upload')
   @Roles('admin', 'manager')
   @Permissions('dms.upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: createUploadLimits(),
+      fileFilter: createFileFilter(DMS_ALLOWED_MIMES, DMS_ALLOWED_EXTENSIONS, 'document'),
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a file to a new document' })
   @HttpCode(HttpStatus.CREATED)
   async uploadFile(@UploadedFile() file: any, @Body() body: any, @CurrentUser() u: { id: string }) {
     if (!file) {
       return { success: false, message: 'No file provided' };
-    }
-
-    // Validate MIME type
-    const allowedMimes = [
-      'application/pdf',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv',
-      'text/plain',
-      'application/json',
-      'text/xml',
-      'application/zip',
-    ];
-    if (!allowedMimes.includes(file.mimetype)) {
-      return { success: false, message: `Unsupported file type: ${file.mimetype}` };
     }
 
     // Create document record
@@ -392,7 +384,12 @@ export class DmsController {
   @Post('documents/upload-multiple')
   @Roles('admin', 'manager')
   @Permissions('dms.upload')
-  @UseInterceptors(FilesInterceptor('files', 10))
+  @UseInterceptors(
+    FilesInterceptor('files', DMS_MAX_FILES, {
+      limits: createUploadLimits(),
+      fileFilter: createFileFilter(DMS_ALLOWED_MIMES, DMS_ALLOWED_EXTENSIONS, 'document'),
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload multiple files to documents' })
   @HttpCode(HttpStatus.CREATED)

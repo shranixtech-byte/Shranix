@@ -1,4 +1,3 @@
-
 import {
   Body,
   Controller,
@@ -32,6 +31,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import {
+  createFileFilter,
+  createUploadLimits,
+  IMPORT_ALLOWED_MIMES,
+  IMPORT_ALLOWED_EXTENSIONS,
+} from '../common/utils/file-validation';
 import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 
 import {
@@ -115,7 +120,12 @@ export class ProductsMasterController {
   @ApiOperation({ summary: 'Import products from Excel / CSV / JSON with duplicate detection' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ description: 'File upload (file + mode=insert|upsert)', required: true })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: createUploadLimits(),
+      fileFilter: createFileFilter(IMPORT_ALLOWED_MIMES, IMPORT_ALLOWED_EXTENSIONS, 'import'),
+    }),
+  )
   async importData(
     @UploadedFile() file: any,
     @Query('mode') mode: 'insert' | 'upsert' = 'insert',

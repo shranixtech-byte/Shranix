@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -33,6 +32,12 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { WorkflowDocument } from '../common/decorators/workflow-document.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import {
+  createFileFilter,
+  createUploadLimits,
+  IMPORT_ALLOWED_MIMES,
+  IMPORT_ALLOWED_EXTENSIONS,
+} from '../common/utils/file-validation';
 import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
 
 import { PurchaseDebitNoteService } from './debit-note.service';
@@ -732,7 +737,12 @@ export class SuppliersController {
   @ApiOperation({ summary: 'Import suppliers from Excel / CSV / JSON with duplicate detection' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ description: 'File upload (file + mode=insert|upsert)', required: true })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: createUploadLimits(),
+      fileFilter: createFileFilter(IMPORT_ALLOWED_MIMES, IMPORT_ALLOWED_EXTENSIONS, 'import'),
+    }),
+  )
   async importData(
     @UploadedFile() file: any,
     @Query('mode') mode: 'insert' | 'upsert' = 'insert',

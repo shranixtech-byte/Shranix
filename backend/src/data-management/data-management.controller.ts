@@ -1,7 +1,4 @@
-import * as path from 'path';
-
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -17,9 +14,16 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import {
+  createFileFilter,
+  createUploadLimits,
+  IMPORT_ALLOWED_MIMES,
+  IMPORT_ALLOWED_EXTENSIONS,
+} from '../common/utils/file-validation';
 
 import { DataManagementService, type ImportResult } from './data-management.service';
 
@@ -58,29 +62,8 @@ export class DataManagementController {
   @Permissions('companies.update')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 50 * 1024 * 1024 }, // H11: 50 MB max — matches DMS module
-      fileFilter: (_req, file, cb) => {
-        const allowedExts = ['.csv', '.json', '.xlsx', '.xls'];
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        const allowedMimes = [
-          'text/csv',
-          'application/json',
-          'text/plain',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-excel',
-          'application/octet-stream',
-        ];
-        if (allowedExts.includes(ext) || allowedMimes.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(
-            new BadRequestException(
-              'Unsupported file type. Allowed: CSV, JSON, Excel (.xlsx/.xls)',
-            ),
-            false,
-          );
-        }
-      },
+      limits: createUploadLimits(),
+      fileFilter: createFileFilter(IMPORT_ALLOWED_MIMES, IMPORT_ALLOWED_EXTENSIONS, 'import'),
     }),
   )
   @ApiConsumes('multipart/form-data')
