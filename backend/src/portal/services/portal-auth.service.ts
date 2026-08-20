@@ -17,6 +17,7 @@ import type { PortalJwtPayload } from '../strategies/portal-jwt.strategy';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 const RESET_TOKEN_HOURS = 24;
+const RESET_COOLDOWN_MS = 60_000; // H9: 60s rate limit per email
 
 @Injectable()
 export class PortalAuthService {
@@ -131,8 +132,31 @@ export class PortalAuthService {
     return { loggedOut: true };
   }
 
+  // H9: Simple per-email rate limit for forgotPassword
+  private readonly resetCooldowns = new Map<string, number>();
+
   /** Create a hashed reset token, expire in 24h, attempt email via communication engine. */
   async forgotPassword(email: string, ipAddress?: string) {
+    // H9: Rate limit — 1 request per 60s per email
+    const normalizedEmail = String(email || '')
+      .toLowerCase()
+      .trim();
+    const lastRequest = this.resetCooldowns.get(normalizedEmail);
+    if (lastRequest && Date.now() - lastRequest < RESET_COOLDOWN_MS) {
+      // Return same response as success to prevent email enumeration
+      return { sent: true };
+    }
+    this.resetCooldowns.set(normalizedEmail, Date.now());
+    // Evict stale entries periodically
+    if (this.resetCooldowns.size > 1000) {
+      const cutoff = Date.now() - RESET_COOLDOWN_MS;
+      for (const [key, ts] of this.resetCooldowns) {
+        if (ts < cutoff) {
+          this.resetCooldowns.delete(key);
+        }
+      }
+    }
+
     const user = await this.database.portalUsers
       .findAll({
         page: 1,

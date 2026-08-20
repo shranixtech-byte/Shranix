@@ -60,8 +60,18 @@ export class StorageService {
 class LocalStorageAdapter implements StorageAdapter {
   private basePath = process.env.LOCAL_STORAGE_PATH || './storage';
 
+  /** H9: Assert the resolved path stays within basePath — prevent path traversal. */
+  private assertWithinBase(filePath: string): string {
+    const resolved = path.resolve(this.basePath, filePath);
+    const baseResolved = path.resolve(this.basePath);
+    if (!resolved.startsWith(baseResolved + path.sep) && resolved !== baseResolved) {
+      throw new Error('Invalid file path: path traversal detected');
+    }
+    return resolved;
+  }
+
   async save(filePath: string, buffer: Buffer, _contentType: string): Promise<string> {
-    const fullPath = path.join(this.basePath, filePath);
+    const fullPath = this.assertWithinBase(filePath);
     const dir = path.dirname(fullPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -71,12 +81,12 @@ class LocalStorageAdapter implements StorageAdapter {
   }
 
   async read(filePath: string): Promise<Buffer> {
-    const fullPath = path.join(this.basePath, filePath);
+    const fullPath = this.assertWithinBase(filePath);
     return fs.readFileSync(fullPath);
   }
 
   async delete(filePath: string): Promise<boolean> {
-    const fullPath = path.join(this.basePath, filePath);
+    const fullPath = this.assertWithinBase(filePath);
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
       return true;
@@ -85,7 +95,7 @@ class LocalStorageAdapter implements StorageAdapter {
   }
 
   async exists(filePath: string): Promise<boolean> {
-    const fullPath = path.join(this.basePath, filePath);
+    const fullPath = this.assertWithinBase(filePath);
     return fs.existsSync(fullPath);
   }
 

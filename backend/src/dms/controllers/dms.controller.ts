@@ -1,6 +1,25 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, UseInterceptors, UploadedFile, UploadedFiles, Header } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
+  Header,
+  StreamableFile,
+  Res,
+} from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -32,7 +51,14 @@ export class DmsController {
   @Post('documents')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('dms.create')
-  @WorkflowDocument({ module: 'dms', documentType: 'document', templateCode: 'dms-document', templateName: 'DMS Document Workflow', amountField: 'fileSize', numberField: 'documentNumber' })
+  @WorkflowDocument({
+    module: 'dms',
+    documentType: 'document',
+    templateCode: 'dms-document',
+    templateName: 'DMS Document Workflow',
+    amountField: 'fileSize',
+    numberField: 'documentNumber',
+  })
   @ApiOperation({ summary: 'Create a new document record' })
   @HttpCode(HttpStatus.CREATED)
   async createDocument(@Body() body: any, @CurrentUser() u: { id: string }) {
@@ -45,7 +71,10 @@ export class DmsController {
   @ApiOperation({ summary: 'List all documents' })
   @HttpCode(HttpStatus.OK)
   async listDocuments(@Query('page') page?: string, @Query('pageSize') pageSize?: string) {
-    return this.dms.listDocuments({ page: parseInt(page || '1'), pageSize: parseInt(pageSize || '20') });
+    return this.dms.listDocuments({
+      page: parseInt(page || '1'),
+      pageSize: parseInt(pageSize || '20'),
+    });
   }
 
   @Get('documents/:id')
@@ -55,7 +84,9 @@ export class DmsController {
   @HttpCode(HttpStatus.OK)
   async getDocument(@Param('id') id: string, @CurrentUser() u: { id: string }) {
     const doc = await this.dms.getDocument(id);
-    if (doc) {await this.dms.logAccess(id, u?.id, 'view');}
+    if (doc) {
+      await this.dms.logAccess(id, u?.id, 'view');
+    }
     return doc;
   }
 
@@ -64,7 +95,11 @@ export class DmsController {
   @Permissions('dms.update')
   @ApiOperation({ summary: 'Update document metadata' })
   @HttpCode(HttpStatus.OK)
-  async updateDocument(@Param('id') id: string, @Body() body: any, @CurrentUser() u: { id: string }) {
+  async updateDocument(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.dms.updateDocument(id, body, u?.id);
   }
 
@@ -106,7 +141,11 @@ export class DmsController {
   @Permissions('dms.create')
   @ApiOperation({ summary: 'Create a new document version' })
   @HttpCode(HttpStatus.CREATED)
-  async createVersion(@Param('id') id: string, @Body() body: any, @CurrentUser() u: { id: string }) {
+  async createVersion(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.dms.createVersion(id, body, u?.id);
   }
 
@@ -124,7 +163,11 @@ export class DmsController {
   @Permissions('dms.update')
   @ApiOperation({ summary: 'Restore a previous version' })
   @HttpCode(HttpStatus.OK)
-  async restoreVersion(@Param('docId') docId: string, @Param('verId') verId: string, @CurrentUser() u: { id: string }) {
+  async restoreVersion(
+    @Param('docId') docId: string,
+    @Param('verId') verId: string,
+    @CurrentUser() u: { id: string },
+  ) {
     return this.dms.restoreVersion(docId, verId, u?.id);
   }
 
@@ -155,7 +198,12 @@ export class DmsController {
   @Post('documents/:id/sign')
   @Roles('admin', 'manager')
   @Permissions('dms.sign')
-  @WorkflowDocument({ module: 'dms', documentType: 'document_signature', templateCode: 'dms-signature', templateName: 'DMS Signature Workflow' })
+  @WorkflowDocument({
+    module: 'dms',
+    documentType: 'document_signature',
+    templateCode: 'dms-signature',
+    templateName: 'DMS Signature Workflow',
+  })
   @ApiOperation({ summary: 'Sign a document digitally' })
   @HttpCode(HttpStatus.OK)
   async signDocument(@Param('id') id: string, @Body() body: any, @CurrentUser() u: { id: string }) {
@@ -235,7 +283,11 @@ export class DmsController {
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    return this.search.searchDocuments(q, { category, status, linkedModule }, { page: parseInt(page || '1'), pageSize: parseInt(pageSize || '20') });
+    return this.search.searchDocuments(
+      q,
+      { category, status, linkedModule },
+      { page: parseInt(page || '1'), pageSize: parseInt(pageSize || '20') },
+    );
   }
 
   @Get('search/ocr')
@@ -266,48 +318,73 @@ export class DmsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a file to a new document' })
   @HttpCode(HttpStatus.CREATED)
-  async uploadFile(
-    @UploadedFile() file: any,
-    @Body() body: any,
-    @CurrentUser() u: { id: string },
-  ) {
-    if (!file) {return { success: false, message: 'No file provided' };}
+  async uploadFile(@UploadedFile() file: any, @Body() body: any, @CurrentUser() u: { id: string }) {
+    if (!file) {
+      return { success: false, message: 'No file provided' };
+    }
 
     // Validate MIME type
-    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif',
-      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv', 'text/plain', 'application/json', 'text/xml', 'application/zip'];
+    const allowedMimes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'text/plain',
+      'application/json',
+      'text/xml',
+      'application/zip',
+    ];
     if (!allowedMimes.includes(file.mimetype)) {
       return { success: false, message: `Unsupported file type: ${file.mimetype}` };
     }
 
     // Create document record
-    const doc = await this.dms.createDocument({
-      name: body.name || file.originalname,
-      description: body.description,
-      category: body.category,
-      documentType: file.mimetype.split('/')[1] || 'file',
-      mimeType: file.mimetype,
-      fileExtension: file.originalname.split('.').pop(),
-      ownerId: u?.id,
-      linkedModule: body.linkedModule,
-      linkedEntityId: body.linkedEntityId,
-      linkedEntityNumber: body.linkedEntityNumber,
-    }, u?.id);
+    const doc = await this.dms.createDocument(
+      {
+        name: body.name || file.originalname,
+        description: body.description,
+        category: body.category,
+        documentType: file.mimetype.split('/')[1] || 'file',
+        mimeType: file.mimetype,
+        fileExtension: file.originalname.split('.').pop(),
+        ownerId: u?.id,
+        linkedModule: body.linkedModule,
+        linkedEntityId: body.linkedEntityId,
+        linkedEntityNumber: body.linkedEntityNumber,
+      },
+      u?.id,
+    );
 
     // Save file to storage
     const docId = (doc as any).id;
-    const storageResult = await this.storage.saveFile(file.buffer, file.originalname, file.mimetype, docId, 1);
+    const storageResult = await this.storage.saveFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      docId,
+      1,
+    );
 
     // Update document with storage info
-    const updated = await this.dms.updateDocument(docId, {
-      storagePath: storageResult.storagePath,
-      checksum: storageResult.checksum,
-      fileSize: storageResult.fileSize,
-    }, u?.id);
+    const updated = await this.dms.updateDocument(
+      docId,
+      {
+        storagePath: storageResult.storagePath,
+        checksum: storageResult.checksum,
+        fileSize: storageResult.fileSize,
+      },
+      u?.id,
+    );
 
-    await this.dms.logAccess(docId, u?.id, 'upload', { originalName: file.originalname, fileSize: file.buffer.length });
+    await this.dms.logAccess(docId, u?.id, 'upload', {
+      originalName: file.originalname,
+      fileSize: file.buffer.length,
+    });
 
     return { success: true, data: updated };
   }
@@ -319,19 +396,39 @@ export class DmsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload multiple files to documents' })
   @HttpCode(HttpStatus.CREATED)
-  async uploadMultipleFiles(
-    @UploadedFiles() files: any[],
-    @CurrentUser() u: { id: string },
-  ) {
-    if (!files || files.length === 0) {return { success: false, message: 'No files provided' };}
+  async uploadMultipleFiles(@UploadedFiles() files: any[], @CurrentUser() u: { id: string }) {
+    if (!files || files.length === 0) {
+      return { success: false, message: 'No files provided' };
+    }
 
     const results = [];
     for (const file of files) {
-      const doc = await this.dms.createDocument({ name: file.originalname, mimeType: file.mimetype }, u?.id);
+      const doc = await this.dms.createDocument(
+        { name: file.originalname, mimeType: file.mimetype },
+        u?.id,
+      );
       const docId = (doc as any).id;
-      const storageResult = await this.storage.saveFile(file.buffer, file.originalname, file.mimetype, docId, 1);
-      await this.dms.updateDocument(docId, { storagePath: storageResult.storagePath, checksum: storageResult.checksum, fileSize: storageResult.fileSize }, u?.id);
-      results.push({ documentId: docId, originalName: file.originalname, fileSize: file.buffer.length });
+      const storageResult = await this.storage.saveFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        docId,
+        1,
+      );
+      await this.dms.updateDocument(
+        docId,
+        {
+          storagePath: storageResult.storagePath,
+          checksum: storageResult.checksum,
+          fileSize: storageResult.fileSize,
+        },
+        u?.id,
+      );
+      results.push({
+        documentId: docId,
+        originalName: file.originalname,
+        fileSize: file.buffer.length,
+      });
     }
 
     return { success: true, count: results.length, results };
@@ -343,22 +440,33 @@ export class DmsController {
   @Header('Content-Type', 'application/octet-stream')
   @ApiOperation({ summary: 'Download a document file' })
   @HttpCode(HttpStatus.OK)
-  async downloadDocument(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+  async downloadDocument(
+    @Param('id') id: string,
+    @CurrentUser() u: { id: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const doc = await this.dms.getDocument(id);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      res.status(HttpStatus.NOT_FOUND);
+      return { success: false, message: 'Document not found' };
+    }
 
     const docRecord = doc as any;
-    if (!docRecord.storagePath) {return { success: false, message: 'No file stored for this document' };}
+    if (!docRecord.storagePath) {
+      res.status(HttpStatus.NOT_FOUND);
+      return { success: false, message: 'No file stored for this document' };
+    }
 
     const buffer = await this.storage.readFile(docRecord.storagePath);
     await this.dms.logAccess(id, u?.id, 'download');
 
-    return {
-      success: true,
-      data: buffer.toString('base64'),
-      mimeType: docRecord.mimeType,
-      fileName: docRecord.name,
-    };
+    // H9: Stream as binary — avoids base64 bloat and memory pressure for large files
+    res.set({
+      'Content-Type': docRecord.mimeType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${docRecord.name || 'document'}"`,
+      'Content-Length': buffer.length,
+    });
+    return new StreamableFile(buffer);
   }
 
   @Delete('documents/:id/file')
@@ -368,7 +476,9 @@ export class DmsController {
   @HttpCode(HttpStatus.OK)
   async deleteDocumentFile(@Param('id') id: string, @CurrentUser() u: { id: string }) {
     const doc = await this.dms.getDocument(id);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      return { success: false, message: 'Document not found' };
+    }
 
     const docRecord = doc as any;
     if (docRecord.storagePath) {
@@ -386,10 +496,14 @@ export class DmsController {
   @HttpCode(HttpStatus.OK)
   async verifyFileIntegrity(@Param('id') id: string) {
     const doc = await this.dms.getDocument(id);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      return { success: false, message: 'Document not found' };
+    }
 
     const docRecord = doc as any;
-    if (!docRecord.storagePath || !docRecord.checksum) {return { success: false, message: 'No file or checksum stored' };}
+    if (!docRecord.storagePath || !docRecord.checksum) {
+      return { success: false, message: 'No file or checksum stored' };
+    }
 
     const isValid = await this.storage.verifyIntegrity(docRecord.storagePath, docRecord.checksum);
     return { success: true, isValid, documentId: id };
@@ -433,7 +547,11 @@ export class DmsController {
   @Permissions('dms.update')
   @ApiOperation({ summary: 'Link document to an ERP entity' })
   @HttpCode(HttpStatus.OK)
-  async linkDocument(@Param('id') id: string, @Body() body: { module: string; entityId: string; entityNumber: string }, @CurrentUser() u: { id: string }) {
+  async linkDocument(
+    @Param('id') id: string,
+    @Body() body: { module: string; entityId: string; entityNumber: string },
+    @CurrentUser() u: { id: string },
+  ) {
     return this.dms.linkDocumentToEntity(id, body.module, body.entityId, body.entityNumber, u?.id);
   }
 
