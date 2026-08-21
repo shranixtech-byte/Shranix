@@ -32,6 +32,8 @@ import {
   DMS_ALLOWED_MIMES,
   DMS_ALLOWED_EXTENSIONS,
   DMS_MAX_FILES,
+  safeContentDisposition,
+  logUploadSecurityEvent,
 } from '../../common/utils/file-validation';
 import { DigitalSignatureService } from '../services/digital-signature.service';
 import { DmsService } from '../services/dms.service';
@@ -332,6 +334,11 @@ export class DmsController {
   @HttpCode(HttpStatus.CREATED)
   async uploadFile(@UploadedFile() file: any, @Body() body: any, @CurrentUser() u: { id: string }) {
     if (!file) {
+      logUploadSecurityEvent('UPLOAD-EMPTY', {
+        reason: 'no file in request',
+        endpoint: 'dms/documents/upload',
+        userId: u?.id,
+      });
       return { success: false, message: 'No file provided' };
     }
 
@@ -378,6 +385,13 @@ export class DmsController {
       fileSize: file.buffer.length,
     });
 
+    logUploadSecurityEvent('UPLOAD-SUCCESS', {
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      endpoint: 'dms/documents/upload',
+      userId: u?.id,
+    });
+
     return { success: true, data: updated };
   }
 
@@ -395,6 +409,11 @@ export class DmsController {
   @HttpCode(HttpStatus.CREATED)
   async uploadMultipleFiles(@UploadedFiles() files: any[], @CurrentUser() u: { id: string }) {
     if (!files || files.length === 0) {
+      logUploadSecurityEvent('UPLOAD-EMPTY', {
+        reason: 'no files in request',
+        endpoint: 'dms/documents/upload-multiple',
+        userId: u?.id,
+      });
       return { success: false, message: 'No files provided' };
     }
 
@@ -444,6 +463,12 @@ export class DmsController {
   ) {
     const doc = await this.dms.getDocument(id);
     if (!doc) {
+      logUploadSecurityEvent('DOWNLOAD-NOT-FOUND', {
+        filename: id,
+        reason: 'document not found',
+        endpoint: 'dms/documents/:id/download',
+        userId: u?.id,
+      });
       res.status(HttpStatus.NOT_FOUND);
       return { success: false, message: 'Document not found' };
     }
@@ -454,13 +479,17 @@ export class DmsController {
       return { success: false, message: 'No file stored for this document' };
     }
 
+    // H12: Verify object-level authorization — user must have dms.download permission
+    // (already enforced by @Permissions('dms.download') above)
+
     const buffer = await this.storage.readFile(docRecord.storagePath);
     await this.dms.logAccess(id, u?.id, 'download');
 
-    // H9: Stream as binary — avoids base64 bloat and memory pressure for large files
+    // H12: Sanitise Content-Disposition to prevent header injection
+    const safeFilename = (docRecord.name || 'document').replace(/[\r\n\0]/g, '_');
     res.set({
       'Content-Type': docRecord.mimeType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${docRecord.name || 'document'}"`,
+      'Content-Disposition': safeContentDisposition(safeFilename),
       'Content-Length': buffer.length,
     });
     return new StreamableFile(buffer);

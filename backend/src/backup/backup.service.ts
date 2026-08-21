@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { getRawClient, loadDatabaseConfig } from '@shranix/database';
 
+import { logUploadSecurityEvent, safeContentDisposition } from '../common/utils/file-validation';
 import { DatabaseService } from '../database/database.service';
 
 export interface BackupMeta {
@@ -81,9 +82,24 @@ export class BackupService implements OnModuleInit {
   }
 
   private safeName(name: string): string {
-    const base = path.basename(String(name || ''));
+    const raw = String(name || '');
+    const base = path.basename(raw);
     // path.basename already strips separators — the real guard is the .. check
     if (!base.startsWith('backup-') || !base.endsWith('.db') || base.includes('..')) {
+      logUploadSecurityEvent('BACKUP-NAME-REJECTED', {
+        filename: raw,
+        reason: 'invalid backup name format',
+        endpoint: 'backup',
+      });
+      throw new BadRequestException('Invalid backup name');
+    }
+    // H12: Additional path traversal check on the raw input
+    if (raw !== base || raw.includes('/') || raw.includes('\\') || raw.includes('\0')) {
+      logUploadSecurityEvent('BACKUP-PATH-TRAVERSAL', {
+        filename: raw,
+        reason: 'path traversal in backup name',
+        endpoint: 'backup',
+      });
       throw new BadRequestException('Invalid backup name');
     }
     return base;
@@ -140,12 +156,23 @@ export class BackupService implements OnModuleInit {
   downloadBackup(name: string): StreamableFile {
     const fileName = this.safeName(name);
     const full = path.join(this.backupDir(), fileName);
+    // H12: Verify resolved path stays within backup directory
+    const resolved = path.resolve(full);
+    const baseResolved = path.resolve(this.backupDir());
+    if (!resolved.startsWith(baseResolved + path.sep) && resolved !== baseResolved) {
+      logUploadSecurityEvent('BACKUP-PATH-ESCAPE', {
+        filename: name,
+        reason: 'resolved path escapes backup directory',
+        endpoint: 'backup/download',
+      });
+      throw new BadRequestException('Invalid file path');
+    }
     if (!existsSync(full)) {
       throw new NotFoundException('Backup not found');
     }
     return new StreamableFile(createReadStream(full), {
       type: 'application/octet-stream',
-      disposition: `attachment; filename="${fileName}"`,
+      disposition: safeContentDisposition(fileName),
     });
   }
 

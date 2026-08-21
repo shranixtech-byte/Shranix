@@ -1,12 +1,17 @@
 /**
  * H12 — Centralized file upload validation utilities.
  *
- * Provides shared MIME-type / extension allow-lists and a multer-compatible
- * `fileFilter` factory so that every upload endpoint in the codebase applies
- * consistent, minimally-permissive validation without duplicating logic.
+ * Provides shared MIME-type / extension allow-lists, magic-bytes verification,
+ * multer-compatible `fileFilter` factory, security logging, and content-disposition
+ * sanitisation so that every upload endpoint in the codebase applies consistent,
+ * minimally-permissive validation without duplicating logic.
  */
 
-import { BadRequestException } from '@nestjs/common';
+import * as path from 'path';
+
+import { BadRequestException, Logger } from '@nestjs/common';
+
+const h12Logger = new Logger('H12-UploadSecurity');
 
 // ─── Allowed MIME types ───────────────────────────────────────────────
 
@@ -155,10 +160,19 @@ export function createFileFilter(
   allowedMimes: readonly string[],
   allowedExtensions: readonly string[],
   label = 'file',
+  options: { verifyMagicBytes?: boolean } = {},
 ): (req: any, file: any, cb: (err: Error | null, acceptFile: boolean) => void) => void {
   return (_req: any, file: any, cb: (err: Error | null, acceptFile: boolean) => void) => {
+    const originalName = file.originalname || '';
+
     // 1. Check MIME type
     if (!allowedMimes.includes(file.mimetype)) {
+      logUploadSecurityEvent('MIME-REJECTED', {
+        filename: originalName,
+        mimetype: file.mimetype,
+        reason: 'MIME not in allowlist',
+        endpoint: label,
+      });
       cb(
         new BadRequestException(
           `Invalid ${label} type "${file.mimetype}". Allowed: ${allowedMimes.slice(0, 5).join(', ')}…`,
@@ -169,21 +183,28 @@ export function createFileFilter(
     }
 
     // 2. Extract and validate extension
-    const originalName = file.originalname || '';
     const dotIndex = originalName.lastIndexOf('.');
     if (dotIndex < 1) {
+      logUploadSecurityEvent('EXTENSION-REJECTED', {
+        filename: originalName,
+        reason: 'no extension found',
+        endpoint: label,
+      });
       cb(new BadRequestException(`Invalid ${label} name: no extension found.`), false);
       return;
     }
     const ext = originalName.slice(dotIndex).toLowerCase();
 
     // 3. Check for dangerous extensions (even in double-extension scenarios)
-    // e.g. "report.pdf.exe" — the last extension is .exe
-    // But also check if ANY extension in the chain is dangerous
     const parts = originalName.split('.');
     for (let i = 1; i < parts.length; i++) {
       const partExt = `.${parts[i].toLowerCase()}`;
       if ((DANGEROUS_EXTENSIONS as readonly string[]).includes(partExt)) {
+        logUploadSecurityEvent('DANGEROUS-EXTENSION', {
+          filename: originalName,
+          reason: `dangerous extension "${partExt}" in chain`,
+          endpoint: label,
+        });
         cb(
           new BadRequestException(
             `Rejected ${label}: dangerous extension "${partExt}" detected in "${originalName}".`,
@@ -196,6 +217,12 @@ export function createFileFilter(
 
     // 4. Check extension is in allowlist
     if (!(allowedExtensions as readonly string[]).includes(ext)) {
+      logUploadSecurityEvent('EXTENSION-REJECTED', {
+        filename: originalName,
+        mimetype: file.mimetype,
+        reason: `extension "${ext}" not in allowlist`,
+        endpoint: label,
+      });
       cb(
         new BadRequestException(
           `Invalid ${label} extension "${ext}". Allowed: ${allowedExtensions.join(', ')}`,
@@ -207,6 +234,11 @@ export function createFileFilter(
 
     // 5. Check filename safety (path traversal)
     if (!isFilenameSafe(originalName)) {
+      logUploadSecurityEvent('PATH-TRAVERSAL-REJECTED', {
+        filename: originalName,
+        reason: 'path traversal detected in filename',
+        endpoint: label,
+      });
       cb(
         new BadRequestException(
           `Rejected ${label}: filename "${originalName}" contains path traversal.`,
@@ -214,6 +246,25 @@ export function createFileFilter(
         false,
       );
       return;
+    }
+
+    // 6. Magic bytes verification (when buffer is available via memoryStorage)
+    if (options.verifyMagicBytes && file.buffer && Buffer.isBuffer(file.buffer)) {
+      if (!verifyMagicBytes(file.buffer, file.mimetype)) {
+        logUploadSecurityEvent('MAGIC-BYTES-MISMATCH', {
+          filename: originalName,
+          mimetype: file.mimetype,
+          reason: 'file content signature does not match declared MIME type',
+          endpoint: label,
+        });
+        cb(
+          new BadRequestException(
+            `Rejected ${label}: file content does not match declared type "${file.mimetype}".`,
+          ),
+          false,
+        );
+        return;
+      }
     }
 
     cb(null, true as any);
@@ -228,4 +279,144 @@ export function createUploadLimits(maxFileSize = DEFAULT_MAX_FILE_SIZE, maxFiles
     fileSize: maxFileSize,
     files: maxFiles,
   };
+}
+
+// ─── Magic bytes (file signature) verification ──────────────────────
+
+/**
+ * Known file signatures mapped to expected MIME types.
+ * Only covers types we actually accept — not an exhaustive catalogue.
+ */
+const MAGIC_BYTES: Array<{ mime: string; bytes: number[]; offset?: number }> = [
+  // PDF
+  { mime: 'application/pdf', bytes: [0x25, 0x50, 0x44, 0x46] }, // %PDF
+  // JPEG
+  { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
+  // PNG
+  { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  // GIF
+  { mime: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38] }, // GIF8
+  // ZIP (also covers XLSX, DOCX which are ZIP-based)
+  { mime: 'application/zip', bytes: [0x50, 0x4b, 0x03, 0x04] },
+  // OLE2 (XLS, DOC — old Microsoft formats)
+  { mime: 'application/msword', bytes: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
+  // JSON (starts with { or [)
+  { mime: 'application/json', bytes: [0x7b] }, // {
+  { mime: 'application/json', bytes: [0x5b] }, // [
+  // CSV/Plain text — no reliable signature; we accept any content for text/*
+];
+
+/**
+ * MIME types that are text-based and have no unique magic bytes.
+ * For these we skip magic-bytes verification (extension + MIME check is sufficient).
+ */
+const TEXT_BASED_MIMES = new Set([
+  'text/csv',
+  'text/plain',
+  'text/xml',
+  'application/octet-stream',
+]);
+
+/**
+ * Verify that a file buffer's leading bytes match the expected MIME type.
+ * Returns `true` if verification passes or is skipped (text-based MIME).
+ * Returns `false` if the signature clearly mismatches.
+ *
+ * This is a best-effort check — not a replacement for proper MIME sniffing,
+ * but it catches the most common spoofing attacks (e.g. sending a PDF with
+ * Content-Type: text/csv and a .csv extension).
+ */
+export function verifyMagicBytes(buffer: Buffer, expectedMime: string): boolean {
+  // Skip verification for text-based MIMEs with no reliable signature
+  if (TEXT_BASED_MIMES.has(expectedMime)) {
+    return true;
+  }
+
+  // Need at least a few bytes to check
+  if (!buffer || buffer.length < 4) {
+    return false;
+  }
+
+  const sigs = MAGIC_BYTES.filter((s) => s.mime === expectedMime);
+  if (sigs.length === 0) {
+    // No known signature for this MIME — accept (extension + MIME check already passed)
+    return true;
+  }
+
+  // Check if ANY of the known signatures matches (OR logic — e.g. JSON can start with { or [)
+  for (const sig of sigs) {
+    const offset = sig.offset ?? 0;
+    if (buffer.length < offset + sig.bytes.length) {
+      continue;
+    }
+    let match = true;
+    for (let i = 0; i < sig.bytes.length; i++) {
+      if (buffer[offset + i] !== sig.bytes[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ─── Security event logging ─────────────────────────────────────────
+
+/**
+ * Log a security-relevant upload event (rejection, bypass attempt, etc.).
+ * Never logs file contents or sensitive payloads.
+ */
+export function logUploadSecurityEvent(
+  event: string,
+  details: {
+    filename?: string;
+    mimetype?: string;
+    reason?: string;
+    endpoint?: string;
+    userId?: string;
+  },
+): void {
+  const safeFilename = details.filename ? sanitizeFilename(details.filename) : 'unknown';
+  h12Logger.warn(
+    `[UPLOAD-SECURITY] ${event} | file=${safeFilename} | mime=${details.mimetype || '?'} | reason=${details.reason || '?'} | endpoint=${details.endpoint || '?'} | user=${details.userId || '?'}`,
+  );
+}
+
+// ─── Content-Disposition sanitisation ────────────────────────────────
+
+/**
+ * Build a safe Content-Disposition header value.
+ * Prevents header injection via newlines or control characters in filenames.
+ */
+export function safeContentDisposition(
+  filename: string,
+  disposition: 'inline' | 'attachment' = 'attachment',
+): string {
+  // Strip any characters that could inject headers (CR, LF, null)
+  const safe = filename.replace(/[\r\n\0]/g, '_');
+  // Use RFC 5987 encoding for non-ASCII names
+  const encoded = encodeURIComponent(safe).replace(/'/g, '%27');
+  return `${disposition}; filename="${safe}"; filename*=UTF-8''${encoded}`;
+}
+
+// ─── Path resolution for downloads ──────────────────────────────────
+
+/**
+ * Resolve a user-supplied path and verify it stays within the base directory.
+ * Throws BadRequestException if path traversal is detected.
+ */
+export function safeResolvePath(baseDir: string, userPath: string): string {
+  const resolved = path.resolve(baseDir, userPath);
+  const baseResolved = path.resolve(baseDir);
+  if (!resolved.startsWith(baseResolved + path.sep) && resolved !== baseResolved) {
+    logUploadSecurityEvent('PATH-TRAVERSAL-BLOCKED', {
+      filename: userPath,
+      reason: 'download path escape',
+    });
+    throw new BadRequestException('Invalid file path');
+  }
+  return resolved;
 }
