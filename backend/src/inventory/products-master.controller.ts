@@ -26,6 +26,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -38,6 +39,12 @@ import {
   IMPORT_ALLOWED_EXTENSIONS,
 } from '../common/utils/file-validation';
 import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
+import {
+  THROTTLE_UPLOAD_SINGLE,
+  THROTTLE_EXPORT,
+  THROTTLE_REPORT,
+  throttle,
+} from '../common/utils/rate-limit-policies';
 
 import {
   BulkProductDeleteDto,
@@ -98,6 +105,7 @@ export class ProductsMasterController {
   @Roles('admin', 'manager', 'inventory', 'accountant')
   @Permissions('product.export')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_EXPORT))
   @ApiOperation({ summary: 'Export products as CSV / XLSX / JSON' })
   @ApiQuery({
     name: 'format',
@@ -117,6 +125,7 @@ export class ProductsMasterController {
   @Roles('admin', 'manager', 'inventory')
   @Permissions('product.import')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_UPLOAD_SINGLE))
   @ApiOperation({ summary: 'Import products from Excel / CSV / JSON with duplicate detection' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ description: 'File upload (file + mode=insert|upsert)', required: true })
@@ -169,6 +178,7 @@ export class ProductsMasterController {
   @Roles('admin', 'manager', 'accountant', 'inventory')
   @Permissions('product.view')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_REPORT))
   @ApiOperation({ summary: 'Product reports — master | price | low-stock | out-of-stock | expiry' })
   @ApiParam({ name: 'report', enum: ['master', 'price', 'low-stock', 'out-of-stock', 'expiry'] })
   async report(@Param('report') report: string) {

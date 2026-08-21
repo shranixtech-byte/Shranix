@@ -26,6 +26,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -38,6 +39,11 @@ import {
   IMPORT_ALLOWED_EXTENSIONS,
 } from '../common/utils/file-validation';
 import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
+import {
+  THROTTLE_UPLOAD_SINGLE,
+  THROTTLE_EXPORT,
+  throttle,
+} from '../common/utils/rate-limit-policies';
 
 import { CustomersService } from './customers.service';
 import {
@@ -118,6 +124,7 @@ export class CustomersController {
   @Roles('admin', 'manager', 'accountant')
   @Permissions('sales.read')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_EXPORT))
   @ApiOperation({ summary: 'Export customers as Excel / CSV / JSON' })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx', 'json'] })
   async export(@Query('format') format?: string): Promise<StreamableFile> {
@@ -133,6 +140,7 @@ export class CustomersController {
   @Post('import')
   @Roles('admin', 'manager')
   @Permissions('sales.update')
+  @Throttle(throttle(THROTTLE_UPLOAD_SINGLE))
   @UseInterceptors(
     FileInterceptor('file', {
       limits: createUploadLimits(),

@@ -26,6 +26,7 @@ import {
   ApiQuery,
   ApiConsumes,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
@@ -39,6 +40,11 @@ import {
   IMPORT_ALLOWED_EXTENSIONS,
 } from '../common/utils/file-validation';
 import { sanitizePage, sanitizePageSize } from '../common/utils/pagination.util';
+import {
+  THROTTLE_UPLOAD_SINGLE,
+  THROTTLE_EXPORT,
+  throttle,
+} from '../common/utils/rate-limit-policies';
 
 import { PurchaseDebitNoteService } from './debit-note.service';
 import {
@@ -715,6 +721,7 @@ export class SuppliersController {
   @Roles('admin', 'manager', 'accountant')
   @Permissions('purchase.read')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_EXPORT))
   @ApiOperation({ summary: 'Export suppliers as CSV / XLSX / JSON' })
   @ApiQuery({
     name: 'format',
@@ -734,6 +741,7 @@ export class SuppliersController {
   @Roles('admin', 'manager')
   @Permissions('purchase.create')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_UPLOAD_SINGLE))
   @ApiOperation({ summary: 'Import suppliers from Excel / CSV / JSON with duplicate detection' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ description: 'File upload (file + mode=insert|upsert)', required: true })

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
@@ -6,8 +16,15 @@ import { Request, Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { CsrfService } from '../common/services/csrf.service';
+import {
+  THROTTLE_AUTH_LOGIN,
+  THROTTLE_AUTH_REGISTER,
+  THROTTLE_AUTH_REFRESH,
+  THROTTLE_AUTH_CHANGE_PASSWORD,
+  throttle,
+} from '../common/utils/rate-limit-policies';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { AuthService } from './auth.service';
@@ -27,6 +44,7 @@ export class AuthController {
   @Post('register')
   @Public()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle(throttle(THROTTLE_AUTH_REGISTER))
   @ApiOperation({ summary: 'Register a new user account' })
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.register(dto);
@@ -37,9 +55,13 @@ export class AuthController {
   @Post('login')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle(throttle(THROTTLE_AUTH_LOGIN))
   @ApiOperation({ summary: 'Login with email and password' })
-  async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
     const result = await this.authService.login(dto, ipAddress, userAgent);
@@ -58,8 +80,13 @@ export class AuthController {
   @Post('refresh')
   @Public()
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_AUTH_REFRESH))
   @ApiOperation({ summary: 'Refresh access token using refresh token from cookie or body' })
-  async refresh(@Body() dto: RefreshTokenDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const cookieToken = req.cookies?.refresh_token;
     const tokens = await this.authService.refreshToken(dto, cookieToken);
     this.setRefreshCookie(res, tokens.refreshToken);
@@ -70,6 +97,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_AUTH_CHANGE_PASSWORD))
   @ApiOperation({ summary: 'Change password and invalidate all existing sessions' })
   async changePassword(
     @CurrentUser() user: { id: string },
@@ -87,10 +115,7 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout and clear refresh token cookie' })
-  async logout(
-    @CurrentUser() user: { id: string },
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@CurrentUser() user: { id: string }, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.logout(user.id);
     const { name, value, ...cookieOpts } = result.cookie;
     res.cookie(name, value, cookieOpts);

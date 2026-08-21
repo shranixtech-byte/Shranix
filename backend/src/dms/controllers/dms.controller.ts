@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -35,6 +36,13 @@ import {
   safeContentDisposition,
   logUploadSecurityEvent,
 } from '../../common/utils/file-validation';
+import {
+  THROTTLE_UPLOAD_SINGLE,
+  THROTTLE_UPLOAD_MULTIPLE,
+  THROTTLE_SEARCH,
+  THROTTLE_DASHBOARD,
+  throttle,
+} from '../../common/utils/rate-limit-policies';
 import { DigitalSignatureService } from '../services/digital-signature.service';
 import { DmsService } from '../services/dms.service';
 import { FileStorageService } from '../services/file-storage.service';
@@ -282,6 +290,7 @@ export class DmsController {
   @Get('search')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('dms.read')
+  @Throttle(throttle(THROTTLE_SEARCH))
   @ApiOperation({ summary: 'Search documents' })
   @HttpCode(HttpStatus.OK)
   async searchDocuments(
@@ -302,6 +311,7 @@ export class DmsController {
   @Get('search/ocr')
   @Roles('admin', 'manager')
   @Permissions('dms.read')
+  @Throttle(throttle(THROTTLE_SEARCH))
   @ApiOperation({ summary: 'Search OCR content' })
   @HttpCode(HttpStatus.OK)
   async searchOcr(@Query('q') q: string) {
@@ -323,6 +333,7 @@ export class DmsController {
   @Post('documents/upload')
   @Roles('admin', 'manager')
   @Permissions('dms.upload')
+  @Throttle(throttle(THROTTLE_UPLOAD_SINGLE))
   @UseInterceptors(
     FileInterceptor('file', {
       limits: createUploadLimits(),
@@ -398,6 +409,7 @@ export class DmsController {
   @Post('documents/upload-multiple')
   @Roles('admin', 'manager')
   @Permissions('dms.upload')
+  @Throttle(throttle(THROTTLE_UPLOAD_MULTIPLE))
   @UseInterceptors(
     FilesInterceptor('files', DMS_MAX_FILES, {
       limits: createUploadLimits(),
@@ -538,6 +550,7 @@ export class DmsController {
   @Get('storage/stats')
   @Roles('admin')
   @Permissions('dms.read')
+  @Throttle(throttle(THROTTLE_DASHBOARD))
   @ApiOperation({ summary: 'Get storage statistics' })
   @HttpCode(HttpStatus.OK)
   async getStorageStats() {
@@ -587,6 +600,7 @@ export class DmsController {
   @Get('dashboard')
   @Roles('admin', 'manager', 'accountant')
   @Permissions('dms.read')
+  @Throttle(throttle(THROTTLE_DASHBOARD))
   @ApiOperation({ summary: 'Get DMS dashboard stats' })
   @HttpCode(HttpStatus.OK)
   async getDashboard() {

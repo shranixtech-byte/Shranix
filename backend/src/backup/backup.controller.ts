@@ -12,10 +12,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import {
+  THROTTLE_BACKUP,
+  THROTTLE_BACKUP_DOWNLOAD,
+  throttle,
+} from '../common/utils/rate-limit-policies';
 
 import { BackupService } from './backup.service';
 
@@ -37,6 +43,7 @@ export class BackupController {
   @Post()
   @Permissions('companies.update')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle(throttle(THROTTLE_BACKUP))
   @ApiOperation({ summary: 'Create a manual backup now' })
   @ApiResponse({ status: 201, description: 'Backup created' })
   create() {
@@ -59,6 +66,7 @@ export class BackupController {
 
   @Get(':name/download')
   @Permissions('companies.read')
+  @Throttle(throttle(THROTTLE_BACKUP_DOWNLOAD))
   @ApiOperation({ summary: 'Download a backup file' })
   @ApiResponse({ status: 200, description: 'Backup file stream' })
   download(@Param('name') name: string): StreamableFile {
@@ -68,6 +76,7 @@ export class BackupController {
   @Post(':name/restore')
   @Permissions('companies.update')
   @HttpCode(HttpStatus.OK)
+  @Throttle(throttle(THROTTLE_BACKUP))
   @ApiOperation({ summary: 'Restore the database from a backup (online, no restart needed)' })
   @ApiResponse({ status: 200, description: 'Restore result' })
   restore(@Param('name') name: string) {

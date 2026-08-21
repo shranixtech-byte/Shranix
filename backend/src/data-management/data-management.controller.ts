@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-
+import { Throttle } from '@nestjs/throttler';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -24,6 +24,11 @@ import {
   IMPORT_ALLOWED_MIMES,
   IMPORT_ALLOWED_EXTENSIONS,
 } from '../common/utils/file-validation';
+import {
+  THROTTLE_UPLOAD_SINGLE,
+  THROTTLE_EXPORT,
+  throttle,
+} from '../common/utils/rate-limit-policies';
 
 import { DataManagementService, type ImportResult } from './data-management.service';
 
@@ -43,6 +48,7 @@ export class DataManagementController {
 
   @Get('export')
   @Permissions('companies.read')
+  @Throttle(throttle(THROTTLE_EXPORT))
   @ApiOperation({ summary: 'Export master data as Excel / CSV / JSON' })
   @ApiResponse({ status: 200, description: 'Downloadable file' })
   export(
@@ -60,6 +66,7 @@ export class DataManagementController {
 
   @Post('import')
   @Permissions('companies.update')
+  @Throttle(throttle(THROTTLE_UPLOAD_SINGLE))
   @UseInterceptors(
     FileInterceptor('file', {
       limits: createUploadLimits(),

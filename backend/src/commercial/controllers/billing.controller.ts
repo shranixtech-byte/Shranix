@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { THROTTLE_WEBHOOK, throttle } from '../../common/utils/rate-limit-policies';
 import { BillingPaymentsService } from '../services/billing-payments.service';
 import { BillingService } from '../services/billing.service';
 
@@ -110,6 +112,7 @@ export class BillingController {
   // ── Webhook (no JWT — authenticated by signature) ──────
   @Public()
   @Post('webhook')
+  @Throttle(throttle(THROTTLE_WEBHOOK))
   @ApiOperation({ summary: 'Payment gateway webhook (signature-authenticated)' })
   async webhook(@Body() body: any) {
     return this.payments.webhook(body);
