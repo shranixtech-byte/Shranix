@@ -93,6 +93,553 @@ export class InventorySettingsService extends BaseMasterService {
   }
 }
 
+// ── PRM-015B: Stock Ledger Service ────────────────────────
+@Injectable()
+export class StockLedgerService {
+  constructor(private readonly database: DatabaseService) {}
+
+  async getLedger(params: {
+    page?: number;
+    pageSize?: number;
+    itemId?: string;
+    batchNo?: string;
+    movementType?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    // H1: stock ledger reads the canonical shranix_inv_stock_ledger instead of the
+    // legacy in-memory stockMovements repo (which had no table — data lost on restart).
+    const filters: any[] = [];
+    if (params.itemId) {
+      filters.push({ field: 'itemId', operator: 'eq', value: params.itemId });
+    }
+    if (params.batchNo) {
+      filters.push({ field: 'batchNo', operator: 'eq', value: params.batchNo });
+    }
+    if (params.movementType) {
+      filters.push({ field: 'transactionType', operator: 'eq', value: params.movementType });
+    }
+    if (params.fromDate) {
+      filters.push({ field: 'transactionDate', operator: 'gte', value: params.fromDate });
+    }
+    if (params.toDate) {
+      filters.push({ field: 'transactionDate', operator: 'lte', value: params.toDate });
+    }
+    const result = await this.database.invStockLedger.findAll({
+      filters: filters.length > 0 ? filters : undefined,
+      page: params.page || 1,
+      pageSize: params.pageSize || 50,
+      sorts: [{ field: 'transactionDate', order: 'desc' as const }],
+    } as any);
+    return result;
+  }
+}
+
+// ═════════════════════════════════════════════════════════
+// STEP 20: Enterprise Inventory Posting Engine
+// ═════════════════════════════════════════════════════════
+@Injectable()
+export class InventoryPostingEngine {
+  private entryCounter = 1;
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly transactionManager: TransactionManager,
+    private readonly audit: AuditService,
+  ) {}
+  private generateEntryNumber(): string {
+    const ts = Date.now().toString(36).toUpperCase();
+    const seq = String(this.entryCounter++).padStart(4, '0');
+    return `INV-${ts}-${seq}`;
+  }
+
+  /**
+   * Build a UNIQUE reference number for the ledger. `reference_number` carries
+   * a UNIQUE index in shranix_inv_stock_ledger, so every entry must have its
+   * own value even when the same source document posts multiple lines (e.g. a
+   * 5-line adjustment). The caller-facing document reference is preserved in
+   * `documentRef` (non-unique).
+   */
+  private uniqueReference(inputRef?: string): string {
+    if (!inputRef) {
+      return this.generateEntryNumber();
+    }
+    return `${inputRef}-${this.entryCounter++}`;
+  }
+  private async getBalanceRow(warehouseId: string, itemId: string): Promise<any> {
+    const res = await this.database.invStockBalance.findAll({
+      filters: [
+        { field: 'warehouseId', operator: 'eq' as const, value: warehouseId },
+        { field: 'itemId', operator: 'eq' as const, value: itemId },
+      ],
+      pageSize: 1,
+    } as any);
+    return ((res as any)?.data || [])[0] || null;
+  }
+
+  /**
+   * Resolve a warehouse reference (UUID or display name/code like 'Main')
+   * to a real warehouse ID so sales/purchase postings can update the
+   * canonical balance projection even when the document only carries a name.
+   * Falls back to the main warehouse, then the first active warehouse.
+   */
+  async resolveWarehouseId(warehouse?: string | null): Promise<string | null> {
+    if (!warehouse) {
+      return null;
+    }
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(warehouse)) {
+      return warehouse;
+    }
+    try {
+      const res = (await this.database.warehouses.findAll({
+        page: 1,
+        pageSize: 1000,
+      } as any)) as any;
+      const all = res?.data || [];
+      const byName = all.find(
+        (w: any) =>
+          String(w.name || '').toLowerCase() === String(warehouse).toLowerCase() ||
+          String(w.code || '').toLowerCase() === String(warehouse).toLowerCase(),
+      );
+      if (byName) {
+        return byName.id;
+      }
+      const main = all.find((w: any) => w.isMain === true || w.isMain === 1);
+      if (main) {
+        return main.id;
+      }
+      const first = all.find((w: any) => w.isActive !== false && w.isActive !== 0);
+      return first?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Apply a quantity delta to the running balance row and return the row AFTER
+   * the change (used to stamp running balanceQuantity/balanceCost on the entry).
+   *
+   * H1.7 — oversell policy: an OUT that would drive onHand below zero is a
+   * controlled business error when negative stock is not allowed; it is never
+   * silently clamped to zero.
+   */
+  private async applyBalanceDelta(
+    warehouseId: string,
+    itemId: string,
+    direction: string,
+    quantity: number,
+    unitCost: number,
+    seed?: Partial<Record<string, any>>,
+    allowNegative = false,
+  ): Promise<any> {
+    const qty = Math.abs(quantity || 0);
+    let bal = await this.getBalanceRow(warehouseId, itemId);
+    if (!bal) {
+      const created = await this.database.invStockBalance.create({
+        warehouseId,
+        itemId,
+        variantId: seed?.variantId || null,
+        batchId: seed?.batchId || null,
+        batchNo: seed?.batchNo || null,
+        zoneId: seed?.zoneId || null,
+        rackId: seed?.rackId || null,
+        onHand: 0,
+        available: 0,
+        reserved: 0,
+        committed: 0,
+        allocated: 0,
+        damaged: 0,
+        blocked: 0,
+        inTransit: 0,
+      } as any);
+      bal = created;
+    }
+    const row = bal as Record<string, any>;
+    switch (direction) {
+      case 'IN':
+        row.onHand = (row.onHand || 0) + qty;
+        row.available = (row.available || 0) + qty;
+        break;
+      case 'OUT':
+        if (!allowNegative && (row.onHand || 0) < qty) {
+          throw new Error(
+            `Insufficient stock for item ${itemId} in warehouse ${warehouseId}: ` +
+              `available ${row.onHand || 0}, requested ${qty}`,
+          );
+        }
+        row.onHand = (row.onHand || 0) - qty;
+        row.available = (row.available || 0) - qty;
+        break;
+      case 'RESERVE':
+        row.reserved = (row.reserved || 0) + qty;
+        row.available = Math.max(0, (row.available || 0) - qty);
+        break;
+      case 'RELEASE':
+        row.reserved = Math.max(0, (row.reserved || 0) - qty);
+        row.available = (row.available || 0) + qty;
+        break;
+      case 'TRANSFER':
+        row.inTransit = (row.inTransit || 0) + qty;
+        break;
+      default:
+        break; // REVERSAL entries are posted by reverseMovement with isReversal=true
+    }
+    await this.database.invStockBalance.update(row.id, row);
+    return row;
+  }
+
+  /**
+   * Core movement posting — performs the ledger write + balance projection update
+   * WITHOUT opening its own transaction. Callers that are already inside a
+   * transaction (sales/purchase/return posting engines) must use this so the
+   * movement joins their transaction and rolls back atomically with the document.
+   * Standalone callers should use postMovement() which wraps this in a transaction.
+   */
+  async postMovementCore(input: {
+    transactionType: string;
+    direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
+    itemId: string;
+    warehouseId?: string | null;
+    quantity: number;
+    unitCost?: number;
+    batchId?: string;
+    batchNo?: string;
+    lotNo?: string;
+    serialNo?: string;
+    variantId?: string;
+    zoneId?: string;
+    rackId?: string;
+    shelfId?: string;
+    binId?: string;
+    fromWarehouseId?: string;
+    toWarehouseId?: string;
+    uom?: string;
+    referenceNumber?: string;
+    documentRef?: string;
+    documentType?: string;
+    remarks?: string;
+    createdBy?: string;
+    approvedBy?: string;
+    allowNegative?: boolean;
+  }) {
+    const entryNumber = this.generateEntryNumber();
+    const qty = Math.abs(input.quantity || 0);
+    const unitCost = input.unitCost || 0;
+    const amount = qty * unitCost;
+    const ts = new Date().toISOString();
+    const referenceNumber = this.uniqueReference(input.referenceNumber);
+    const allowNegative = input.allowNegative === true;
+
+    // Balance is only adjusted for real quantity movements; REVERSAL rows are
+    // posted by reverseMovement (which restores the balance itself).
+    let balance = null;
+    if (input.direction !== 'REVERSAL') {
+      const whId =
+        input.warehouseId || (await this.resolveWarehouseId(input.warehouseId)) || undefined;
+      if (whId) {
+        balance = await this.applyBalanceDelta(
+          whId,
+          input.itemId,
+          input.direction,
+          qty,
+          unitCost,
+          input as any,
+          allowNegative,
+        );
+      }
+    }
+    const balanceQuantity = balance?.onHand ?? 0;
+    const balanceCost = balanceQuantity * unitCost;
+
+    await this.database.invStockLedger.create({
+      entryNumber,
+      transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+      referenceNumber,
+      transactionType: input.transactionType,
+      direction: input.direction,
+      transactionDate: ts,
+      postingDate: ts,
+      itemId: input.itemId,
+      variantId: input.variantId,
+      batchId: input.batchId,
+      batchNo: input.batchNo,
+      lotNo: input.lotNo,
+      serialNo: input.serialNo,
+      warehouseId: input.warehouseId,
+      zoneId: input.zoneId,
+      rackId: input.rackId,
+      shelfId: input.shelfId,
+      binId: input.binId,
+      fromWarehouseId: input.fromWarehouseId,
+      toWarehouseId: input.toWarehouseId,
+      uom: input.uom,
+      quantity: qty,
+      unitCost,
+      amount,
+      balanceQuantity,
+      balanceCost,
+      documentRef: input.documentRef || input.referenceNumber || null,
+      documentType: input.documentType,
+      remarks: input.remarks,
+      createdBy: input.createdBy,
+      approvedBy: input.approvedBy,
+    } as any);
+    await this.audit.log({
+      userId: input.createdBy || 'system',
+      event: `stock_${input.direction.toLowerCase()}`,
+      resource: '',
+      details: {
+        message: `${input.direction} ${qty} units of ${input.itemId}`,
+        entryNumber,
+        referenceNumber,
+      } as any,
+    });
+    return { entryNumber, success: true, balanceQuantity };
+  }
+
+  /**
+   * Public movement posting — wraps postMovementCore in its own transaction for
+   * standalone callers (controllers, transfers, adjustments). Business engines
+   * that already run inside a transaction must call postMovementCore directly.
+   */
+  async postMovement(input: {
+    transactionType: string;
+    direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
+    itemId: string;
+    warehouseId?: string | null;
+    quantity: number;
+    unitCost?: number;
+    batchId?: string;
+    batchNo?: string;
+    lotNo?: string;
+    serialNo?: string;
+    variantId?: string;
+    zoneId?: string;
+    rackId?: string;
+    shelfId?: string;
+    binId?: string;
+    fromWarehouseId?: string;
+    toWarehouseId?: string;
+    uom?: string;
+    referenceNumber?: string;
+    documentRef?: string;
+    documentType?: string;
+    remarks?: string;
+    createdBy?: string;
+    approvedBy?: string;
+    allowNegative?: boolean;
+  }) {
+    return this.transactionManager.executeInTransaction(() => this.postMovementCore(input));
+  }
+  async postTransfer(input: {
+    itemId: string;
+    fromWarehouseId: string;
+    toWarehouseId: string;
+    quantity: number;
+    unitCost?: number;
+    batchId?: string;
+    batchNo?: string;
+    lotNo?: string;
+    serialNo?: string;
+    variantId?: string;
+    uom?: string;
+    referenceNumber?: string;
+    documentRef?: string;
+    createdBy?: string;
+    remarks?: string;
+  }) {
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      const qty = Math.abs(input.quantity || 0);
+      if (qty <= 0) {
+        throw new Error('Transfer quantity must be greater than zero');
+      }
+      const unitCost = input.unitCost || 0;
+      const ts = new Date().toISOString();
+      const baseRef = input.referenceNumber || input.documentRef || 'TRF';
+      const outEntryNumber = this.generateEntryNumber();
+      const inEntryNumber = this.generateEntryNumber();
+      const docRef = input.documentRef || input.referenceNumber || null;
+
+      // 1) OUT from source warehouse — decrement source onHand/available
+      const sourceBalance = await this.applyBalanceDelta(
+        input.fromWarehouseId,
+        input.itemId,
+        'OUT',
+        qty,
+        unitCost,
+        input as any,
+      );
+      await this.database.invStockLedger.create({
+        entryNumber: outEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: `${baseRef}-OUT-${outEntryNumber}`,
+        transactionType: 'transfer_out',
+        direction: 'OUT',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: input.itemId,
+        variantId: input.variantId,
+        batchId: input.batchId,
+        batchNo: input.batchNo,
+        lotNo: input.lotNo,
+        serialNo: input.serialNo,
+        warehouseId: input.fromWarehouseId,
+        fromWarehouseId: input.fromWarehouseId,
+        toWarehouseId: input.toWarehouseId,
+        uom: input.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: sourceBalance?.onHand ?? 0,
+        balanceCost: (sourceBalance?.onHand ?? 0) * unitCost,
+        documentRef: docRef,
+        documentType: 'stock_transfer',
+        remarks: input.remarks || `Transfer OUT from ${input.fromWarehouseId}`,
+        createdBy: input.createdBy,
+      } as any);
+
+      // 2) IN to destination warehouse — increment destination onHand/available
+      const destBalance = await this.applyBalanceDelta(
+        input.toWarehouseId,
+        input.itemId,
+        'IN',
+        qty,
+        unitCost,
+        input as any,
+      );
+      await this.database.invStockLedger.create({
+        entryNumber: inEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: `${baseRef}-IN-${inEntryNumber}`,
+        transactionType: 'transfer_in',
+        direction: 'IN',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: input.itemId,
+        variantId: input.variantId,
+        batchId: input.batchId,
+        batchNo: input.batchNo,
+        lotNo: input.lotNo,
+        serialNo: input.serialNo,
+        warehouseId: input.toWarehouseId,
+        fromWarehouseId: input.fromWarehouseId,
+        toWarehouseId: input.toWarehouseId,
+        uom: input.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: destBalance?.onHand ?? 0,
+        balanceCost: (destBalance?.onHand ?? 0) * unitCost,
+        documentRef: docRef,
+        documentType: 'stock_transfer',
+        remarks: input.remarks || `Transfer IN to ${input.toWarehouseId}`,
+        createdBy: input.createdBy,
+      } as any);
+
+      await this.audit.log({
+        userId: input.createdBy || 'system',
+        event: 'stock_transfer',
+        resource: '',
+        details: {
+          message: `Transferred ${qty} units of ${input.itemId} from ${input.fromWarehouseId} to ${input.toWarehouseId}`,
+          outEntry: outEntryNumber,
+          inEntry: inEntryNumber,
+        } as any,
+      });
+      return { outEntry: { entryNumber: outEntryNumber }, inEntry: { entryNumber: inEntryNumber } };
+    });
+  }
+  async reverseMovement(originalEntryNumber: string, reason: string, userId?: string) {
+    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
+      const res = await this.database.invStockLedger.findAll({
+        filters: [{ field: 'entryNumber', operator: 'eq' as const, value: originalEntryNumber }],
+        pageSize: 1,
+      } as any);
+      const original = ((res as any)?.data || [])[0] as Record<string, any> | undefined;
+      if (!original) {
+        throw new Error(`Stock entry ${originalEntryNumber} not found`);
+      }
+      if (original.isReversal) {
+        throw new Error(
+          `Entry ${originalEntryNumber} is already a reversal — cannot reverse it again`,
+        );
+      }
+      // Duplicate-reversal guard: one original may only be reversed once
+      const existingReversal = await this.database.invStockLedger.findAll({
+        filters: [{ field: 'reversalRefId', operator: 'eq' as const, value: original.id }],
+        pageSize: 1,
+      } as any);
+      if (((existingReversal as any)?.data || []).length > 0) {
+        throw new Error(`Entry ${originalEntryNumber} has already been reversed`);
+      }
+
+      const qty = Math.abs(original.quantity || 0);
+      const unitCost = Number(original.unitCost) || 0;
+      const ts = new Date().toISOString();
+      const reversalEntryNumber = this.generateEntryNumber();
+
+      // Restore the balance to its pre-entry state (opposite of the original delta)
+      const originalDirection = String(original.direction).toUpperCase();
+      const reverseDirection =
+        originalDirection === 'IN'
+          ? 'OUT'
+          : originalDirection === 'OUT'
+            ? 'IN'
+            : originalDirection === 'RESERVE'
+              ? 'RELEASE'
+              : originalDirection === 'RELEASE'
+                ? 'RESERVE'
+                : originalDirection;
+      const warehouseId = original.warehouseId || original.toWarehouseId;
+      if (warehouseId && originalDirection !== 'TRANSFER') {
+        await this.applyBalanceDelta(warehouseId, original.itemId, reverseDirection, qty, unitCost);
+      }
+
+      const entry = await this.database.invStockLedger.create({
+        entryNumber: reversalEntryNumber,
+        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
+        referenceNumber: this.uniqueReference(original.referenceNumber),
+        transactionType: `${original.transactionType || 'movement'}_reversal`,
+        direction: 'REVERSAL',
+        transactionDate: ts,
+        postingDate: ts,
+        itemId: original.itemId,
+        variantId: original.variantId,
+        batchId: original.batchId,
+        batchNo: original.batchNo,
+        lotNo: original.lotNo,
+        serialNo: original.serialNo,
+        warehouseId,
+        fromWarehouseId: original.fromWarehouseId,
+        toWarehouseId: original.toWarehouseId,
+        uom: original.uom,
+        quantity: qty,
+        unitCost,
+        amount: qty * unitCost,
+        balanceQuantity: 0,
+        balanceCost: 0,
+        reversalRefId: original.id,
+        isReversal: true,
+        documentRef: original.documentRef || original.referenceNumber || null,
+        documentType: original.documentType,
+        remarks: `Reversal of ${originalEntryNumber}: ${reason}`,
+        createdBy: userId,
+      } as any);
+
+      await this.audit.log({
+        userId: userId || 'system',
+        event: 'stock_reversal',
+        resource: '',
+        details: {
+          message: `Reversed ${originalEntryNumber} (${qty} units)`,
+          reason,
+          reversalEntryNumber,
+        } as any,
+      });
+      return { reversalEntryNumber, entryId: entry?.id, success: true };
+    });
+  }
+}
+
 // ── PRM-015B: Batch Management (Enhanced) ──────────────
 @Injectable()
 export class BatchStockService extends BaseMasterService {
@@ -236,48 +783,6 @@ export class BatchStockService extends BaseMasterService {
   private databaseService: any;
   setDatabaseService(db: any) {
     this.databaseService = db;
-  }
-}
-
-// ── PRM-015B: Stock Ledger Service ────────────────────────
-@Injectable()
-export class StockLedgerService {
-  constructor(private readonly database: DatabaseService) {}
-
-  async getLedger(params: {
-    page?: number;
-    pageSize?: number;
-    itemId?: string;
-    batchNo?: string;
-    movementType?: string;
-    fromDate?: string;
-    toDate?: string;
-  }) {
-    // H1: stock ledger reads the canonical shranix_inv_stock_ledger instead of the
-    // legacy in-memory stockMovements repo (which had no table — data lost on restart).
-    const filters: any[] = [];
-    if (params.itemId) {
-      filters.push({ field: 'itemId', operator: 'eq', value: params.itemId });
-    }
-    if (params.batchNo) {
-      filters.push({ field: 'batchNo', operator: 'eq', value: params.batchNo });
-    }
-    if (params.movementType) {
-      filters.push({ field: 'transactionType', operator: 'eq', value: params.movementType });
-    }
-    if (params.fromDate) {
-      filters.push({ field: 'transactionDate', operator: 'gte', value: params.fromDate });
-    }
-    if (params.toDate) {
-      filters.push({ field: 'transactionDate', operator: 'lte', value: params.toDate });
-    }
-    const result = await this.database.invStockLedger.findAll({
-      filters: filters.length > 0 ? filters : undefined,
-      page: params.page || 1,
-      pageSize: params.pageSize || 50,
-      sorts: [{ field: 'transactionDate', order: 'desc' as const }],
-    } as any);
-    return result;
   }
 }
 
@@ -811,511 +1316,6 @@ export class WarehouseShelvesService extends BaseMasterService {
 export class WarehouseBinsService extends BaseMasterService {
   constructor(database: DatabaseService, audit: AuditService) {
     super(database.warehouseBins, 'WarehouseBin', audit, 'code');
-  }
-}
-
-// ═════════════════════════════════════════════════════════
-// STEP 20: Enterprise Inventory Posting Engine
-// ═════════════════════════════════════════════════════════
-@Injectable()
-export class InventoryPostingEngine {
-  private entryCounter = 1;
-  constructor(
-    private readonly database: DatabaseService,
-    private readonly transactionManager: TransactionManager,
-    private readonly audit: AuditService,
-  ) {}
-  private generateEntryNumber(): string {
-    const ts = Date.now().toString(36).toUpperCase();
-    const seq = String(this.entryCounter++).padStart(4, '0');
-    return `INV-${ts}-${seq}`;
-  }
-
-  /**
-   * Build a UNIQUE reference number for the ledger. `reference_number` carries
-   * a UNIQUE index in shranix_inv_stock_ledger, so every entry must have its
-   * own value even when the same source document posts multiple lines (e.g. a
-   * 5-line adjustment). The caller-facing document reference is preserved in
-   * `documentRef` (non-unique).
-   */
-  private uniqueReference(inputRef?: string): string {
-    if (!inputRef) {
-      return this.generateEntryNumber();
-    }
-    return `${inputRef}-${this.entryCounter++}`;
-  }
-  private async getBalanceRow(warehouseId: string, itemId: string): Promise<any> {
-    const res = await this.database.invStockBalance.findAll({
-      filters: [
-        { field: 'warehouseId', operator: 'eq' as const, value: warehouseId },
-        { field: 'itemId', operator: 'eq' as const, value: itemId },
-      ],
-      pageSize: 1,
-    } as any);
-    return ((res as any)?.data || [])[0] || null;
-  }
-
-  /**
-   * Resolve a warehouse reference (UUID or display name/code like 'Main')
-   * to a real warehouse ID so sales/purchase postings can update the
-   * canonical balance projection even when the document only carries a name.
-   * Falls back to the main warehouse, then the first active warehouse.
-   */
-  async resolveWarehouseId(warehouse?: string | null): Promise<string | null> {
-    if (!warehouse) {
-      return null;
-    }
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(warehouse)) {
-      return warehouse;
-    }
-    try {
-      const res = (await this.database.warehouses.findAll({
-        page: 1,
-        pageSize: 1000,
-      } as any)) as any;
-      const all = res?.data || [];
-      const byName = all.find(
-        (w: any) =>
-          String(w.name || '').toLowerCase() === String(warehouse).toLowerCase() ||
-          String(w.code || '').toLowerCase() === String(warehouse).toLowerCase(),
-      );
-      if (byName) {
-        return byName.id;
-      }
-      const main = all.find((w: any) => w.isMain === true || w.isMain === 1);
-      if (main) {
-        return main.id;
-      }
-      const first = all.find((w: any) => w.isActive !== false && w.isActive !== 0);
-      return first?.id || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Apply a quantity delta to the running balance row and return the row AFTER
-   * the change (used to stamp running balanceQuantity/balanceCost on the entry).
-   *
-   * H1.7 — oversell policy: an OUT that would drive onHand below zero is a
-   * controlled business error when negative stock is not allowed; it is never
-   * silently clamped to zero.
-   */
-  private async applyBalanceDelta(
-    warehouseId: string,
-    itemId: string,
-    direction: string,
-    quantity: number,
-    unitCost: number,
-    seed?: Partial<Record<string, any>>,
-    allowNegative = false,
-  ): Promise<any> {
-    const qty = Math.abs(quantity || 0);
-    let bal = await this.getBalanceRow(warehouseId, itemId);
-    if (!bal) {
-      const created = await this.database.invStockBalance.create({
-        warehouseId,
-        itemId,
-        variantId: seed?.variantId || null,
-        batchId: seed?.batchId || null,
-        batchNo: seed?.batchNo || null,
-        zoneId: seed?.zoneId || null,
-        rackId: seed?.rackId || null,
-        onHand: 0,
-        available: 0,
-        reserved: 0,
-        committed: 0,
-        allocated: 0,
-        damaged: 0,
-        blocked: 0,
-        inTransit: 0,
-      } as any);
-      bal = created;
-    }
-    const row = bal as Record<string, any>;
-    switch (direction) {
-      case 'IN':
-        row.onHand = (row.onHand || 0) + qty;
-        row.available = (row.available || 0) + qty;
-        break;
-      case 'OUT':
-        if (!allowNegative && (row.onHand || 0) < qty) {
-          throw new Error(
-            `Insufficient stock for item ${itemId} in warehouse ${warehouseId}: ` +
-              `available ${row.onHand || 0}, requested ${qty}`,
-          );
-        }
-        row.onHand = (row.onHand || 0) - qty;
-        row.available = (row.available || 0) - qty;
-        break;
-      case 'RESERVE':
-        row.reserved = (row.reserved || 0) + qty;
-        row.available = Math.max(0, (row.available || 0) - qty);
-        break;
-      case 'RELEASE':
-        row.reserved = Math.max(0, (row.reserved || 0) - qty);
-        row.available = (row.available || 0) + qty;
-        break;
-      case 'TRANSFER':
-        row.inTransit = (row.inTransit || 0) + qty;
-        break;
-      default:
-        break; // REVERSAL entries are posted by reverseMovement with isReversal=true
-    }
-    await this.database.invStockBalance.update(row.id, row);
-    return row;
-  }
-
-  /**
-   * Core movement posting — performs the ledger write + balance projection update
-   * WITHOUT opening its own transaction. Callers that are already inside a
-   * transaction (sales/purchase/return posting engines) must use this so the
-   * movement joins their transaction and rolls back atomically with the document.
-   * Standalone callers should use postMovement() which wraps this in a transaction.
-   */
-  async postMovementCore(input: {
-    transactionType: string;
-    direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
-    itemId: string;
-    warehouseId?: string | null;
-    quantity: number;
-    unitCost?: number;
-    batchId?: string;
-    batchNo?: string;
-    lotNo?: string;
-    serialNo?: string;
-    variantId?: string;
-    zoneId?: string;
-    rackId?: string;
-    shelfId?: string;
-    binId?: string;
-    fromWarehouseId?: string;
-    toWarehouseId?: string;
-    uom?: string;
-    referenceNumber?: string;
-    documentRef?: string;
-    documentType?: string;
-    remarks?: string;
-    createdBy?: string;
-    approvedBy?: string;
-    allowNegative?: boolean;
-  }) {
-    const entryNumber = this.generateEntryNumber();
-    const qty = Math.abs(input.quantity || 0);
-    const unitCost = input.unitCost || 0;
-    const amount = qty * unitCost;
-    const ts = new Date().toISOString();
-    const referenceNumber = this.uniqueReference(input.referenceNumber);
-    const allowNegative = input.allowNegative === true;
-
-    // Balance is only adjusted for real quantity movements; REVERSAL rows are
-    // posted by reverseMovement (which restores the balance itself).
-    let balance = null;
-    if (input.direction !== 'REVERSAL') {
-      const whId =
-        input.warehouseId || (await this.resolveWarehouseId(input.warehouseId)) || undefined;
-      if (whId) {
-        balance = await this.applyBalanceDelta(
-          whId,
-          input.itemId,
-          input.direction,
-          qty,
-          unitCost,
-          input as any,
-          allowNegative,
-        );
-      }
-    }
-    const balanceQuantity = balance?.onHand ?? 0;
-    const balanceCost = balanceQuantity * unitCost;
-
-    await this.database.invStockLedger.create({
-      entryNumber,
-      transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
-      referenceNumber,
-      transactionType: input.transactionType,
-      direction: input.direction,
-      transactionDate: ts,
-      postingDate: ts,
-      itemId: input.itemId,
-      variantId: input.variantId,
-      batchId: input.batchId,
-      batchNo: input.batchNo,
-      lotNo: input.lotNo,
-      serialNo: input.serialNo,
-      warehouseId: input.warehouseId,
-      zoneId: input.zoneId,
-      rackId: input.rackId,
-      shelfId: input.shelfId,
-      binId: input.binId,
-      fromWarehouseId: input.fromWarehouseId,
-      toWarehouseId: input.toWarehouseId,
-      uom: input.uom,
-      quantity: qty,
-      unitCost,
-      amount,
-      balanceQuantity,
-      balanceCost,
-      documentRef: input.documentRef || input.referenceNumber || null,
-      documentType: input.documentType,
-      remarks: input.remarks,
-      createdBy: input.createdBy,
-      approvedBy: input.approvedBy,
-    } as any);
-    await this.audit.log({
-      userId: input.createdBy || 'system',
-      event: `stock_${input.direction.toLowerCase()}`,
-      resource: '',
-      details: {
-        message: `${input.direction} ${qty} units of ${input.itemId}`,
-        entryNumber,
-        referenceNumber,
-      } as any,
-    });
-    return { entryNumber, success: true, balanceQuantity };
-  }
-
-  /**
-   * Public movement posting — wraps postMovementCore in its own transaction for
-   * standalone callers (controllers, transfers, adjustments). Business engines
-   * that already run inside a transaction must call postMovementCore directly.
-   */
-  async postMovement(input: {
-    transactionType: string;
-    direction: 'IN' | 'OUT' | 'TRANSFER' | 'RESERVE' | 'RELEASE' | 'REVERSAL';
-    itemId: string;
-    warehouseId?: string | null;
-    quantity: number;
-    unitCost?: number;
-    batchId?: string;
-    batchNo?: string;
-    lotNo?: string;
-    serialNo?: string;
-    variantId?: string;
-    zoneId?: string;
-    rackId?: string;
-    shelfId?: string;
-    binId?: string;
-    fromWarehouseId?: string;
-    toWarehouseId?: string;
-    uom?: string;
-    referenceNumber?: string;
-    documentRef?: string;
-    documentType?: string;
-    remarks?: string;
-    createdBy?: string;
-    approvedBy?: string;
-    allowNegative?: boolean;
-  }) {
-    return this.transactionManager.executeInTransaction(() => this.postMovementCore(input));
-  }
-  async postTransfer(input: {
-    itemId: string;
-    fromWarehouseId: string;
-    toWarehouseId: string;
-    quantity: number;
-    unitCost?: number;
-    batchId?: string;
-    batchNo?: string;
-    lotNo?: string;
-    serialNo?: string;
-    variantId?: string;
-    uom?: string;
-    referenceNumber?: string;
-    documentRef?: string;
-    createdBy?: string;
-    remarks?: string;
-  }) {
-    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
-      const qty = Math.abs(input.quantity || 0);
-      if (qty <= 0) {
-        throw new Error('Transfer quantity must be greater than zero');
-      }
-      const unitCost = input.unitCost || 0;
-      const ts = new Date().toISOString();
-      const baseRef = input.referenceNumber || input.documentRef || 'TRF';
-      const outEntryNumber = this.generateEntryNumber();
-      const inEntryNumber = this.generateEntryNumber();
-      const docRef = input.documentRef || input.referenceNumber || null;
-
-      // 1) OUT from source warehouse — decrement source onHand/available
-      const sourceBalance = await this.applyBalanceDelta(
-        input.fromWarehouseId,
-        input.itemId,
-        'OUT',
-        qty,
-        unitCost,
-        input as any,
-      );
-      await this.database.invStockLedger.create({
-        entryNumber: outEntryNumber,
-        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
-        referenceNumber: `${baseRef}-OUT-${outEntryNumber}`,
-        transactionType: 'transfer_out',
-        direction: 'OUT',
-        transactionDate: ts,
-        postingDate: ts,
-        itemId: input.itemId,
-        variantId: input.variantId,
-        batchId: input.batchId,
-        batchNo: input.batchNo,
-        lotNo: input.lotNo,
-        serialNo: input.serialNo,
-        warehouseId: input.fromWarehouseId,
-        fromWarehouseId: input.fromWarehouseId,
-        toWarehouseId: input.toWarehouseId,
-        uom: input.uom,
-        quantity: qty,
-        unitCost,
-        amount: qty * unitCost,
-        balanceQuantity: sourceBalance?.onHand ?? 0,
-        balanceCost: (sourceBalance?.onHand ?? 0) * unitCost,
-        documentRef: docRef,
-        documentType: 'stock_transfer',
-        remarks: input.remarks || `Transfer OUT from ${input.fromWarehouseId}`,
-        createdBy: input.createdBy,
-      } as any);
-
-      // 2) IN to destination warehouse — increment destination onHand/available
-      const destBalance = await this.applyBalanceDelta(
-        input.toWarehouseId,
-        input.itemId,
-        'IN',
-        qty,
-        unitCost,
-        input as any,
-      );
-      await this.database.invStockLedger.create({
-        entryNumber: inEntryNumber,
-        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
-        referenceNumber: `${baseRef}-IN-${inEntryNumber}`,
-        transactionType: 'transfer_in',
-        direction: 'IN',
-        transactionDate: ts,
-        postingDate: ts,
-        itemId: input.itemId,
-        variantId: input.variantId,
-        batchId: input.batchId,
-        batchNo: input.batchNo,
-        lotNo: input.lotNo,
-        serialNo: input.serialNo,
-        warehouseId: input.toWarehouseId,
-        fromWarehouseId: input.fromWarehouseId,
-        toWarehouseId: input.toWarehouseId,
-        uom: input.uom,
-        quantity: qty,
-        unitCost,
-        amount: qty * unitCost,
-        balanceQuantity: destBalance?.onHand ?? 0,
-        balanceCost: (destBalance?.onHand ?? 0) * unitCost,
-        documentRef: docRef,
-        documentType: 'stock_transfer',
-        remarks: input.remarks || `Transfer IN to ${input.toWarehouseId}`,
-        createdBy: input.createdBy,
-      } as any);
-
-      await this.audit.log({
-        userId: input.createdBy || 'system',
-        event: 'stock_transfer',
-        resource: '',
-        details: {
-          message: `Transferred ${qty} units of ${input.itemId} from ${input.fromWarehouseId} to ${input.toWarehouseId}`,
-          outEntry: outEntryNumber,
-          inEntry: inEntryNumber,
-        } as any,
-      });
-      return { outEntry: { entryNumber: outEntryNumber }, inEntry: { entryNumber: inEntryNumber } };
-    });
-  }
-  async reverseMovement(originalEntryNumber: string, reason: string, userId?: string) {
-    return this.transactionManager.executeInTransaction(async (_ctx: TransactionContext) => {
-      const res = await this.database.invStockLedger.findAll({
-        filters: [{ field: 'entryNumber', operator: 'eq' as const, value: originalEntryNumber }],
-        pageSize: 1,
-      } as any);
-      const original = ((res as any)?.data || [])[0] as Record<string, any> | undefined;
-      if (!original) {
-        throw new Error(`Stock entry ${originalEntryNumber} not found`);
-      }
-      if (original.isReversal) {
-        throw new Error(
-          `Entry ${originalEntryNumber} is already a reversal — cannot reverse it again`,
-        );
-      }
-      // Duplicate-reversal guard: one original may only be reversed once
-      const existingReversal = await this.database.invStockLedger.findAll({
-        filters: [{ field: 'reversalRefId', operator: 'eq' as const, value: original.id }],
-        pageSize: 1,
-      } as any);
-      if (((existingReversal as any)?.data || []).length > 0) {
-        throw new Error(`Entry ${originalEntryNumber} has already been reversed`);
-      }
-
-      const qty = Math.abs(original.quantity || 0);
-      const unitCost = Number(original.unitCost) || 0;
-      const ts = new Date().toISOString();
-      const reversalEntryNumber = this.generateEntryNumber();
-
-      // Restore the balance to its pre-entry state (opposite of the original delta)
-      const originalDirection = String(original.direction).toUpperCase();
-      const reverseDirection =
-        originalDirection === 'IN'
-          ? 'OUT'
-          : originalDirection === 'OUT'
-            ? 'IN'
-            : originalDirection === 'RESERVE'
-              ? 'RELEASE'
-              : originalDirection === 'RELEASE'
-                ? 'RESERVE'
-                : originalDirection;
-      const warehouseId = original.warehouseId || original.toWarehouseId;
-      if (warehouseId && originalDirection !== 'TRANSFER') {
-        await this.applyBalanceDelta(warehouseId, original.itemId, reverseDirection, qty, unitCost);
-      }
-
-      const entry = await this.database.invStockLedger.create({
-        entryNumber: reversalEntryNumber,
-        transactionNumber: `TXN-${Date.now().toString(36).toUpperCase()}`,
-        referenceNumber: this.uniqueReference(original.referenceNumber),
-        transactionType: `${original.transactionType || 'movement'}_reversal`,
-        direction: 'REVERSAL',
-        transactionDate: ts,
-        postingDate: ts,
-        itemId: original.itemId,
-        variantId: original.variantId,
-        batchId: original.batchId,
-        batchNo: original.batchNo,
-        lotNo: original.lotNo,
-        serialNo: original.serialNo,
-        warehouseId,
-        fromWarehouseId: original.fromWarehouseId,
-        toWarehouseId: original.toWarehouseId,
-        uom: original.uom,
-        quantity: qty,
-        unitCost,
-        amount: qty * unitCost,
-        balanceQuantity: 0,
-        balanceCost: 0,
-        reversalRefId: original.id,
-        isReversal: true,
-        documentRef: original.documentRef || original.referenceNumber || null,
-        documentType: original.documentType,
-        remarks: `Reversal of ${originalEntryNumber}: ${reason}`,
-        createdBy: userId,
-      } as any);
-
-      await this.audit.log({
-        userId: userId || 'system',
-        event: 'stock_reversal',
-        resource: '',
-        details: {
-          message: `Reversed ${originalEntryNumber} (${qty} units)`,
-          reason,
-          reversalEntryNumber,
-        } as any,
-      });
-      return { reversalEntryNumber, entryId: entry?.id, success: true };
-    });
   }
 }
 
