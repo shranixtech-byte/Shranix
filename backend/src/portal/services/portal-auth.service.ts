@@ -178,6 +178,27 @@ export class PortalAuthService {
       return { sent: true };
     }
 
+    // H16: Invalidate any previous unused reset tokens for this user
+    try {
+      const existingTokens = await this.database.portalResetTokens
+        .findAll({
+          page: 1,
+          pageSize: 50,
+          filters: [
+            { field: 'portalUserId', operator: 'eq', value: record.id },
+            { field: 'usedAt', operator: 'null', value: '' },
+          ],
+        } as any)
+        .catch(() => ({ data: [] }));
+      for (const t of (existingTokens.data || []) as any[]) {
+        await this.database.portalResetTokens
+          .update(t.id, { usedAt: new Date().toISOString() } as any)
+          .catch(() => {});
+      }
+    } catch {
+      // Non-critical — don't block the flow
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     await this.database.portalResetTokens.create({
@@ -255,6 +276,30 @@ export class PortalAuthService {
     await this.database.portalResetTokens.update(resetRow.id, {
       usedAt: new Date().toISOString(),
     } as any);
+
+    // H16: Invalidate all other unused reset tokens for this user
+    try {
+      const otherTokens = await this.database.portalResetTokens
+        .findAll({
+          page: 1,
+          pageSize: 50,
+          filters: [
+            { field: 'portalUserId', operator: 'eq', value: user.id },
+            { field: 'usedAt', operator: 'nullorempty', value: '' },
+          ],
+        } as any)
+        .catch(() => ({ data: [] }));
+      for (const t of (otherTokens.data || []) as any[]) {
+        if (t.id !== resetRow.id) {
+          await this.database.portalResetTokens
+            .update(t.id, { usedAt: new Date().toISOString() } as any)
+            .catch(() => {});
+        }
+      }
+    } catch {
+      // Non-critical
+    }
+
     await this.audit
       .log({
         userId: user.id,
@@ -278,6 +323,13 @@ export class PortalAuthService {
     }
     if (String(newPassword || '').length < 6) {
       throw new BadRequestException('New password must be at least 6 characters');
+    }
+    // H16: Prevent reusing the current password
+    const isNewPasswordSame = await argon2
+      .verify(user.passwordHash, newPassword)
+      .catch(() => false);
+    if (isNewPasswordSame) {
+      throw new BadRequestException('New password must be different from current password');
     }
     const passwordHash = await argon2.hash(newPassword, {
       type: argon2.argon2id,

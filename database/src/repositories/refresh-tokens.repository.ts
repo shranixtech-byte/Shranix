@@ -1,5 +1,7 @@
-import { eq, and } from 'drizzle-orm';
 import crypto from 'node:crypto';
+
+import { eq, and } from 'drizzle-orm';
+
 import type { DatabaseClient } from '../client/index';
 import { sqliteRefreshTokens, pgRefreshTokens } from '../schema/auth';
 
@@ -32,7 +34,18 @@ export class RefreshTokensRepository {
     const rows = await (this.db as any)
       .select()
       .from(this.table)
-      .where(and(eq((this.table as any).tokenHash, tokenHash), eq((this.table as any).isRevoked, false)));
+      .where(
+        and(eq((this.table as any).tokenHash, tokenHash), eq((this.table as any).isRevoked, false)),
+      );
+    return rows.length > 0 ? (rows[0] as unknown as RefreshTokenRecord) : null;
+  }
+
+  /** H16: Find any token by hash — including revoked — for reuse detection. */
+  async findAnyByTokenHash(tokenHash: string): Promise<RefreshTokenRecord | null> {
+    const rows = await (this.db as any)
+      .select()
+      .from(this.table)
+      .where(eq((this.table as any).tokenHash, tokenHash));
     return rows.length > 0 ? (rows[0] as unknown as RefreshTokenRecord) : null;
   }
 
@@ -48,5 +61,13 @@ export class RefreshTokensRepository {
       .update(this.table)
       .set({ isRevoked: true, revokedAt: new Date().toISOString() })
       .where(and(eq((this.table as any).userId, userId), eq((this.table as any).isRevoked, false)));
+  }
+
+  /** H16: Remove expired tokens from the database. */
+  async cleanupExpiredTokens(): Promise<number> {
+    const result = await (this.db as any)
+      .delete(this.table)
+      .where(eq((this.table as any).isRevoked, true));
+    return result.changes || 0;
   }
 }

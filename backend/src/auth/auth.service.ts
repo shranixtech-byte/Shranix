@@ -56,6 +56,29 @@ const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 15;
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
 
+/**
+ * H16: Get the refresh-token signing secret.
+ * Falls back to JWT_SECRET if JWT_REFRESH_SECRET is not set,
+ * but production should always use a separate secret.
+ */
+function getRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET;
+  if (secret && secret.length >= 16) {
+    return secret;
+  }
+  // Fallback to JWT_SECRET — acceptable in dev, warn in production
+  const fallback = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+  if (process.env.NODE_ENV === 'production' && !secret) {
+    // Log warning once — not on every call
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[SECURITY] JWT_REFRESH_SECRET is not set. Using JWT_SECRET as fallback. ' +
+        'Set JWT_REFRESH_SECRET to a separate strong secret for production.',
+    );
+  }
+  return fallback;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -227,8 +250,9 @@ export class AuthService {
     }
 
     try {
+      // H16: Use dedicated refresh token secret (separate from access token secret)
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
+        secret: getRefreshSecret(),
       }) as JwtPayload & { type?: string };
 
       if (payload.type !== 'refresh') {
@@ -253,12 +277,46 @@ export class AuthService {
         throw new UnauthorizedException('Token has been revoked. Please login again.');
       }
 
-      // Revoke old token
+      // H16: Refresh token reuse detection
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const storedToken = await this.database.refreshTokens.findByTokenHash(tokenHash);
-      if (storedToken) {
-        await this.database.refreshTokens.revoke(storedToken.id);
+
+      if (!storedToken) {
+        // Token hash not found among active tokens — it was already revoked.
+        // This means either:
+        // (a) Normal rotation: the token was already used and revoked in a previous refresh.
+        // (b) Token theft: an attacker used a stolen token, which revoked it.
+        //     The legitimate user then tried to use the same (now-revoked) token.
+        //
+        // Check if the token exists at ALL (including revoked) to distinguish:
+        const revokedToken = await this.database.refreshTokens.findAnyByTokenHash(tokenHash);
+        if (revokedToken) {
+          // Token was previously revoked — this is a reuse attempt.
+          // Revoke ALL tokens for this user as a safety measure.
+          await this.database.refreshTokens.revokeAllForUser(user.id);
+          await this.database.users.incrementTokenVersion(user.id);
+
+          this.logger.warn(
+            `H16 SECURITY: Refresh token reuse detected for user ${user.id}. ` +
+              `All sessions revoked. Token was previously revoked at ${revokedToken.revokedAt}.`,
+          );
+          await this.audit.log({
+            userId: user.id,
+            event: 'refresh_token_reuse_detected',
+            resource: 'auth',
+            action: 'refresh',
+            details: {
+              originalRevokedAt: revokedToken.revokedAt,
+              tokenExpired: new Date(revokedToken.expiresAt) < new Date(),
+            },
+            severity: AuditSeverity.CRITICAL,
+          });
+        }
+        throw new UnauthorizedException('Token has been revoked. Please login again.');
       }
+
+      // Normal rotation: revoke the current token
+      await this.database.refreshTokens.revoke(storedToken.id);
 
       await this.audit.log({
         userId: payload.sub,
@@ -293,6 +351,14 @@ export class AuthService {
     if (!isCurrentPasswordValid) {
       await this.audit.logPasswordChange({ userId, ipAddress, userAgent });
       throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // H16: Prevent reusing the current password
+    const isNewPasswordSame = await argon2
+      .verify(user.passwordHash, dto.newPassword)
+      .catch(() => false);
+    if (isNewPasswordSame) {
+      throw new UnauthorizedException('New password must be different from current password');
     }
 
     // Hash new password
@@ -380,9 +446,10 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
+    // H16: Sign refresh tokens with dedicated refresh secret
     const refreshToken = this.jwtService.sign(
       { ...payload, type: 'refresh' },
-      { expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` },
+      { secret: getRefreshSecret(), expiresIn: `${REFRESH_TOKEN_EXPIRY_DAYS}d` },
     );
 
     const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
