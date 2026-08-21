@@ -11,6 +11,12 @@ import helmet from 'helmet';
 
 import { AppModule } from './app.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { SensitiveCacheControlMiddleware } from './common/middleware/sensitive-cache-control.middleware';
+import {
+  HELMET_OPTIONS,
+  PERMISSIONS_POLICY,
+  getCorsOptions,
+} from './common/utils/security-headers';
 import { API_PREFIX, API_VERSION, SWAGGER_DESCRIPTION, APP_NAME } from './constants/app.constants';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
@@ -25,14 +31,17 @@ async function bootstrap() {
 
   const logger = new Logger('Bootstrap');
 
-  // ── Security ──────────────────────────────────────────
-  app.use(helmet());
-  app.enableCors({
-    origin: (process.env.CORS_ORIGINS || 'http://localhost:4000,tauri://localhost').split(','),
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-csrf-token'],
+  // ── Security Headers (H14) ─────────────────────────────
+  app.use(helmet(HELMET_OPTIONS));
+
+  // H14: Permissions-Policy (not provided by Helmet)
+  app.use((_req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.setHeader('Permissions-Policy', PERMISSIONS_POLICY);
+    next();
   });
+
+  // ── CORS (H14: centralized configuration) ────────────────
+  app.enableCors(getCorsOptions());
 
   // ── Request ID / correlation ID (17.23) ─────────────────
   const requestIdMiddleware = new RequestIdMiddleware();
@@ -45,6 +54,9 @@ async function bootstrap() {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
   app.use(compression());
   app.use(cookieParser());
+
+  // ── Cache-Control for sensitive endpoints (H14) ────────
+  app.use(new SensitiveCacheControlMiddleware().use.bind(new SensitiveCacheControlMiddleware()));
 
   // ── Global Prefix & Versioning ─────────────────────────
   app.setGlobalPrefix(API_PREFIX, {
