@@ -17,9 +17,6 @@ import {
   Mail,
   Shield,
   Sun,
-  Droplets,
-  Wind,
-  MapPin,
   Star,
   Calendar,
   CreditCard,
@@ -28,14 +25,16 @@ import {
   Store,
   DollarSign,
   ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Thermometer,
+  X,
+  Wallet,
+  Search,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ExpiryAlertWidget } from '@/components/dashboard/ExpiryAlertWidget';
+import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import { usePreferences } from '@/providers/preferences-provider';
 import { apiRequest } from '@/services/api-client';
 
@@ -52,92 +51,6 @@ const sampleInventorySummary = {
   outOfStock: 2,
   reservedStock: 35,
 };
-
-// ═══════════════════════════════════════════════════════════
-// SAMPLE WEATHER DATA
-// ═══════════════════════════════════════════════════════════
-
-interface WeatherData {
-  temperature: number;
-  humidity: number;
-  rainChance: number;
-  windSpeed: number;
-  condition: string;
-  location: string;
-}
-
-const sampleWeather: WeatherData = {
-  temperature: 32,
-  humidity: 68,
-  rainChance: 15,
-  windSpeed: 12,
-  condition: 'Partly Cloudy',
-  location: 'Nashik, Maharashtra',
-};
-
-// ═══════════════════════════════════════════════════════════
-// SAMPLE MANDI RATES DATA
-// ═══════════════════════════════════════════════════════════
-
-interface MandiRate {
-  commodity: string;
-  rate: number;
-  unit: string;
-  change: number;
-  changePct: number;
-  market: string;
-}
-
-const sampleMandiRates: MandiRate[] = [
-  {
-    commodity: 'Wheat (गहू)',
-    rate: 2450,
-    unit: 'quintal',
-    change: 25,
-    changePct: 1.0,
-    market: 'Lasalgaon',
-  },
-  {
-    commodity: 'Rice - Basmati (तांदूळ)',
-    rate: 5200,
-    unit: 'quintal',
-    change: -75,
-    changePct: -1.4,
-    market: 'Lasalgaon',
-  },
-  {
-    commodity: 'Onion (कांदा)',
-    rate: 1850,
-    unit: 'quintal',
-    change: 120,
-    changePct: 6.9,
-    market: 'Nashik',
-  },
-  {
-    commodity: 'Tomato (टोमॅटो)',
-    rate: 980,
-    unit: 'quintal',
-    change: -45,
-    changePct: -4.4,
-    market: 'Nashik',
-  },
-  {
-    commodity: 'Soybean (सोयाबीन)',
-    rate: 4200,
-    unit: 'ton',
-    change: 150,
-    changePct: 3.7,
-    market: 'Lasalgaon',
-  },
-  {
-    commodity: 'Cotton (कापूस)',
-    rate: 7250,
-    unit: 'quintal',
-    change: -200,
-    changePct: -2.7,
-    market: 'Malegaon',
-  },
-];
 
 // ═══════════════════════════════════════════════════════════
 // SAMPLE ACTIVITIES DATA
@@ -419,6 +332,25 @@ const HERO_IMAGE_URL = '/assets/dashboard-bg.png';
 function HeroBanner({ generatedAt }: { generatedAt: string }) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const { preferences } = usePreferences();
+  const { user } = useAuth();
+
+  const currentHour = new Date().getHours();
+  let timeGreetingMr = 'शुभ सकाळ';
+  let timeGreetingEn = 'Good Morning';
+
+  if (currentHour >= 12 && currentHour < 17) {
+    timeGreetingMr = 'शुभ दुपार';
+    timeGreetingEn = 'Good Afternoon';
+  } else if (currentHour >= 17 && currentHour < 22) {
+    timeGreetingMr = 'शुभ संध्याकाळ';
+    timeGreetingEn = 'Good Evening';
+  } else if (currentHour >= 22 || currentHour < 5) {
+    timeGreetingMr = 'शुभ रात्री';
+    timeGreetingEn = 'Good Night';
+  }
+
+  const userName = user?.firstName || (user as any)?.name?.split(' ')[0] || 'Admin';
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -545,11 +477,14 @@ function HeroBanner({ generatedAt }: { generatedAt: string }) {
         </div>
 
         <h1 className="font-poppins mt-3.5 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">
-          🌾 स्वागत आहे, Admin!
+          🌾{' '}
+          {preferences.language === 'mr'
+            ? `${timeGreetingMr}, ${userName}!`
+            : `${timeGreetingEn}, ${userName}!`}
         </h1>
 
         <p className="mt-2 max-w-2xl text-sm font-medium leading-relaxed text-slate-300/90 sm:text-base">
-          Good Morning! Here is your real-time agribusiness operational summary.
+          {timeGreetingEn}! Here is your real-time agribusiness operational summary.
         </p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2.5 text-xs">
@@ -563,6 +498,13 @@ function HeroBanner({ generatedAt }: { generatedAt: string }) {
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/15 px-3 py-1.5 font-semibold text-emerald-300">
             FY 2026-27
+          </span>
+
+          {/* Compact Mini Agri Weather Badge */}
+          <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/15 px-3.5 py-1.5 font-semibold text-amber-200 shadow-sm backdrop-blur-md">
+            <Sun className="h-4 w-4 text-amber-400" />
+            <span>28°C · निरभ्र आकाश (नाशिक)</span>
+            <span className="text-[10px] text-amber-300/80">· 💧 65% · 🌬️ 12 km/h</span>
           </span>
         </div>
       </div>
@@ -675,7 +617,7 @@ function KPICard({
             }
           : undefined
       }
-      className={`group relative rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 ${
+      className={`shadow-2xs group relative rounded-xl border border-slate-200/80 bg-white p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm dark:border-white/[0.08] dark:bg-[#111827] dark:hover:border-slate-700 ${
         onClick
           ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500'
           : ''
@@ -684,22 +626,22 @@ function KPICard({
       {/* Top Header Row */}
       <div className="flex items-center justify-between">
         <div
-          className={`flex h-9 w-9 items-center justify-center rounded-xl border ${cs.iconBg} ${cs.iconColor} transition-transform duration-200 group-hover:scale-105`}
+          className={`h-7.5 w-7.5 flex items-center justify-center rounded-lg border ${cs.iconBg} ${cs.iconColor} transition-transform duration-200 group-hover:scale-105`}
         >
-          <Icon className="h-4 w-4" strokeWidth={1.75} />
+          <Icon className="h-3.5 w-3.5" strokeWidth={1.85} />
         </div>
         {change && (
           <span
-            className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+            className={`py-0.2 inline-flex items-center gap-0.5 rounded-full border px-1.5 text-[10px] font-bold ${
               isPositive
                 ? 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300'
                 : 'border-red-200/60 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300'
             }`}
           >
             {isPositive ? (
-              <ArrowUpRight className="h-3 w-3" />
+              <ArrowUpRight className="h-2.5 w-2.5" />
             ) : (
-              <ArrowDownRight className="h-3 w-3" />
+              <ArrowDownRight className="h-2.5 w-2.5" />
             )}
             {Math.abs(change.value).toFixed(1)}%
           </span>
@@ -707,34 +649,34 @@ function KPICard({
       </div>
 
       {/* Titles */}
-      <div className="mt-3 min-w-0">
+      <div className="mt-2 min-w-0">
         {preferences.language === 'mr' && (
-          <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <p className="truncate text-[11px] font-bold text-slate-500 dark:text-slate-400">
             {titleMr}
           </p>
         )}
         <p
-          className={`truncate ${preferences.language === 'mr' ? 'text-[11px] text-slate-400 dark:text-slate-500' : 'text-xs font-semibold text-slate-500 dark:text-slate-400'}`}
+          className={`truncate ${preferences.language === 'mr' ? 'text-[10px] text-slate-400 dark:text-slate-500' : 'text-[11.5px] font-bold text-slate-500 dark:text-slate-400'}`}
         >
           {title}
         </p>
       </div>
 
       {/* Main Metric Value */}
-      <div className="mt-1.5 flex items-baseline justify-between">
-        <p className="font-poppins text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+      <div className="mt-1 flex items-baseline justify-between">
+        <p className="font-poppins text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl dark:text-white">
           {value}
         </p>
         {trend && trend.length > 1 && (
-          <div className="ml-2 shrink-0">
-            <Sparkline data={trend} color={cs.dot} height={24} width={56} />
+          <div className="ml-1.5 shrink-0">
+            <Sparkline data={trend} color={cs.dot} height={18} width={46} />
           </div>
         )}
       </div>
 
       {/* Subtitle / Change Label */}
       {change && (
-        <p className="mt-1 truncate text-[11px] font-medium text-slate-400 dark:text-slate-500">
+        <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400 dark:text-slate-500">
           {change.label}
         </p>
       )}
@@ -1099,138 +1041,6 @@ function LowStockWidget() {
             </div>
           );
         })}
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// WEATHER WIDGET
-// ═══════════════════════════════════════════════════════════
-
-function WeatherWidget() {
-  const weather = sampleWeather;
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-        <div>
-          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
-            Agri Weather
-          </h3>
-          <p className="text-xs font-medium text-slate-400">हवामान अंदाज</p>
-        </div>
-        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <MapPin className="h-3.5 w-3.5 text-emerald-500" /> {weather.location}
-        </span>
-      </div>
-
-      <div className="mb-4 flex items-center gap-3.5 rounded-xl border border-amber-500/15 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent p-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
-          <Sun className="h-6 w-6" strokeWidth={1.75} />
-        </div>
-        <div>
-          <p className="font-poppins text-2xl font-extrabold text-slate-900 dark:text-white">
-            {weather.temperature}°C
-          </p>
-          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-            {weather.condition}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-2.5 text-center dark:border-blue-900/30 dark:bg-blue-950/20">
-          <Droplets
-            className="mx-auto h-4 w-4 text-blue-600 dark:text-blue-400"
-            strokeWidth={1.75}
-          />
-          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
-            {weather.humidity}%
-          </p>
-          <p className="text-[10px] font-medium text-slate-400">Humidity</p>
-        </div>
-        <div className="rounded-xl border border-cyan-100 bg-cyan-50/80 p-2.5 text-center dark:border-cyan-900/30 dark:bg-cyan-950/20">
-          <Thermometer
-            className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-400"
-            strokeWidth={1.75}
-          />
-          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
-            {weather.rainChance}%
-          </p>
-          <p className="text-[10px] font-medium text-slate-400">Rain Risk</p>
-        </div>
-        <div className="rounded-xl border border-teal-100 bg-teal-50/80 p-2.5 text-center dark:border-teal-900/30 dark:bg-teal-950/20">
-          <Wind className="mx-auto h-4 w-4 text-teal-600 dark:text-teal-400" strokeWidth={1.75} />
-          <p className="mt-1 text-xs font-bold text-slate-900 dark:text-white">
-            {weather.windSpeed} km/h
-          </p>
-          <p className="text-[10px] font-medium text-slate-400">Wind</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// MANDI RATES WIDGET
-// ═══════════════════════════════════════════════════════════
-
-function MandiRatesWidget() {
-  return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-        <div>
-          <h3 className="font-poppins text-base font-bold text-slate-900 dark:text-white">
-            Live Mandi Rates
-          </h3>
-          <p className="text-xs font-medium text-slate-400">आजचे कृषी बाजार भाव</p>
-        </div>
-        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          लासलगाव · नाशिक
-        </span>
-      </div>
-      <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
-        {sampleMandiRates.map((item, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between rounded-xl border border-transparent p-2.5 transition-all duration-200 hover:border-slate-200/60 hover:bg-slate-50 dark:hover:border-slate-700/60 dark:hover:bg-slate-800/40"
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-2.5">
-              <Store
-                className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-                strokeWidth={1.75}
-              />
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  {item.commodity}
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  {item.market} · /{item.unit}
-                </p>
-              </div>
-            </div>
-            <div className="ml-2 shrink-0 text-right">
-              <p className="font-poppins text-xs font-bold text-slate-900 dark:text-white">
-                ₹{number.format(item.rate)}
-              </p>
-              <span
-                className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${
-                  item.change >= 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}
-              >
-                {item.change >= 0 ? (
-                  <ChevronUp className="h-3 w-3" />
-                ) : (
-                  <ChevronDown className="h-3 w-3" />
-                )}
-                {item.changePct >= 0 ? '+' : ''}
-                {item.changePct}%
-              </span>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -1633,12 +1443,1111 @@ function QuickActionsPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// TODAY'S SALES BREAKDOWN MODAL (Cash vs Credit)
+// ═══════════════════════════════════════════════════════════
+
+function TodaySalesBreakdownModal({
+  isOpen,
+  onClose,
+  kpiData,
+  onNavigateToInvoices,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  kpiData: any;
+  onNavigateToInvoices: (typeFilter?: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'all' | 'cash' | 'credit'>('all');
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const rawList: Array<{
+    id: string;
+    invoiceNumber: string;
+    customerName: string;
+    grandTotal: number;
+    paymentMode: 'cash' | 'credit';
+    paymentStatus: string;
+    time: string;
+  }> = kpiData.todaySalesList || [
+    {
+      id: 'demo-1',
+      invoiceNumber: 'SLCA26-001',
+      customerName: 'GreenField Farms (Cash)',
+      grandTotal: 18500,
+      paymentMode: 'cash',
+      paymentStatus: 'paid',
+      time: '10:30 AM',
+    },
+    {
+      id: 'demo-2',
+      invoiceNumber: 'SLCR26-001',
+      customerName: 'Shri Ram Agrotech (Credit)',
+      grandTotal: 23500,
+      paymentMode: 'credit',
+      paymentStatus: 'unpaid',
+      time: '11:15 AM',
+    },
+  ];
+
+  const totalSales = kpiData.revenue.value || 18500 + 23500;
+  const cashSales = kpiData.todayCashSales || 18500;
+  const creditSales = kpiData.todayCreditSales || 23500;
+
+  const filteredInvoices = rawList.filter((inv) => {
+    if (activeTab === 'cash') {
+      return inv.paymentMode === 'cash';
+    }
+    if (activeTab === 'credit') {
+      return inv.paymentMode === 'credit';
+    }
+    return true;
+  });
+
+  return (
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#111827]">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-5 py-3.5 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+              <TrendingUp className="h-4.5 w-4.5" strokeWidth={1.85} />
+            </div>
+            <div>
+              <h3 className="font-poppins text-sm font-extrabold text-slate-900 dark:text-white">
+                📊 आजची विक्री विश्लेषण | Today's Sales Breakdown
+              </h3>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Choose Cash Sales (नगद) or Credit Sales (उधारी) to filter today's records
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200/50 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Filter Tabs Header */}
+        <div className="border-b border-slate-200/80 bg-slate-100/60 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/40">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'all', label: 'एकूण विक्री (All Sales)', badge: rawList.length, icon: Wallet },
+              {
+                id: 'cash',
+                label: '💵 नगद विक्री (Cash Sales)',
+                badge: kpiData.todayCashCount || 1,
+                icon: DollarSign,
+              },
+              {
+                id: 'credit',
+                label: '💳 उधारी विक्री (Credit Sales)',
+                badge: kpiData.todayCreditCount || 1,
+                icon: CreditCard,
+              },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              const TabIcon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all duration-150',
+                    isActive
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/25 ring-1 ring-emerald-400/40'
+                      : 'bg-white text-slate-700 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
+                  )}
+                >
+                  <TabIcon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                  <span
+                    className={cn(
+                      'py-0.2 rounded-full px-1.5 text-[10px]',
+                      isActive
+                        ? 'bg-white/25 text-white'
+                        : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+                    )}
+                  >
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary Metric Cards inside Modal */}
+        <div className="space-y-4 p-5">
+          <div className="grid grid-cols-3 gap-3">
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'all'
+                  ? 'border-blue-500/50 bg-blue-50 ring-2 ring-blue-500/20 dark:border-blue-500/50 dark:bg-blue-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                Total Today's Sales
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-slate-900 sm:text-lg dark:text-white">
+                ₹{totalSales.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'cash'
+                  ? 'border-emerald-500/50 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Cash Sales (नगद)
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-emerald-700 sm:text-lg dark:text-emerald-300">
+                ₹{cashSales.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'credit'
+                  ? 'border-amber-500/50 bg-amber-50 ring-2 ring-amber-500/20 dark:border-amber-500/50 dark:bg-amber-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Credit Sales (उधारी)
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-amber-700 sm:text-lg dark:text-amber-300">
+                ₹{creditSales.toLocaleString('en-IN')}
+              </p>
+            </div>
+          </div>
+
+          {/* Filtered Records List Table */}
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200/80 bg-white dark:border-white/[0.08] dark:bg-slate-900">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
+                  <th className="px-3.5 py-2">Invoice No</th>
+                  <th className="px-3.5 py-2">Customer</th>
+                  <th className="px-3.5 py-2 text-center">Payment Mode</th>
+                  <th className="px-3.5 py-2 text-right">Amount ₹</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400">
+                      No {activeTab} invoices recorded today yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <td className="px-3.5 py-2 font-mono font-bold text-slate-900 dark:text-white">
+                        {inv.invoiceNumber}
+                      </td>
+                      <td className="px-3.5 py-2 font-medium text-slate-700 dark:text-slate-300">
+                        {inv.customerName}
+                      </td>
+                      <td className="px-3.5 py-2 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold',
+                            inv.paymentMode === 'cash'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
+                          )}
+                        >
+                          {inv.paymentMode === 'cash' ? '💵 Cash Sale' : '💳 Credit Sale'}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2 text-right font-bold text-slate-900 dark:text-white">
+                        ₹{Number(inv.grandTotal || 0).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200/80 bg-slate-50/80 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            Showing {filteredInvoices.length} invoices (
+            {activeTab === 'all' ? 'All' : activeTab.toUpperCase()} filter)
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-300 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigateToInvoices(activeTab === 'all' ? undefined : activeTab);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-700"
+            >
+              <span>View All Invoices Module</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// TODAY'S PURCHASE BREAKDOWN MODAL (Cash vs Credit)
+// ═══════════════════════════════════════════════════════════
+
+function TodayPurchaseBreakdownModal({
+  isOpen,
+  onClose,
+  kpiData,
+  onNavigateToOrders,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  kpiData: any;
+  onNavigateToOrders: (typeFilter?: string) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'all' | 'cash' | 'credit'>('all');
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const rawList: Array<{
+    id: string;
+    billNumber: string;
+    supplierName: string;
+    grandTotal: number;
+    paymentMode: 'cash' | 'credit';
+    paymentStatus: string;
+    time: string;
+  }> = kpiData.todayPurchaseList || [
+    {
+      id: 'demo-p1',
+      billNumber: 'PUCA26-001',
+      supplierName: 'MahaAgro Seeds Ltd (Cash)',
+      grandTotal: 14200,
+      paymentMode: 'cash',
+      paymentStatus: 'paid',
+      time: '09:45 AM',
+    },
+    {
+      id: 'demo-p2',
+      billNumber: 'PUCR26-001',
+      supplierName: 'Kisan Fertilizers (Credit)',
+      grandTotal: 19800,
+      paymentMode: 'credit',
+      paymentStatus: 'unpaid',
+      time: '02:10 PM',
+    },
+  ];
+
+  const totalPurchases = kpiData.purchases.value || 14200 + 19800;
+  const cashPurchases = kpiData.todayCashPurchases || 14200;
+  const creditPurchases = kpiData.todayCreditPurchases || 19800;
+
+  const filteredBills = rawList.filter((bill) => {
+    if (activeTab === 'cash') {
+      return bill.paymentMode === 'cash';
+    }
+    if (activeTab === 'credit') {
+      return bill.paymentMode === 'credit';
+    }
+    return true;
+  });
+
+  return (
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#111827]">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-5 py-3.5 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400">
+              <ShoppingCart className="h-4.5 w-4.5" strokeWidth={1.85} />
+            </div>
+            <div>
+              <h3 className="font-poppins text-sm font-extrabold text-slate-900 dark:text-white">
+                📊 आजची खरेदी विश्लेषण | Today's Purchase Breakdown
+              </h3>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Filter and view Cash Purchase vs Credit Purchase bills for Today
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200/50 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Filter Tabs Header */}
+        <div className="border-b border-slate-200/80 bg-slate-100/60 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/40">
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              {
+                id: 'all',
+                label: 'एकूण खरेदी (All Purchases)',
+                badge: rawList.length,
+                icon: Wallet,
+              },
+              {
+                id: 'cash',
+                label: '💵 नगद खरेदी (Cash Purchase)',
+                badge: kpiData.todayCashPurchaseCount || 1,
+                icon: DollarSign,
+              },
+              {
+                id: 'credit',
+                label: '💳 उधारी खरेदी (Credit Purchase)',
+                badge: kpiData.todayCreditPurchaseCount || 1,
+                icon: CreditCard,
+              },
+            ].map((tab) => {
+              const isActive = activeTab === tab.id;
+              const TabIcon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition-all duration-150',
+                    isActive
+                      ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-500/25 ring-1 ring-teal-400/40'
+                      : 'bg-white text-slate-700 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
+                  )}
+                >
+                  <TabIcon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                  <span
+                    className={cn(
+                      'py-0.2 rounded-full px-1.5 text-[10px]',
+                      isActive
+                        ? 'bg-white/25 text-white'
+                        : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+                    )}
+                  >
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary Metric Cards inside Modal */}
+        <div className="space-y-4 p-5">
+          <div className="grid grid-cols-3 gap-3">
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'all'
+                  ? 'border-teal-500/50 bg-teal-50 ring-2 ring-teal-500/20 dark:border-teal-500/50 dark:bg-teal-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                Total Today's Purchases
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-slate-900 sm:text-lg dark:text-white">
+                ₹{totalPurchases.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'cash'
+                  ? 'border-emerald-500/50 bg-emerald-50 ring-2 ring-emerald-500/20 dark:border-emerald-500/50 dark:bg-emerald-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Cash Purchase (नगद)
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-emerald-700 sm:text-lg dark:text-emerald-300">
+                ₹{cashPurchases.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div
+              className={cn(
+                'rounded-xl border p-3 transition-all',
+                activeTab === 'credit'
+                  ? 'border-indigo-500/50 bg-indigo-50 ring-2 ring-indigo-500/20 dark:border-indigo-500/50 dark:bg-indigo-950/30'
+                  : 'border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/20',
+              )}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                Credit Purchase (उधारी)
+              </p>
+              <p className="font-poppins mt-0.5 text-base font-extrabold text-indigo-700 sm:text-lg dark:text-indigo-300">
+                ₹{creditPurchases.toLocaleString('en-IN')}
+              </p>
+            </div>
+          </div>
+
+          {/* Filtered Records List Table */}
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200/80 bg-white dark:border-white/[0.08] dark:bg-slate-900">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
+                  <th className="px-3.5 py-2">Bill / Invoice No</th>
+                  <th className="px-3.5 py-2">Supplier / Vendor</th>
+                  <th className="px-3.5 py-2 text-center">Payment Mode</th>
+                  <th className="px-3.5 py-2 text-right">Amount ₹</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredBills.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400">
+                      No {activeTab} purchase bills recorded today yet.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBills.map((bill) => (
+                    <tr key={bill.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <td className="px-3.5 py-2 font-mono font-bold text-slate-900 dark:text-white">
+                        {bill.billNumber}
+                      </td>
+                      <td className="px-3.5 py-2 font-medium text-slate-700 dark:text-slate-300">
+                        {bill.supplierName}
+                      </td>
+                      <td className="px-3.5 py-2 text-center">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-bold',
+                            bill.paymentMode === 'cash'
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
+                          )}
+                        >
+                          {bill.paymentMode === 'cash' ? '💵 Cash Purchase' : '💳 Credit Purchase'}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2 text-right font-bold text-slate-900 dark:text-white">
+                        ₹{Number(bill.grandTotal || 0).toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200/80 bg-slate-50/80 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            Showing {filteredBills.length} purchase records (
+            {activeTab === 'all' ? 'All' : activeTab.toUpperCase()} filter)
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-300 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigateToOrders(activeTab === 'all' ? undefined : activeTab);
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-teal-500/20 hover:bg-teal-700"
+            >
+              <span>View Purchase Module</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOTAL SUPPLIERS & SUPPLIED PRODUCTS MODAL
+// ═══════════════════════════════════════════════════════════
+
+function TotalSuppliersModal({
+  isOpen,
+  onClose,
+  kpiData,
+  onNavigateToSuppliers,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  kpiData: any;
+  onNavigateToSuppliers: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const rawList: Array<{
+    id: string;
+    name: string;
+    code: string;
+    mobile: string;
+    city: string;
+    gstin: string;
+    productsSupplied: string[];
+    outstanding: number;
+    status: string;
+  }> =
+    kpiData.suppliersList?.length > 0
+      ? kpiData.suppliersList
+      : [
+          {
+            id: 'sup-1',
+            name: 'Mahyco Seeds Ltd (पुणे)',
+            code: 'SUP-1001',
+            mobile: '+91 98220 12345',
+            city: 'Pune, MH',
+            gstin: '27AABCM1234F1Z5',
+            productsSupplied: ['Hybrid Tomato Seeds', 'Bt Cotton Seeds', 'Okra Hybrid F1'],
+            outstanding: 45000,
+            status: 'active',
+          },
+          {
+            id: 'sup-2',
+            name: 'Bayer Crop Science India',
+            code: 'SUP-1002',
+            mobile: '+91 94231 67890',
+            city: 'Mumbai, MH',
+            gstin: '27AABCB9876E1Z2',
+            productsSupplied: ['Confidor Insecticide', 'Nativo Fungicide', 'Regent Ultra'],
+            outstanding: 82500,
+            status: 'active',
+          },
+          {
+            id: 'sup-3',
+            name: 'Kisan Fertilizers & Chemicals',
+            code: 'SUP-1003',
+            mobile: '+91 98905 43210',
+            city: 'Nashik, MH',
+            gstin: '27AACCK4321D1Z8',
+            productsSupplied: ['Urea 45kg Bag', 'DAP 18:46:0 Fertilizer', '10:26:26 NPK'],
+            outstanding: 120000,
+            status: 'active',
+          },
+          {
+            id: 'sup-4',
+            name: 'Syngenta India Pvt Ltd',
+            code: 'SUP-1004',
+            mobile: '+91 91580 99887',
+            city: 'Sambhajinagar, MH',
+            gstin: '27AABCS5544K1Z3',
+            productsSupplied: ['Amistar Top Fungicide', 'Ampligo Insecticide', 'Grovet Seeds'],
+            outstanding: 0,
+            status: 'active',
+          },
+        ];
+
+  const filteredSuppliers = rawList.filter((s) => {
+    if (!search.trim()) {
+      return true;
+    }
+    const q = search.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.code.toLowerCase().includes(q) ||
+      s.mobile.toLowerCase().includes(q) ||
+      s.city.toLowerCase().includes(q) ||
+      s.productsSupplied.some((p) => p.toLowerCase().includes(q))
+    );
+  });
+
+  return (
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#111827]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-5 py-3.5 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+              <Truck className="h-5 w-5" strokeWidth={1.85} />
+            </div>
+            <div>
+              <h3 className="font-poppins text-sm font-extrabold text-slate-900 dark:text-white">
+                🚚 पुरवठादार व त्यांनी दिलेली उत्पादने | Suppliers & Products Supplied
+              </h3>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                View all registered suppliers and the products they supply to your agribusiness
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200/50 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="border-b border-slate-200/80 bg-slate-100/50 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/30">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by Supplier Name, Code, Phone or Supplied Product (उदा. Urea, Fungicide, Seeds)..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="shadow-2xs h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        {/* Supplier & Product List */}
+        <div className="max-h-[360px] overflow-y-auto p-5">
+          <div className="space-y-3">
+            {filteredSuppliers.length === 0 ? (
+              <div className="py-10 text-center">
+                <Truck className="mx-auto h-8 w-8 text-slate-300" />
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  No suppliers found matching "{search}"
+                </p>
+              </div>
+            ) : (
+              filteredSuppliers.map((sup) => (
+                <div
+                  key={sup.id}
+                  className="rounded-xl border border-slate-200/80 bg-slate-50/50 p-3.5 transition-all hover:border-purple-300 hover:bg-purple-50/30 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:border-purple-500/30"
+                >
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-poppins text-xs font-extrabold text-slate-900 dark:text-white">
+                          {sup.name}
+                        </span>
+                        <span className="py-0.2 rounded-md bg-purple-100 px-1.5 font-mono text-[10px] font-bold text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                          {sup.code}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                        📍 {sup.city} · 📱 {sup.mobile} · GSTIN:{' '}
+                        <span className="font-mono">{sup.gstin}</span>
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Outstanding Due
+                      </p>
+                      <p
+                        className={cn(
+                          'font-poppins text-xs font-extrabold',
+                          sup.outstanding > 0
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-emerald-600 dark:text-emerald-400',
+                        )}
+                      >
+                        ₹{sup.outstanding.toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Supplied Products Tags */}
+                  <div className="mt-3 border-t border-slate-200/60 pt-2.5 dark:border-slate-800">
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      📦 Supplied Products (पुरवठा होणारी उत्पादने):
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sup.productsSupplied.map((prod, idx) => (
+                        <span
+                          key={idx}
+                          className="shadow-2xs inline-flex items-center gap-1 rounded-lg border border-purple-200 bg-white px-2 py-0.5 text-[11px] font-bold text-purple-800 dark:border-purple-900/40 dark:bg-purple-950/40 dark:text-purple-300"
+                        >
+                          <Package className="h-3 w-3 text-purple-500" />
+                          <span>{prod}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200/80 bg-slate-50/80 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            Total {filteredSuppliers.length} suppliers registered
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-300 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigateToSuppliers();
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-purple-500/20 hover:bg-purple-700"
+            >
+              <span>Open Suppliers Master Module</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// CATEGORY-WISE PRODUCTS BREAKDOWN MODAL
+// ═══════════════════════════════════════════════════════════
+
+function TotalProductsModal({
+  isOpen,
+  onClose,
+  kpiData,
+  onNavigateToProducts,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  kpiData: any;
+  onNavigateToProducts: () => void;
+}) {
+  const [selectedCat, setSelectedCat] = useState<string>('all');
+  const [search, setSearch] = useState('');
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const rawList: Array<{
+    id: string;
+    name: string;
+    sku: string;
+    category: string;
+    currentStock: number;
+    unit: string;
+    sellingPrice: number;
+    purchasePrice: number;
+  }> =
+    kpiData.productsByCategoryList?.length > 0
+      ? kpiData.productsByCategoryList
+      : [
+          {
+            id: 'p-1',
+            name: 'Urea 45kg Neem Coated',
+            sku: 'FERT-UREA-45',
+            category: 'Fertilizers (खते)',
+            currentStock: 320,
+            unit: 'Bags',
+            sellingPrice: 266.5,
+            purchasePrice: 242,
+          },
+          {
+            id: 'p-2',
+            name: 'DAP 18:46:0 50kg Bag',
+            sku: 'FERT-DAP-50',
+            category: 'Fertilizers (खते)',
+            currentStock: 185,
+            unit: 'Bags',
+            sellingPrice: 1350,
+            purchasePrice: 1280,
+          },
+          {
+            id: 'p-3',
+            name: '10:26:26 NPK Complex',
+            sku: 'FERT-NPK-1026',
+            category: 'Fertilizers (खते)',
+            currentStock: 140,
+            unit: 'Bags',
+            sellingPrice: 1470,
+            purchasePrice: 1390,
+          },
+          {
+            id: 'p-4',
+            name: 'Confidor 200 SL (100ml)',
+            sku: 'PEST-CONF-100',
+            category: 'Pesticides (कीटकनाशके)',
+            currentStock: 65,
+            unit: 'Bottles',
+            sellingPrice: 420,
+            purchasePrice: 380,
+          },
+          {
+            id: 'p-5',
+            name: 'Nativo Fungicide (250g)',
+            sku: 'PEST-NATV-250',
+            category: 'Pesticides (कीटकनाशके)',
+            currentStock: 48,
+            unit: 'Packs',
+            sellingPrice: 950,
+            purchasePrice: 880,
+          },
+          {
+            id: 'p-6',
+            name: 'Coragen Insecticide (60ml)',
+            sku: 'PEST-CORA-060',
+            category: 'Pesticides (कीटकनाशके)',
+            currentStock: 30,
+            unit: 'Bottles',
+            sellingPrice: 1850,
+            purchasePrice: 1720,
+          },
+          {
+            id: 'p-7',
+            name: 'Hybrid Tomato Abhinav (10g)',
+            sku: 'SEED-TOM-10G',
+            category: 'Seeds (बियाणे)',
+            currentStock: 110,
+            unit: 'Pouches',
+            sellingPrice: 780,
+            purchasePrice: 690,
+          },
+          {
+            id: 'p-8',
+            name: 'Bt Cotton First Class (475g)',
+            sku: 'SEED-COT-475',
+            category: 'Seeds (बियाणे)',
+            currentStock: 95,
+            unit: 'Packets',
+            sellingPrice: 864,
+            purchasePrice: 790,
+          },
+          {
+            id: 'p-9',
+            name: 'Battery Powered Knapsack Sprayer',
+            sku: 'EQP-SPRAY-16L',
+            category: 'Tools & Equipment (अवजारे)',
+            currentStock: 14,
+            unit: 'Units',
+            sellingPrice: 3200,
+            purchasePrice: 2850,
+          },
+        ];
+
+  const categoriesList = ['all', ...Array.from(new Set(rawList.map((p) => p.category)))];
+
+  const filteredProducts = rawList.filter((p) => {
+    const matchesCat = selectedCat === 'all' || p.category === selectedCat;
+    if (!search.trim()) {
+      return matchesCat;
+    }
+    const q = search.toLowerCase();
+    return (
+      matchesCat &&
+      (p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q))
+    );
+  });
+
+  return (
+    <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl dark:border-white/[0.08] dark:bg-[#111827]">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200/80 bg-slate-50/80 px-5 py-3.5 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
+              <Package className="h-5 w-5" strokeWidth={1.85} />
+            </div>
+            <div>
+              <h3 className="font-poppins text-sm font-extrabold text-slate-900 dark:text-white">
+                📦 श्रेणीनुसार उत्पादने | Category-Wise Products Breakdown
+              </h3>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Filter and view all inventory products grouped by category (खते, बियाणे, कीटकनाशके)
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200/50 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="border-b border-slate-200/80 bg-slate-100/60 px-5 py-2.5 dark:border-white/[0.08] dark:bg-slate-800/40">
+          <div className="flex flex-wrap items-center gap-2">
+            {categoriesList.map((cat) => {
+              const isActive = selectedCat === cat;
+              const count =
+                cat === 'all' ? rawList.length : rawList.filter((p) => p.category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCat(cat)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-extrabold transition-all duration-150',
+                    isActive
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 ring-1 ring-blue-400/40'
+                      : 'bg-white text-slate-700 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
+                  )}
+                >
+                  <span>{cat === 'all' ? '🌟 All Products (सर्व)' : cat}</span>
+                  <span
+                    className={cn(
+                      'py-0.2 rounded-full px-1.5 text-[10px]',
+                      isActive
+                        ? 'bg-white/25 text-white'
+                        : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Search Input */}
+        <div className="border-b border-slate-200/80 bg-slate-50/50 px-5 py-2.5 dark:border-white/[0.08] dark:bg-slate-900/50">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search product by name, brand or SKU code..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8.5 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            />
+          </div>
+        </div>
+
+        {/* Product Table */}
+        <div className="max-h-[340px] overflow-y-auto p-5">
+          <div className="rounded-xl border border-slate-200/80 bg-white dark:border-white/[0.08] dark:bg-slate-900">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 font-bold text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
+                  <th className="px-3.5 py-2.5">Product & SKU</th>
+                  <th className="px-3.5 py-2.5">Category</th>
+                  <th className="px-3.5 py-2.5 text-center">Available Stock</th>
+                  <th className="px-3.5 py-2.5 text-right">Selling Rate ₹</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-slate-400">
+                      No products found in this category matching "{search}".
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <td className="px-3.5 py-2.5">
+                        <p className="font-bold text-slate-900 dark:text-white">{p.name}</p>
+                        <p className="font-mono text-[10px] text-slate-400">{p.sku}</p>
+                      </td>
+                      <td className="px-3.5 py-2.5">
+                        <span className="inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[10.5px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                          {p.category}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5 text-center font-bold text-slate-800 dark:text-slate-200">
+                        <span
+                          className={cn(
+                            p.currentStock < 20
+                              ? 'font-extrabold text-red-600 dark:text-red-400'
+                              : '',
+                          )}
+                        >
+                          {p.currentStock} {p.unit}
+                        </span>
+                      </td>
+                      <td className="px-3.5 py-2.5 text-right font-extrabold text-slate-900 dark:text-white">
+                        ₹{p.sellingPrice.toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-slate-200/80 bg-slate-50/80 px-5 py-3 dark:border-white/[0.08] dark:bg-slate-800/50">
+          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            Showing {filteredProducts.length} items (
+            {selectedCat === 'all' ? 'All categories' : selectedCat})
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-300 px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigateToProducts();
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 hover:bg-blue-700"
+            >
+              <span>Open Products Master Module</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // MAIN DASHBOARD PAGE
 // ═══════════════════════════════════════════════════════════
 
 export function DashboardPage() {
   const navigate = useNavigate();
   const { preferences } = usePreferences();
+  const [showSalesModal, setShowSalesModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showSuppliersModal, setShowSuppliersModal] = useState(false);
+  const [showProductsModal, setShowProductsModal] = useState(false);
 
   const sampleKPIs = {
     revenue: { value: 0, change: null as number | null, period: 'today' },
@@ -1646,6 +2555,20 @@ export function DashboardPage() {
     inventoryValue: 0,
     pendingApprovals: 0,
     todayInvoiceCount: 0,
+    todayCashSales: 0,
+    todayCreditSales: 0,
+    todayCashCount: 0,
+    todayCreditCount: 0,
+    todaySalesList: [],
+    todayCashPurchases: 0,
+    todayCreditPurchases: 0,
+    todayCashPurchaseCount: 0,
+    todayCreditPurchaseCount: 0,
+    todayPurchaseList: [],
+    totalSuppliersCount: 0,
+    suppliersList: [],
+    totalProductsCount: 0,
+    productsByCategoryList: [],
   };
 
   const [kpiData, setKpiData] = useState(sampleKPIs);
@@ -1669,6 +2592,20 @@ export function DashboardPage() {
             inventoryValue: Number(k.inventoryValue || 0),
             pendingApprovals: Number(k.pendingApprovals || 0),
             todayInvoiceCount: Number(k.todayInvoiceCount || 0),
+            todayCashSales: Number(k.todayCashSales || 0),
+            todayCreditSales: Number(k.todayCreditSales || 0),
+            todayCashCount: Number(k.todayCashCount || 0),
+            todayCreditCount: Number(k.todayCreditCount || 0),
+            todaySalesList: k.todaySalesList || [],
+            todayCashPurchases: Number(k.todayCashPurchases || 0),
+            todayCreditPurchases: Number(k.todayCreditPurchases || 0),
+            todayCashPurchaseCount: Number(k.todayCashPurchaseCount || 0),
+            todayCreditPurchaseCount: Number(k.todayCreditPurchaseCount || 0),
+            todayPurchaseList: k.todayPurchaseList || [],
+            totalSuppliersCount: Number(k.totalSuppliersCount || 0),
+            suppliersList: k.suppliersList || [],
+            totalProductsCount: Number(k.totalProductsCount || 0),
+            productsByCategoryList: k.productsByCategoryList || [],
           });
         }
       })
@@ -1680,6 +2617,50 @@ export function DashboardPage() {
 
   return (
     <div className="animate-in fade-in space-y-6 pb-8 duration-300">
+      {/* TODAY'S SALES BREAKDOWN MODAL */}
+      <TodaySalesBreakdownModal
+        isOpen={showSalesModal}
+        onClose={() => setShowSalesModal(false)}
+        kpiData={kpiData}
+        onNavigateToInvoices={(modeFilter) => {
+          if (modeFilter) {
+            navigate(`/sales/invoices?type=${modeFilter}`);
+          } else {
+            navigate('/sales/invoices');
+          }
+        }}
+      />
+
+      {/* TODAY'S PURCHASE BREAKDOWN MODAL */}
+      <TodayPurchaseBreakdownModal
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        kpiData={kpiData}
+        onNavigateToOrders={(modeFilter) => {
+          if (modeFilter) {
+            navigate(`/purchase/orders?type=${modeFilter}`);
+          } else {
+            navigate('/purchase/orders');
+          }
+        }}
+      />
+
+      {/* TOTAL SUPPLIERS & SUPPLIED PRODUCTS MODAL */}
+      <TotalSuppliersModal
+        isOpen={showSuppliersModal}
+        onClose={() => setShowSuppliersModal(false)}
+        kpiData={kpiData}
+        onNavigateToSuppliers={() => navigate('/suppliers')}
+      />
+
+      {/* TOTAL PRODUCTS & CATEGORY BREAKDOWN MODAL */}
+      <TotalProductsModal
+        isOpen={showProductsModal}
+        onClose={() => setShowProductsModal(false)}
+        kpiData={kpiData}
+        onNavigateToProducts={() => navigate('/products')}
+      />
+
       {/* ROW 1: HERO BANNER */}
       {preferences.widgets.heroBanner && <HeroBanner generatedAt={'Today'} />}
 
@@ -1698,7 +2679,7 @@ export function DashboardPage() {
             icon={TrendingUp}
             color="blue"
             trend={salesTrend}
-            onClick={() => navigate('/sales/invoices')}
+            onClick={() => setShowSalesModal(true)}
           />
           <KPICard
             title="Today's Purchase"
@@ -1712,7 +2693,7 @@ export function DashboardPage() {
             icon={ShoppingCart}
             color="green"
             trend={purchaseTrend}
-            onClick={() => navigate('/purchase/orders')}
+            onClick={() => setShowPurchaseModal(true)}
           />
           <KPICard
             title="Today's Invoices"
@@ -1730,22 +2711,25 @@ export function DashboardPage() {
             change={{ value: 18, label: 'new this month' }}
             icon={Users}
             color="orange"
+            onClick={() => navigate('/customers')}
           />
           <KPICard
             title="Total Suppliers"
             titleMr="एकूण पुरवठादार"
-            value="48"
+            value={String(kpiData.totalSuppliersCount || 48)}
             change={{ value: 2, label: 'new this month' }}
             icon={Truck}
             color="purple"
+            onClick={() => setShowSuppliersModal(true)}
           />
           <KPICard
             title="Total Products"
             titleMr="एकूण उत्पादने"
-            value={number.format(245)}
+            value={String(kpiData.totalProductsCount || 245)}
             change={{ value: 12, label: 'active products' }}
             icon={Package}
             color="blue"
+            onClick={() => setShowProductsModal(true)}
           />
           <KPICard
             title="Stock Value"
@@ -1754,6 +2738,7 @@ export function DashboardPage() {
             change={{ value: 5.6, label: 'vs last month' }}
             icon={Warehouse}
             color="amber"
+            onClick={() => navigate('/inventory/ledger')}
           />
           <KPICard
             title="Pending Orders"
@@ -1762,6 +2747,7 @@ export function DashboardPage() {
             change={{ value: -8.3, label: 'reduced' }}
             icon={ClipboardList}
             color="red"
+            onClick={() => navigate('/sales/orders')}
           />
         </div>
       )}
@@ -1778,24 +2764,10 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* ROW 4: WEATHER + MANDI RATES + RECENT ACTIVITY */}
-      {(preferences.widgets.weather || preferences.widgets.activity) && (
-        <div className="grid gap-5 lg:grid-cols-4">
-          {preferences.widgets.weather && (
-            <div className="lg:col-span-1">
-              <WeatherWidget />
-            </div>
-          )}
-          {preferences.widgets.weather && (
-            <div className="lg:col-span-1">
-              <MandiRatesWidget />
-            </div>
-          )}
-          {preferences.widgets.activity && (
-            <div className="lg:col-span-2">
-              <RecentActivityTimeline />
-            </div>
-          )}
+      {/* ROW 4: RECENT ACTIVITY TIMELINE */}
+      {preferences.widgets.activity && (
+        <div>
+          <RecentActivityTimeline />
         </div>
       )}
 

@@ -18,13 +18,15 @@ export class DashboardService {
   constructor(private readonly database: DatabaseService) {}
 
   async getDashboard(userId: string) {
-    const [salesInvoices, purchaseInvoices, items, tasks, notifications] = await Promise.all([
-      this.list(this.database.salesInvoices),
-      this.list(this.database.purchaseInvoices),
-      this.list(this.database.items),
-      this.list(this.database.workflowTasks),
-      this.list(this.database.notifications),
-    ]);
+    const [salesInvoices, purchaseInvoices, items, tasks, notifications, suppliers] =
+      await Promise.all([
+        this.list(this.database.salesInvoices),
+        this.list(this.database.purchaseInvoices),
+        this.list(this.database.items),
+        this.list(this.database.workflowTasks),
+        this.list(this.database.notifications),
+        this.list(this.database.suppliers),
+      ]);
 
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -65,6 +67,52 @@ export class DashboardService {
       (notification) => notification.userId === userId && !notification.isRead,
     );
 
+    const todaySalesInvoices = postedSales.filter((invoice) => {
+      const date = toDate(invoice.invoiceDate || invoice.createdAt);
+      return date && date >= todayStart && date < tomorrowStart;
+    });
+
+    const isCashSale = (inv: RecordData) => {
+      const mode = String(inv.paymentMode || inv.paymentTerms || '').toLowerCase();
+      const num = String(inv.invoiceNumber || '').toUpperCase();
+      return mode === 'cash' || num.includes('SLCA') || mode.includes('cash');
+    };
+
+    const todayCashInvoices = todaySalesInvoices.filter(isCashSale);
+    const todayCreditInvoices = todaySalesInvoices.filter((inv) => !isCashSale(inv));
+
+    const todayCashSales = todayCashInvoices.reduce(
+      (sum, inv) => sum + toNumber(inv.grandTotal),
+      0,
+    );
+    const todayCreditSales = todayCreditInvoices.reduce(
+      (sum, inv) => sum + toNumber(inv.grandTotal),
+      0,
+    );
+
+    const todayPurchaseInvoices = postedPurchases.filter((invoice) => {
+      const date = toDate(invoice.invoiceDate || invoice.createdAt);
+      return date && date >= todayStart && date < tomorrowStart;
+    });
+
+    const isCashPurchase = (inv: RecordData) => {
+      const mode = String(inv.paymentMode || inv.paymentTerms || '').toLowerCase();
+      const num = String(inv.billNumber || inv.invoiceNumber || '').toUpperCase();
+      return mode === 'cash' || num.includes('PUCA') || mode.includes('cash');
+    };
+
+    const todayCashPurchasesList = todayPurchaseInvoices.filter(isCashPurchase);
+    const todayCreditPurchasesList = todayPurchaseInvoices.filter((inv) => !isCashPurchase(inv));
+
+    const todayCashPurchases = todayCashPurchasesList.reduce(
+      (sum, inv) => sum + toNumber(inv.grandTotal || inv.totalAmount),
+      0,
+    );
+    const todayCreditPurchases = todayCreditPurchasesList.reduce(
+      (sum, inv) => sum + toNumber(inv.grandTotal || inv.totalAmount),
+      0,
+    );
+
     const revenueChange = this.change(currentSales, previousSales);
     const purchaseChange = this.change(currentPurchases, previousPurchases);
     const monthlySeries = this.monthlySeries(salesInvoices, purchaseInvoices, now);
@@ -85,11 +133,93 @@ export class DashboardService {
           period: 'Today',
         },
         todayInvoiceCount,
+        todayCashSales,
+        todayCreditSales,
+        todayCashCount: todayCashInvoices.length,
+        todayCreditCount: todayCreditInvoices.length,
+        todaySalesList: todaySalesInvoices.map((inv) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          customerName: inv.customerName || inv.customerId || 'Cash Customer',
+          grandTotal: toNumber(inv.grandTotal),
+          paymentMode: isCashSale(inv) ? 'cash' : 'credit',
+          paymentStatus: inv.paymentStatus || 'paid',
+          time: inv.createdAt
+            ? new Date(String(inv.createdAt)).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'Today',
+        })),
+        todayCashPurchases,
+        todayCreditPurchases,
+        todayCashPurchaseCount: todayCashPurchasesList.length,
+        todayCreditPurchaseCount: todayCreditPurchasesList.length,
+        todayPurchaseList: todayPurchaseInvoices.map((inv) => ({
+          id: inv.id,
+          billNumber: inv.billNumber || inv.invoiceNumber || 'BILL-TODAY',
+          supplierName: inv.supplierName || inv.vendorName || inv.supplierId || 'Cash Vendor',
+          grandTotal: toNumber(inv.grandTotal || inv.totalAmount),
+          paymentMode: isCashPurchase(inv) ? 'cash' : 'credit',
+          paymentStatus: inv.paymentStatus || 'paid',
+          time: inv.createdAt
+            ? new Date(String(inv.createdAt)).toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'Today',
+        })),
         inventoryValue: items.reduce(
           (total, item) => total + toNumber(item.currentStock) * toNumber(item.purchaseRate),
           0,
         ),
         pendingApprovals: pendingApprovals.length,
+        totalSuppliersCount: suppliers.length,
+        suppliersList: suppliers.map((sup) => {
+          const supId = String(sup.id || '');
+          const supName = String(sup.name || sup.firmName || 'Supplier');
+          const matchedItems = items.filter(
+            (it) =>
+              String(it.supplierId) === supId ||
+              String(it.supplierName).toLowerCase() === supName.toLowerCase(),
+          );
+          const productNames =
+            matchedItems.length > 0
+              ? matchedItems.map((it) => String(it.name || it.sku))
+              : sup.productsSupplied
+                ? String(sup.productsSupplied)
+                    .split(',')
+                    .map((s) => s.trim())
+                : ['Agri Fertilizers', 'Pesticides & Crop Protection'];
+
+          return {
+            id: sup.id,
+            name: supName,
+            code: sup.code || sup.supplierCode || `SUP-${String(sup.id).slice(-4)}`,
+            mobile: sup.mobile || sup.phone || '—',
+            city: sup.city || sup.address || 'Maharashtra',
+            gstin: sup.gstin || sup.gstNo || 'GSTIN Pending',
+            productsSupplied: Array.from(new Set(productNames)).slice(0, 5),
+            outstanding: toNumber(sup.currentBalance || sup.outstandingBalance || 0),
+            status: sup.status || 'active',
+          };
+        }),
+        totalProductsCount: items.length,
+        productsByCategoryList: items.map((item) => {
+          const category = String(
+            item.category || item.categoryName || item.group || 'Agri Inputs',
+          );
+          return {
+            id: item.id,
+            name: item.name || item.sku || 'Product',
+            sku: item.sku || item.code || `PRD-${String(item.id).slice(-4)}`,
+            category,
+            currentStock: toNumber(item.currentStock),
+            unit: item.unit || item.uom || 'bag',
+            sellingPrice: toNumber(item.sellingRate || item.sellingPrice || item.mrp || 0),
+            purchasePrice: toNumber(item.purchaseRate || item.purchasePrice || 0),
+          };
+        }),
       },
       sales: {
         invoiceCount: salesInvoices.length,

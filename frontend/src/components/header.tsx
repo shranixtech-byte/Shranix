@@ -1,6 +1,5 @@
 import {
   Calendar,
-  Search,
   Bell,
   Moon,
   Sun,
@@ -12,10 +11,9 @@ import {
   Menu,
   Building2,
   Clock,
-  FileText,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext';
 import { hasModuleAccess } from '@/lib/module-access';
@@ -135,12 +133,9 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
-  const { user, isLoading, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { setTheme, resolvedTheme } = useTheme();
   const location = useLocation();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -227,16 +222,6 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
     breadcrumbs.unshift({ label: 'Dashboard', path: '/' });
   }
 
-  const handleSearch = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (searchQuery.trim()) {
-        navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      }
-    },
-    [searchQuery, navigate],
-  );
-
   const userInitials = user
     ? `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() || 'U'
     : 'U';
@@ -245,299 +230,312 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
     breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : 'Dashboard';
 
   return (
-    <header className="border-border/60 sticky top-0 z-30 flex h-16 shrink-0 items-center gap-5 border-b bg-white px-5 shadow-sm lg:px-7 dark:bg-slate-900 dark:shadow-white/5">
-      {/* Sidebar Toggle + Page Title */}
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-4 shadow-lg shadow-slate-900/5 backdrop-blur-2xl transition-all duration-200 sm:px-6 lg:px-6 dark:border-white/[0.08] dark:bg-[#111827]/90 dark:shadow-black/40">
+      {/* ── Left: Sidebar Toggle + Title + Breadcrumbs ── */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+          className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-110" />
         </button>
-        <div className="hidden md:block">
-          <h1 className="text-foreground text-sm font-semibold">{pageTitle}</h1>
+
+        {/* Current Page Title */}
+        <div className="hidden sm:block">
+          <h1 className="font-poppins text-sm font-bold tracking-tight text-slate-800 dark:text-slate-100">
+            {pageTitle}
+          </h1>
         </div>
-      </div>
 
-      {/* Breadcrumb */}
-      <nav
-        className="text-muted-foreground hidden items-center gap-1 text-xs lg:flex"
-        aria-label="Breadcrumb"
-      >
-        <Link to="/" className="hover:text-foreground transition-colors">
-          <Home className="h-3.5 w-3.5" />
-        </Link>
-        {breadcrumbs.slice(1).map((crumb, index) => (
-          <span key={crumb.path} className="flex items-center gap-1">
-            <ChevronRight className="h-3 w-3" />
-            {index === breadcrumbs.slice(1).length - 1 ? (
-              <span className="text-foreground font-medium">{crumb.label}</span>
-            ) : (
-              <Link to={crumb.path} className="hover:text-foreground transition-colors">
-                {crumb.label}
-              </Link>
-            )}
-          </span>
-        ))}
-      </nav>
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Company Selector */}
-      <div className="relative hidden lg:block" ref={companyRef}>
-        <button
-          onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
-          className="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
+        {/* Breadcrumb Navigation */}
+        <nav
+          className="hidden items-center gap-1.5 text-xs text-slate-400 lg:flex"
+          aria-label="Breadcrumb"
         >
-          <Building2 className="h-3.5 w-3.5" />
-          <span className="max-w-[100px] truncate">Default Co.</span>
-          <ChevronDown className="h-3 w-3" />
-        </button>
-        {showCompanyDropdown && (
-          <div className="bg-popover absolute right-0 top-full mt-1.5 w-44 rounded-xl border p-1.5 shadow-xl">
-            <p className="text-muted-foreground px-2.5 py-1.5 text-[11px] font-medium">Companies</p>
-            <div className="bg-muted/50 text-muted-foreground rounded-lg px-2.5 py-2 text-xs">
-              <p className="text-foreground font-medium">Default Company</p>
-              <p className="text-[10px]">Connected</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Financial Year Selector */}
-      <div className="relative hidden lg:block" ref={fyRef}>
-        <button
-          onClick={() => setShowFyDropdown(!showFyDropdown)}
-          className="text-muted-foreground hover:bg-muted flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          <span>FY 2025-26</span>
-          <ChevronDown className="h-3 w-3" />
-        </button>
-        {showFyDropdown && (
-          <div className="bg-popover absolute right-0 top-full mt-1.5 w-44 rounded-xl border p-1.5 shadow-xl">
-            <p className="text-muted-foreground px-2.5 py-1.5 text-[11px] font-medium">
-              Financial Years
-            </p>
-            <div className="space-y-0.5">
-              {['2025-2026', '2024-2025', '2023-2024'].map((fy) => (
-                <button
-                  key={fy}
-                  className={`hover:bg-muted w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${
-                    fy === '2025-2026' ? 'bg-primary/5 text-primary font-medium' : 'text-foreground'
-                  }`}
+          <span className="text-slate-300 dark:text-slate-700">/</span>
+          <Link
+            to="/"
+            className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors hover:text-emerald-600 dark:hover:text-emerald-400"
+          >
+            <Home className="h-3.5 w-3.5" />
+          </Link>
+          {breadcrumbs.slice(1).map((crumb, index) => (
+            <span key={crumb.path} className="flex items-center gap-1.5">
+              <ChevronRight className="h-3 w-3 text-slate-400/60" />
+              {index === breadcrumbs.slice(1).length - 1 ? (
+                <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
+                  {crumb.label}
+                </span>
+              ) : (
+                <Link
+                  to={crumb.path}
+                  className="rounded-md px-1.5 py-0.5 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/[0.05] dark:hover:text-slate-200"
                 >
-                  FY {fy}
-                </button>
-              ))}
+                  {crumb.label}
+                </Link>
+              )}
+            </span>
+          ))}
+        </nav>
+      </div>
+
+      {/* ── Right Actions: Company, FY, Clock, Theme, Notifs, Profile ── */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Company Selector */}
+        <div className="relative hidden xl:block" ref={companyRef}>
+          <button
+            onClick={() => setShowCompanyDropdown(!showCompanyDropdown)}
+            className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
+          >
+            <Building2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="max-w-[110px] truncate">Default Co.</span>
+            <span className="shadow-xs h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <ChevronDown className="h-3 w-3 text-slate-400" />
+          </button>
+
+          {showCompanyDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-52 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-[#0B1A33]/95">
+              <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Active Organization
+              </p>
+              <div className="mt-1 rounded-xl border border-emerald-500/30 bg-emerald-50/60 p-2.5 dark:bg-emerald-950/30">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                    SHRANIX Agro Pvt Ltd
+                  </p>
+                  <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-extrabold uppercase text-emerald-700 dark:text-emerald-400">
+                    Live
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                  GSTIN: 27AAAAA0000A1Z5
+                </p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Live Clock */}
-      <div className="text-muted-foreground hidden items-center gap-1.5 text-xs lg:flex">
-        <Clock className="h-3.5 w-3.5" />
-        <span>
-          {currentTime.toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      </div>
+        {/* Financial Year Selector */}
+        <div className="relative hidden xl:block" ref={fyRef}>
+          <button
+            onClick={() => setShowFyDropdown(!showFyDropdown)}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/60 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08]"
+          >
+            <Calendar className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+            <span>FY 2025-26</span>
+            <ChevronDown className="h-3 w-3 text-slate-400" />
+          </button>
 
-      {/* Current Date */}
-      <div className="text-muted-foreground hidden items-center gap-1.5 text-xs lg:flex">
-        <Calendar className="h-3.5 w-3.5" />
-        <span>
-          {currentTime.toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
-        </span>
-      </div>
+          {showFyDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-1.5 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-[#0B1A33]/95">
+              <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Financial Years
+              </p>
+              <div className="mt-1 space-y-0.5">
+                {['2025-2026', '2024-2025', '2023-2024'].map((fy) => (
+                  <button
+                    key={fy}
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-medium transition-all ${
+                      fy === '2025-2026'
+                        ? 'bg-emerald-500/15 font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'
+                        : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    <span>FY {fy}</span>
+                    {fy === '2025-2026' && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* Search */}
-      <div className="relative">
+        {/* Live Clock & Date Pill */}
+        <div className="hidden items-center gap-2 rounded-xl border border-slate-200/60 bg-slate-100/60 px-3 py-1 text-xs font-medium text-slate-600 2xl:flex dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-slate-300">
+          <Clock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>
+            {currentTime.toLocaleTimeString('en-IN', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+          <span className="text-slate-300 dark:text-slate-700">|</span>
+          <span>
+            {currentTime.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+            })}
+          </span>
+        </div>
+
+        {/* Theme Toggle Button */}
         <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors lg:hidden"
-          aria-label="Search"
+          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+          className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-amber-500/40 hover:bg-amber-50/60 hover:text-amber-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-amber-400/40 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+          aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
         >
-          <Search className="h-4 w-4" />
-        </button>
-        <form
-          onSubmit={handleSearch}
-          className={`${
-            showSearch ? 'absolute right-0 top-full mt-2 flex' : 'hidden'
-          } lg:relative lg:mt-0 lg:flex`}
-        >
-          <div className="relative">
-            <Search className="text-muted-foreground absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="bg-muted/50 focus:border-primary/50 focus:bg-background h-8 w-48 rounded-lg border pl-8 pr-3 text-xs outline-none transition-all focus:w-56 lg:w-52"
-            />
-            <kbd className="bg-background text-muted-foreground absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border px-1 py-0.5 text-[9px] font-medium lg:inline">
-              ⌘K
-            </kbd>
-          </div>
-        </form>
-      </div>
-
-      {/* Theme Toggle */}
-      <button
-        onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-        className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-        aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
-      >
-        {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      </button>
-
-      {/* Notifications Dropdown */}
-      <div className="relative" ref={notifRef}>
-        <button
-          onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-          {unreadCount > 0 && (
-            <span className="bg-destructive ring-background absolute right-2 top-1.5 h-2 w-2 rounded-full ring-2" />
+          {resolvedTheme === 'dark' ? (
+            <Sun className="h-4.5 w-4.5 transition-transform duration-300 group-hover:rotate-45" />
+          ) : (
+            <Moon className="h-4.5 w-4.5 transition-transform duration-300 group-hover:-rotate-12" />
           )}
         </button>
 
-        {showNotifDropdown && (
-          <div className="bg-popover absolute right-0 top-full mt-1.5 w-80 rounded-xl border shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <p className="text-sm font-semibold">Notifications</p>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
-                  <span className="bg-destructive/10 text-destructive rounded-full px-2 py-0.5 text-[10px] font-medium">
-                    {unreadCount} new
-                  </span>
-                )}
+        {/* Notifications Center */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifDropdown(!showNotifDropdown)}
+            className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/60 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+            aria-label="Notifications"
+          >
+            <Bell className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-110" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 animate-pulse items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white dark:ring-[#071A2F]">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-[#0B1A33]/95">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <p className="font-poppins text-sm font-bold text-slate-800 dark:text-slate-100">
+                    Notifications
+                  </p>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:text-red-400">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
                 {unreadCount > 0 && (
                   <button
                     onClick={() => void handleMarkAllRead()}
-                    className="text-primary hover:text-primary/80 text-[10px] font-medium"
+                    className="text-xs font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
                   >
                     Mark all read
                   </button>
                 )}
               </div>
-            </div>
-            <div className="max-h-72 overflow-y-auto p-2">
-              {notifications.length === 0 ? (
-                <div className="bg-muted/30 rounded-lg p-3 text-center">
-                  <FileText className="text-muted-foreground mx-auto h-5 w-5" />
-                  <p className="text-muted-foreground mt-1 text-xs">No notifications yet</p>
-                </div>
-              ) : (
-                notifications.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => void handleMarkRead(n.id)}
-                    className={`hover:bg-muted/60 flex w-full flex-col gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
-                      n.isRead ? 'opacity-70' : 'bg-primary/5'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold">{n.title}</p>
-                      {!n.isRead && (
-                        <span className="bg-primary h-1.5 w-1.5 shrink-0 rounded-full" />
-                      )}
-                    </div>
-                    <p className="text-muted-foreground line-clamp-2 text-[11px]">{n.message}</p>
-                    <p className="text-muted-foreground/70 mt-0.5 text-[10px]">
-                      {new Date(n.createdAt).toLocaleString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+
+              <div className="max-h-72 overflow-y-auto p-2">
+                {notifications.length === 0 ? (
+                  <div className="rounded-xl bg-slate-50/50 py-8 text-center dark:bg-white/[0.02]">
+                    <Bell className="mx-auto h-6 w-6 text-slate-300 dark:text-slate-600" />
+                    <p className="mt-2 text-xs font-medium text-slate-400">
+                      No unread notifications
                     </p>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="border-t p-2">
-              <Link
-                to="/communications/center"
-                onClick={() => setShowNotifDropdown(false)}
-                className="text-primary hover:bg-primary/5 flex items-center justify-center rounded-lg py-2 text-xs font-medium transition-colors"
-              >
-                View all notifications
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => void handleMarkRead(n.id)}
+                      className={`flex w-full flex-col gap-1 rounded-xl p-2.5 text-left transition-colors ${
+                        n.isRead
+                          ? 'opacity-65 hover:bg-slate-100/60 dark:hover:bg-white/[0.04]'
+                          : 'bg-emerald-50/70 hover:bg-emerald-100/70 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                          {n.title}
+                        </p>
+                        {!n.isRead && (
+                          <span className="shadow-xs h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-[11px] text-slate-500 dark:text-slate-300">
+                        {n.message}
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-400">
+                        {new Date(n.createdAt).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </button>
+                  ))
+                )}
+              </div>
 
-      {/* User Profile */}
-      <div className="relative" ref={userMenuRef}>
-        <button
-          onClick={() => setShowUserMenu(!showUserMenu)}
-          className="hover:bg-muted flex items-center gap-2 rounded-lg p-1 transition-colors"
-        >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-[11px] font-semibold text-white shadow-sm">
-            {userInitials}
-          </div>
-          <div className="hidden text-left md:block">
-            <p className="text-xs font-medium leading-tight">
-              {user ? `${user.firstName} ${user.lastName}` : 'User'}
-            </p>
-            {isLoading ? (
-              <span className="bg-muted-foreground/20 inline-block h-2.5 w-16 animate-pulse rounded" />
-            ) : (
-              <p className="text-muted-foreground text-[10px] capitalize leading-tight">
-                {user?.role || 'User'}
-              </p>
-            )}
-          </div>
-          <ChevronDown className="text-muted-foreground hidden h-3 w-3 md:block" />
-        </button>
+              <div className="border-t border-slate-100 p-2 dark:border-slate-800">
+                <Link
+                  to="/communications/center"
+                  onClick={() => setShowNotifDropdown(false)}
+                  className="flex items-center justify-center rounded-xl bg-slate-50 py-2 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-50 dark:bg-white/[0.04] dark:text-emerald-400 dark:hover:bg-emerald-950/40"
+                >
+                  View Notification Center →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
 
-        {showUserMenu && (
-          <div className="border-border/80 absolute right-0 top-full mt-1.5 w-52 rounded-xl border bg-white p-1.5 shadow-xl dark:bg-slate-900 dark:shadow-black/40">
-            <div className="border-border/50 border-b px-2.5 py-2">
-              <p className="text-foreground text-sm font-medium">
+        {/* ── User Profile Pill ── */}
+        <div className="relative" ref={userMenuRef}>
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-1 pr-2.5 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
+          >
+            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-xs font-extrabold text-white shadow-md shadow-emerald-500/20 ring-2 ring-emerald-500/30">
+              {userInitials}
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#071A2F]" />
+            </div>
+
+            <div className="hidden text-left md:block">
+              <p className="font-poppins text-xs font-bold leading-tight text-slate-800 dark:text-slate-100">
                 {user ? `${user.firstName} ${user.lastName}` : 'User'}
               </p>
-              <p className="text-muted-foreground text-xs">{user?.email || ''}</p>
+              <div className="flex items-center gap-1">
+                <span className="py-0.2 rounded bg-emerald-500/10 px-1 text-[9.5px] font-extrabold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
+                  {user?.role || 'Admin'}
+                </span>
+              </div>
             </div>
-            <div className="mt-1 space-y-0.5">
-              {hasModuleAccess(user, 'settings') && (
-                <Link
-                  to="/finance/settings"
-                  onClick={() => setShowUserMenu(false)}
-                  className="text-foreground hover:bg-muted flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors"
+            <ChevronDown className="hidden h-3.5 w-3.5 text-slate-400 md:block" />
+          </button>
+
+          {showUserMenu && (
+            <div className="absolute right-0 top-full mt-2 w-60 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-[#0B1A33]/95">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 dark:border-slate-800 dark:bg-white/[0.03]">
+                <p className="font-poppins text-xs font-bold text-slate-800 dark:text-slate-100">
+                  {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                </p>
+                <p className="truncate text-[11px] text-slate-400">{user?.email || ''}</p>
+              </div>
+
+              <div className="mt-1.5 space-y-1">
+                {hasModuleAccess(user, 'settings') && (
+                  <Link
+                    to="/finance/settings"
+                    onClick={() => setShowUserMenu(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-white/[0.06]"
+                  >
+                    <Settings className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    System Settings
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    logout();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
                 >
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Link>
-              )}
-              <button
-                onClick={() => {
-                  // Menu turant band karo + logout — bina menu band kiye user
-                  // 'click karne ke baad waisa hi rehta hai' mehsoos karta hai
-                  setShowUserMenu(false);
-                  logout();
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/60"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </button>
+                  <LogOut className="h-4 w-4" />
+                  Sign Out
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

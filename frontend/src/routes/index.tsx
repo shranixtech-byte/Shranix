@@ -437,6 +437,7 @@ export const routes: RouteObject[] = [
       { path: 'inventory/stock-entry', element: <NewStockEntryPage /> },
       { path: 'inventory/stock-adjustment', element: <StockAdjustmentPage /> },
       { path: 'inventory/ledger', element: <StockLedgerEnhancedPage /> },
+      { path: 'inventory/stock', element: <StockLedgerEnhancedPage /> },
       { path: 'inventory/stock-movements', element: <StockMovementsPage /> },
       { path: 'inventory/warehouse-dashboard', element: <Navigate to="/" replace /> },
       { path: 'inventory/warehouse-locations', element: <WarehouseLocationsPage /> },

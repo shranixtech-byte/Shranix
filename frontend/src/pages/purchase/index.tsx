@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { cn } from '@/lib/utils';
 import { apiRequest } from '@/services/api-client';
 
 import { MasterDataPage, type ColumnDef, type FormField } from '../masters/master-data-page';
@@ -454,14 +455,68 @@ const poFields: FormField[] = [
 ];
 
 export function PurchaseOrdersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTypeParam = searchParams.get('type') || 'all';
+
   return (
-    <MasterDataPage
-      title="Purchase Orders"
-      description="Create and manage purchase orders with item details, tax calculations, and approval workflow"
-      columns={poColumns}
-      apiPath="/purchase/orders"
-      formFields={poFields}
-    />
+    <>
+      {/* Cash vs Credit Filter Bar */}
+      <div className="shadow-xs mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 dark:border-white/[0.08] dark:bg-slate-900">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Filter Mode:
+          </span>
+          {[
+            { id: 'all', label: 'All Purchases (एकूण)', emoji: '📑' },
+            { id: 'cash', label: 'Cash Purchases (नगद)', emoji: '💵' },
+            { id: 'credit', label: 'Credit Purchases (उधारी)', emoji: '💳' },
+          ].map((tab) => {
+            const isActive = currentTypeParam === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.id === 'all') {
+                    searchParams.delete('type');
+                    setSearchParams(searchParams);
+                  } else {
+                    setSearchParams({ type: tab.id });
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all',
+                  isActive
+                    ? 'shadow-xs bg-teal-600 text-white shadow-teal-600/30 ring-1 ring-teal-500'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
+                )}
+              >
+                <span>{tab.emoji}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {currentTypeParam !== 'all' && (
+          <span className="rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
+            Filtering by: {currentTypeParam.toUpperCase()} PURCHASES
+          </span>
+        )}
+      </div>
+
+      <MasterDataPage
+        title="Purchase Orders & Bills"
+        description="Create and manage purchase orders with item details, tax calculations, and approval workflow"
+        columns={poColumns}
+        apiPath={
+          currentTypeParam !== 'all'
+            ? `/purchase/orders?type=${currentTypeParam}`
+            : '/purchase/orders'
+        }
+        formFields={poFields}
+      />
+    </>
   );
 }
 

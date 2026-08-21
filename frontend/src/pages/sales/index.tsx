@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/Button';
 import { UpiQrCode } from '@/components/ui/UpiQrCode';
@@ -560,17 +560,72 @@ const invoiceFields: FormField[] = [
 
 export function SalesInvoicesPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTypeParam = searchParams.get('type') || 'all';
+
   const [sendId, setSendId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const selectedTypeFilter = currentTypeParam;
+
   return (
     <>
+      {/* Cash vs Credit Filter Bar */}
+      <div className="shadow-xs mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 dark:border-white/[0.08] dark:bg-slate-900">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Filter Mode:
+          </span>
+          {[
+            { id: 'all', label: 'All Invoices (एकूण)', emoji: '📑' },
+            { id: 'cash', label: 'Cash Invoices (नगद)', emoji: '💵' },
+            { id: 'credit', label: 'Credit Invoices (उधारी)', emoji: '💳' },
+          ].map((tab) => {
+            const isActive = selectedTypeFilter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  if (tab.id === 'all') {
+                    searchParams.delete('type');
+                    setSearchParams(searchParams);
+                  } else {
+                    setSearchParams({ type: tab.id });
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all',
+                  isActive
+                    ? 'shadow-xs bg-emerald-600 text-white shadow-emerald-600/30 ring-1 ring-emerald-500'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
+                )}
+              >
+                <span>{tab.emoji}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedTypeFilter !== 'all' && (
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+            Filtering by: {selectedTypeFilter.toUpperCase()} SALES
+          </span>
+        )}
+      </div>
+
       <MasterDataPage
         title="Sales Invoices"
         description="Manage customer invoices with GST, discount, round-off, payment tracking, and order/challan linking"
         columns={invoiceColumns}
-        apiPath="/sales/invoices"
+        apiPath={
+          selectedTypeFilter !== 'all'
+            ? `/sales/invoices?type=${selectedTypeFilter}`
+            : '/sales/invoices'
+        }
         formFields={invoiceFields}
-        refreshKey={refreshKey}
+        refreshKey={refreshKey + (selectedTypeFilter === 'all' ? 0 : 1)}
         rowActions={[
           {
             label: 'Send',

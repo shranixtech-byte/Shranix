@@ -32,33 +32,32 @@ export function AppLayout() {
   };
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#F8FAFC] font-sans text-slate-900 selection:bg-emerald-500 selection:text-white dark:bg-[#071A2F] dark:text-slate-100">
-      {/* GLOBAL REUSABLE AGRICULTURAL BACKGROUND LAYER */}
+    <div className="relative flex h-screen overflow-hidden bg-[#F3F4F6] font-sans text-slate-900 selection:bg-emerald-500 selection:text-white dark:bg-[#0B0F17] dark:text-slate-100">
+      {/* GLOBAL BACKGROUND ATMOSPHERIC AMBIENT GLOW */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <img
-          src="/assets/dashboard-bg.png"
-          alt=""
-          aria-hidden="true"
-          className="h-full w-full object-cover opacity-[0.05] mix-blend-multiply dark:opacity-[0.10] dark:mix-blend-overlay"
-        />
-        {/* Subtle top atmospheric radial glow */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-emerald-500/[0.03] via-transparent to-transparent dark:from-emerald-500/[0.06]" />
+        <div className="pointer-events-none absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-500/[0.04] blur-3xl dark:bg-emerald-500/[0.07]" />
+        <div className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-teal-500/[0.03] blur-3xl dark:bg-teal-500/[0.05]" />
       </div>
 
-      {/* Desktop sidebar - with mobile drawer */}
+      {/* Desktop sidebar - Floating Curved Card */}
       {(isMobile ? mobileSidebarOpen : true) && (
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-          onClose={isMobile ? () => setMobileSidebarOpen(false) : undefined}
-        />
+        <div className={isMobile ? '' : 'h-full shrink-0 p-3 pr-0'}>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClose={isMobile ? () => setMobileSidebarOpen(false) : undefined}
+          />
+        </div>
       )}
 
+      {/* Main Container - Floating Header + Content */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        <Header onToggleSidebar={handleToggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+        <div className={isMobile ? '' : 'px-3 pt-3'}>
+          <Header onToggleSidebar={handleToggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+        </div>
         <UpdateBanner />
         <main
-          className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-20 pt-4' : 'p-5 lg:p-8'}`}
+          className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-20 pt-4' : 'p-4 lg:p-6'}`}
           style={{
             paddingBottom: isMobile ? 'calc(5rem + env(safe-area-inset-bottom, 0px))' : undefined,
           }}

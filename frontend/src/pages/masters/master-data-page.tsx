@@ -33,6 +33,8 @@ export interface MasterDataPageProps {
   rowActions?: RowAction[];
   /** Bump this to force a data refetch (e.g. after a child modal changes a record). */
   refreshKey?: number;
+  /** Hide top create button */
+  hideCreateButton?: boolean;
 }
 
 export interface FormField {
@@ -79,6 +81,7 @@ export function MasterDataPage({
   basePath,
   rowActions,
   refreshKey = 0,
+  hideCreateButton = false,
 }: MasterDataPageProps) {
   const navigate = useNavigate();
   const [state, setState] = useState<PageState>(initialState);
@@ -187,9 +190,11 @@ export function MasterDataPage({
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>
           )}
         </div>
-        <Button variant="primary" onClick={openCreate}>
-          + Create {title.slice(0, -1)}
-        </Button>
+        {!hideCreateButton && (
+          <Button variant="primary" onClick={openCreate}>
+            + Create {title.slice(0, -1)}
+          </Button>
+        )}
       </div>
 
       {/* Error Banner */}

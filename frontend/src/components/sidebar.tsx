@@ -46,8 +46,6 @@ import { useAuth } from '@/context/AuthContext';
 import { hasModuleAccess } from '@/lib/module-access';
 import { cn } from '@/lib/utils';
 
-import { Logo } from './brand/Logo';
-
 // ═══════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════
@@ -535,8 +533,8 @@ function NavItemLink({
           return cn(
             'mx-auto flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200',
             active
-              ? 'sidebar-premium-active text-white shadow-md shadow-emerald-900/40 ring-1 ring-emerald-400/40'
-              : 'text-slate-400 hover:border hover:border-emerald-500/20 hover:bg-[#0E2C48] hover:text-white',
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400/50'
+              : 'text-slate-400 hover:border hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-white',
           );
         }}
       >
@@ -552,10 +550,22 @@ function NavItemLink({
       onClick={onNavigate}
       className={({ isActive }) => {
         const active = isActive || (locationPath ? isRouteActive(item.path, locationPath) : false);
-        return cn(isSubmenu ? 'sidebar-submenu-item' : 'sidebar-menu-item', active && 'active');
+        return cn(
+          isSubmenu
+            ? 'flex h-9 items-center gap-2.5 rounded-xl px-3 text-[13px] font-medium transition-all duration-200'
+            : 'flex h-11 items-center gap-3 rounded-xl px-3.5 text-[14px] font-semibold transition-all duration-200',
+          active
+            ? 'border border-emerald-400/40 bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md shadow-emerald-500/25'
+            : isSubmenu
+              ? 'text-slate-400 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-300'
+              : 'text-slate-700 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-slate-200 dark:hover:text-emerald-300',
+        );
       }}
     >
-      <Icon className={cn('sidebar-menu-icon', isSubmenu && 'h-4 w-4')} strokeWidth={1.75} />
+      <Icon
+        className={cn(isSubmenu ? 'h-4 w-4 shrink-0' : 'h-5 w-5 shrink-0')}
+        strokeWidth={1.85}
+      />
       <span className="flex-1 truncate text-left">{item.label}</span>
       {showPin && onTogglePin && (
         <button
@@ -636,10 +646,15 @@ function NavSection({
         onClick={onNavigate}
         className={({ isActive }) => {
           const active = isActive || isRouteActive(directItem.path, locationPath);
-          return cn('sidebar-menu-item w-full', active && 'active');
+          return cn(
+            'flex h-11 w-full items-center gap-3 rounded-xl px-3.5 text-[14px] font-semibold transition-all duration-200',
+            active
+              ? 'border border-emerald-400/40 bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md shadow-emerald-500/25'
+              : 'text-slate-700 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-slate-200 dark:hover:text-emerald-300',
+          );
         }}
       >
-        <Icon className={cn('sidebar-menu-icon', accentColor)} strokeWidth={1.75} />
+        <Icon className={cn('h-5 w-5 shrink-0', accentColor)} strokeWidth={1.85} />
         <span className="flex-1 truncate text-left">{section.label}</span>
       </NavLink>
     );
@@ -650,24 +665,26 @@ function NavSection({
       <button
         onClick={onToggle}
         className={cn(
-          'sidebar-menu-item w-full justify-between',
-          isSectionActive && !isOpen && 'active',
+          'flex h-11 w-full items-center justify-between gap-3 rounded-xl px-3.5 text-[14px] font-semibold transition-all duration-200',
+          isSectionActive && !isOpen
+            ? 'border border-emerald-500/30 bg-emerald-500/15 font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+            : 'text-slate-700 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-slate-200 dark:hover:text-emerald-300',
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Icon
             className={cn(
-              'sidebar-menu-icon',
-              isSectionActive || isOpen ? 'text-white' : accentColor,
+              'h-5 w-5 shrink-0 transition-transform duration-200',
+              isSectionActive || isOpen ? 'text-emerald-500' : accentColor,
             )}
-            strokeWidth={1.75}
+            strokeWidth={1.85}
           />
           <span className="flex-1 truncate text-left">{section.label}</span>
         </div>
         <ChevronDown
           className={cn(
-            'h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200',
-            isOpen && 'rotate-180 text-emerald-400',
+            'h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200',
+            isOpen && 'rotate-180 text-emerald-500',
           )}
           strokeWidth={2}
         />
@@ -676,10 +693,10 @@ function NavSection({
       <div
         className={cn(
           'overflow-hidden transition-all duration-200 ease-out',
-          isOpen ? 'max-h-[500px]' : 'max-h-0',
+          isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0',
         )}
       >
-        <div className="ml-3.5 space-y-1 border-l-2 border-emerald-500/20 py-1.5 pl-2.5 dark:border-emerald-500/30">
+        <div className="my-1 ml-4 space-y-1 border-l-2 border-slate-200/80 py-1 pl-2.5 dark:border-emerald-500/25">
           {section.items.map((item) =>
             item.children ? (
               <SubMenuGroup
@@ -692,6 +709,7 @@ function NavSection({
               <NavItemLink
                 key={item.path || item.label}
                 item={item}
+                isSubmenu
                 showPin
                 locationPath={locationPath}
                 onNavigate={onNavigate}
@@ -777,69 +795,61 @@ function PremiumFooter({
 
   if (collapsed) {
     return (
-      <div className="relative z-10 flex flex-col items-center space-y-2 border-t border-white/[0.08] bg-[#071A2F]/80 p-2.5">
+      <div className="relative z-10 flex flex-col items-center space-y-2 border-t border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-white/[0.08] dark:bg-[#111827]/90">
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-xs font-extrabold text-emerald-400 shadow-sm"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-600 text-xs font-extrabold text-white shadow-sm"
           title={userName}
         >
           {userInitial}
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
-          className="duration-180 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-emerald-500/10 hover:text-emerald-400"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-emerald-500/10 hover:text-emerald-500"
           title="SHRANIX काळजी / Support"
         >
           <Headset className="h-4 w-4" strokeWidth={1.75} />
         </button>
         {expanded && (
-          <div className="absolute bottom-full left-2 mb-2 w-52 rounded-xl border border-emerald-500/20 bg-[#0B1A33] p-3 shadow-2xl backdrop-blur-md">
+          <div className="absolute bottom-full left-2 mb-2 w-52 rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xl backdrop-blur-md dark:border-white/[0.1] dark:bg-[#1F2937]">
             <div className="mb-2 flex items-center gap-2">
-              <Headset className="h-4 w-4 text-emerald-400" strokeWidth={1.75} />
-              <span className="font-poppins text-xs font-bold text-white">SHRANIX काळजी</span>
+              <Headset className="h-4 w-4 text-emerald-500" strokeWidth={1.75} />
+              <span className="font-poppins text-xs font-bold text-slate-800 dark:text-white">
+                SHRANIX काळजी
+              </span>
             </div>
-            <div className="space-y-1 text-[11px] font-medium text-slate-300">
+            <div className="space-y-1 text-[11px] font-medium text-slate-600 dark:text-slate-300">
               <p>📞 +91-9881292045</p>
               <p>✉ support@shranix.com</p>
             </div>
-            <div className="mt-2 border-t border-white/[0.08] pt-1.5 text-[10px] font-semibold text-emerald-400/80">
+            <div className="mt-2 border-t border-slate-100 pt-1.5 text-[10px] font-semibold text-emerald-600 dark:border-slate-700 dark:text-emerald-400">
               v1.0.0 Enterprise
             </div>
           </div>
         )}
-        <div className="text-[9px] font-bold text-slate-500">v1.0.0</div>
+        <div className="text-[9px] font-bold text-slate-400">v1.0.0</div>
       </div>
     );
   }
 
   return (
-    <div className="relative z-10 border-t border-white/[0.08] bg-gradient-to-b from-[#071A2F]/90 to-[#0C2338]">
-      {/* Subtle agricultural grid pattern */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.03]">
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <pattern id="footGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#10B981" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#footGrid)" />
-        </svg>
-      </div>
-
+    <div className="relative z-10 border-t border-slate-200/80 bg-slate-50/80 dark:border-white/[0.08] dark:bg-[#111827]">
       <div className="relative space-y-2 px-3 py-2.5">
         {/* User / Account Card */}
-        <div className="duration-180 flex items-center gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2 transition-all hover:border-emerald-500/20 hover:bg-white/[0.05]">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 text-xs font-extrabold text-emerald-400 shadow-sm">
+        <div className="shadow-2xs flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-white p-2 transition-all hover:border-emerald-500/30 dark:border-white/[0.06] dark:bg-white/[0.03]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-gradient-to-br from-emerald-600 to-teal-600 text-xs font-extrabold text-white shadow-sm">
             {userInitial}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-poppins truncate text-xs font-bold text-white">{userName}</p>
-            <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-emerald-400/90">
+            <p className="font-poppins truncate text-xs font-bold text-slate-800 dark:text-white">
+              {userName}
+            </p>
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               {userRole}
             </p>
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-500/10 hover:text-emerald-400"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-emerald-500/10 hover:text-emerald-500"
             title="SHRANIX काळजी"
           >
             <Headset className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -853,26 +863,26 @@ function PremiumFooter({
             expanded ? 'max-h-32' : 'max-h-0',
           )}
         >
-          <div className="space-y-1 rounded-lg border border-emerald-500/20 bg-[#071A2F]/90 p-2.5 text-[11px] text-slate-300">
-            <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-white">
-              <Headset className="h-3.5 w-3.5 text-emerald-400" />
+          <div className="space-y-1 rounded-xl border border-slate-200/80 bg-white p-2.5 text-[11px] text-slate-600 dark:border-white/[0.08] dark:bg-[#1F2937] dark:text-slate-300">
+            <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-slate-800 dark:text-white">
+              <Headset className="h-3.5 w-3.5 text-emerald-500" />
               SHRANIX काळजी Support
             </p>
-            <p className="text-slate-400">📞 +91-9881292045 / 9021212045</p>
-            <p className="text-slate-400">✉ support@shranix.com</p>
+            <p className="text-slate-500 dark:text-slate-400">📞 +91-9881292045 / 9021212045</p>
+            <p className="text-slate-500 dark:text-slate-400">✉ support@shranix.com</p>
           </div>
         </div>
 
         {/* Footer Meta Row (Version & Collapse) */}
         <div className="flex items-center justify-between px-1 pt-0.5">
-          <span className="font-poppins flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+          <span className="font-poppins flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
             v1.0.0 ENTERPRISE
           </span>
           {toggleFn && (
             <button
               onClick={toggleFn}
-              className="h-6.5 w-6.5 duration-180 flex items-center justify-center rounded-md text-slate-400 transition-all hover:bg-emerald-500/15 hover:text-emerald-400"
+              className="h-6.5 w-6.5 flex items-center justify-center rounded-md text-slate-400 transition-all hover:bg-emerald-500/15 hover:text-emerald-500"
               title="बाजूची पट्टी लपवा (Collapse Sidebar)"
             >
               <PanelRightClose className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -896,7 +906,7 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null);
 
-  // ── Module-wise access — ticked modules ke alawa sab hidden ──
+  // ── Module-wise access ──
   const visibleSections = useMemo(
     () => sections.filter((s) => hasModuleAccess(user, s.module)),
     [user],
@@ -985,11 +995,10 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          'sidebar-premium relative flex h-full select-none flex-col',
-          'shrink-0 border-r border-white/[0.08] transition-all duration-200 ease-in-out',
-          collapsed ? 'w-18' : 'w-[280px]',
+          'relative flex h-full shrink-0 select-none flex-col rounded-2xl border border-slate-200/80 bg-white/95 shadow-xl shadow-slate-900/5 backdrop-blur-2xl transition-all duration-200 ease-in-out dark:border-white/[0.08] dark:bg-[#111827]/95 dark:shadow-black/50',
+          collapsed ? 'w-18' : 'w-[275px]',
           onClose && [
-            'fixed left-0 top-0 z-50 h-full shadow-2xl shadow-black/70',
+            'fixed left-2 top-2 z-50 h-[calc(100vh-16px)] shadow-2xl shadow-black/70',
             'animate-in slide-in-from-left-1/2 fade-in duration-200',
           ],
         )}
@@ -1004,34 +1013,30 @@ export function Sidebar({ collapsed, onToggle, onClose }: SidebarProps) {
         {/* ── Brand Header ── */}
         <div
           className={cn(
-            'relative z-10 flex shrink-0 items-center justify-center border-b border-white/[0.08] transition-all duration-200',
-            collapsed ? 'h-18 px-2 py-2' : 'h-[84px] flex-col gap-1 px-3 py-2 text-center',
+            'relative z-10 flex shrink-0 items-center border-b border-slate-200/80 transition-all duration-200 dark:border-white/[0.08]',
+            collapsed ? 'h-16 justify-center px-2 py-2' : 'h-16 items-center px-3.5 py-2',
           )}
         >
-          {/* Subtle glow radial background */}
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.12),transparent_70%)]" />
-
           {collapsed ? (
-            <div className="flex flex-col items-center justify-center">
-              <div className="rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent p-1.5 shadow-[0_0_15px_rgba(16,185,129,0.12)] ring-1 ring-emerald-500/20">
-                <Logo variant="icon-only" />
-              </div>
-            </div>
+            <img
+              src="/logo.png"
+              alt="SHRANIX"
+              className="h-9 w-9 object-contain transition-transform duration-200 hover:scale-105"
+            />
           ) : (
-            <div className="flex w-full flex-col items-center justify-center gap-1">
-              <div className="shrink-0 rounded-xl bg-gradient-to-b from-white/[0.08] to-transparent p-1 shadow-[0_0_18px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/20">
-                <Logo variant="icon-only" />
-              </div>
-              <div className="flex w-full flex-col items-center justify-center gap-0.5">
-                <span className="font-poppins whitespace-nowrap text-[13.5px] font-extrabold tracking-wider text-white">
-                  SHRANIX TECHNOLOGIES
+            <div className="flex w-full items-center gap-2.5">
+              <img
+                src="/logo.png"
+                alt="SHRANIX"
+                className="h-9 w-9 shrink-0 object-contain transition-transform duration-200 hover:scale-105"
+              />
+              <div className="flex min-w-0 flex-col justify-center leading-tight">
+                <span className="font-poppins truncate text-[15px] font-extrabold tracking-wide text-amber-500 dark:text-amber-400">
+                  SHRANIX
                 </span>
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400" />
-                  <span className="font-poppins whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-400">
-                    KRUSHI ERP
-                  </span>
-                </div>
+                <span className="font-poppins truncate text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-400">
+                  KRUSHI ERP
+                </span>
               </div>
             </div>
           )}
