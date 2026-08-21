@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR, Reflector } from '@nestjs/core';
 
-
 import { ActivationModule } from './activation/activation.module';
 import { AiModule } from './ai/ai.module';
 import { AnalyticsModule } from './analytics/analytics.module';
@@ -17,6 +16,7 @@ import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { AuditService } from './common/services/audit.service';
 import { CsrfService } from './common/services/csrf.service';
 import { PermissionCacheService } from './common/services/permission-cache.service';
 import { CommunicationModule } from './communication/communication.module';
@@ -64,9 +64,13 @@ const rolesGuardProvider = {
 
 const permissionsGuardProvider = {
   provide: PermissionsGuard,
-  useFactory: (reflector: Reflector, database: DatabaseService, cache: PermissionCacheService) =>
-    new PermissionsGuard(reflector, database, cache),
-  inject: [Reflector, DatabaseService, PermissionCacheService],
+  useFactory: (
+    reflector: Reflector,
+    database: DatabaseService,
+    cache: PermissionCacheService,
+    audit: AuditService,
+  ) => new PermissionsGuard(reflector, database, cache, audit),
+  inject: [Reflector, DatabaseService, PermissionCacheService, AuditService],
 };
 
 @Module({

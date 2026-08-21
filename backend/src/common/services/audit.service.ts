@@ -7,6 +7,7 @@ import { DatabaseService } from '../../database/database.service';
 import { RequestContextService } from '../context/request-context.service';
 
 export enum AuditEvent {
+  // Authentication events
   LOGIN = 'login',
   LOGOUT = 'logout',
   LOGOUT_ALL = 'logout_all',
@@ -14,19 +15,52 @@ export enum AuditEvent {
   REGISTER = 'register',
   PASSWORD_CHANGE = 'password_change',
   PASSWORD_RESET = 'password_reset',
+  PASSWORD_RESET_REQUESTED = 'password_reset_requested',
+  PASSWORD_RESET_SUCCESS = 'password_reset_success',
+  TOKEN_REFRESHED = 'token_refreshed',
+  TOKEN_REFRESH_REUSE_DETECTED = 'token_refresh_reuse_detected',
+  TOKEN_REVOKED = 'token_revoked',
+
+  // Authorization events
+  AUTHORIZATION_DENIED = 'authorization_denied',
+  TENANT_ACCESS_DENIED = 'tenant_access_denied',
+
+  // Account security events
+  ACCOUNT_LOCKED = 'account_locked',
+  ACCOUNT_UNLOCKED = 'account_unlocked',
+  ACCOUNT_ACTIVATED = 'account_activated',
+  ACCOUNT_DEACTIVATED = 'account_deactivated',
+
+  // Admin events
+  USER_CREATED = 'user_created',
+  USER_DEACTIVATED = 'user_deactivated',
+  USER_ACTIVATED = 'user_activated',
   ROLE_ASSIGNED = 'role_assigned',
   ROLE_REMOVED = 'role_removed',
+  ROLE_CHANGED = 'role_changed',
   PERMISSION_CREATED = 'permission_created',
   PERMISSION_UPDATED = 'permission_updated',
   PERMISSION_DELETED = 'permission_deleted',
   PERMISSION_ASSIGNED = 'permission_assigned',
   PERMISSION_REVOKED = 'permission_revoked',
-  ACCOUNT_LOCKED = 'account_locked',
-  ACCOUNT_UNLOCKED = 'account_unlocked',
-  USER_CREATED = 'user_created',
-  USER_DEACTIVATED = 'user_deactivated',
-  USER_ACTIVATED = 'user_activated',
-  TOKEN_REFRESHED = 'token_refreshed',
+  ADMIN_SESSION_REVOKED = 'admin_session_revoked',
+
+  // Data access events
+  DATA_EXPORT = 'data_export',
+  DATA_IMPORT = 'data_import',
+  BULK_OPERATION = 'bulk_operation',
+
+  // Backup events
+  BACKUP_CREATED = 'backup_created',
+  BACKUP_RESTORED = 'backup_restored',
+  BACKUP_DOWNLOADED = 'backup_downloaded',
+
+  // Webhook / payment events
+  WEBHOOK_SIGNATURE_FAILURE = 'webhook_signature_failure',
+  WEBHOOK_REPLAY_DETECTED = 'webhook_replay_detected',
+
+  // Rate limit events
+  RATE_LIMIT_TRIGGERED = 'rate_limit_triggered',
 }
 
 export enum AuditSeverity {
@@ -46,6 +80,8 @@ export interface AuditLogParams {
   userAgent?: string | null;
   status?: string;
   severity?: AuditSeverity | string;
+  // H17: Request/correlation ID for traceability
+  requestId?: string | null;
   // Rich audit-trail fields (written to shranix_audit_details when old/new present)
   entityId?: string | null;
   module?: string | null;
@@ -55,6 +91,88 @@ export interface AuditLogParams {
   oldValues?: Record<string, unknown> | null;
   newValues?: Record<string, unknown> | null;
   sessionId?: string | null;
+}
+
+// ─── H17: Metadata Safety Bounds ─────────────────────────────────
+
+/** Maximum length for any single string value in metadata/details. */
+const MAX_STRING_LENGTH = 500;
+/** Maximum depth for nested objects in metadata. */
+const MAX_DEPTH = 4;
+/** Maximum number of keys at any level. */
+const MAX_KEYS = 20;
+
+/** Fields that are sensitive and must never appear in audit details. */
+const SENSITIVE_FIELDS = new Set([
+  'password',
+  'passwordHash',
+  'password_hash',
+  'currentPassword',
+  'newPassword',
+  'token',
+  'accessToken',
+  'access_token',
+  'refreshToken',
+  'refresh_token',
+  'jwt',
+  'authorization',
+  'csrf',
+  'csrfToken',
+  'csrf_token',
+  'secret',
+  'apiKey',
+  'api_key',
+  'clientSecret',
+  'client_secret',
+  'resetToken',
+  'reset_token',
+  'activationToken',
+  'activation_token',
+  'cookie',
+  'set-cookie',
+  'privateKey',
+  'private_key',
+  'creditCard',
+  'cardNumber',
+]);
+
+/** H17: Sanitize metadata to remove sensitive fields and enforce bounds. */
+function sanitizeAuditMetadata(
+  obj: Record<string, unknown> | null | undefined,
+  depth = 0,
+): Record<string, unknown> | null {
+  if (!obj || typeof obj !== 'object') {
+    return null;
+  }
+  if (depth > MAX_DEPTH) {
+    return { _truncated: true };
+  }
+
+  const result: Record<string, unknown> = {};
+  let keyCount = 0;
+  for (const [key, value] of Object.entries(obj)) {
+    if (keyCount >= MAX_KEYS) {
+      break;
+    }
+    // Redact sensitive fields
+    if (SENSITIVE_FIELDS.has(key) || /password|secret|token|key/i.test(key)) {
+      result[key] = '[redacted]';
+      keyCount++;
+      continue;
+    }
+    if (typeof value === 'string') {
+      result[key] =
+        value.length > MAX_STRING_LENGTH ? `${value.slice(0, MAX_STRING_LENGTH)}…` : value;
+    } else if (Array.isArray(value)) {
+      result[key] = value.slice(0, 10); // Bound array length
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = sanitizeAuditMetadata(value as Record<string, unknown>, depth + 1);
+    } else {
+      result[key] = value;
+    }
+    keyCount++;
+  }
+  return result;
 }
 
 /** Fields that are never shown as audit "changes" (audit/row metadata). */
@@ -135,15 +253,25 @@ export class AuditService {
     // Auto-populate IP / user-agent from the current request when not passed explicitly.
     const ipAddress = params.ipAddress ?? this.requestContext.getIp();
     const userAgent = params.userAgent ?? this.requestContext.getUserAgent();
+    // H17: Auto-populate requestId from request context if not provided
+    const _requestId = params.requestId ?? this.requestContext.getContext().requestId ?? null;
 
     try {
+      // H17: Sanitize details to remove sensitive fields and enforce bounds
+      // Include requestId in details for traceability
+      const baseDetails = {
+        ...(params.details || {}),
+        ...(_requestId ? { requestId: _requestId } : {}),
+      };
+      const sanitizedDetails = sanitizeAuditMetadata(baseDetails);
+
       const logId = crypto.randomUUID();
       await this.database.auditLogs.create({
         userId: params.userId,
         event: params.event,
         resource: params.resource ?? null,
         action: params.action ?? null,
-        details: params.details ? JSON.stringify(params.details) : null,
+        details: sanitizedDetails ? JSON.stringify(sanitizedDetails) : null,
         ipAddress,
         userAgent,
         status: params.status ?? 'success',

@@ -6,6 +6,7 @@ export interface RequestContextData {
   ip?: string | null;
   userAgent?: string | null;
   userId?: string | null;
+  requestId?: string | null;
 }
 
 /**

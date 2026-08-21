@@ -14,9 +14,11 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { AuditService, AuditEvent, AuditSeverity } from '../common/services/audit.service';
 import {
   THROTTLE_BACKUP,
   THROTTLE_BACKUP_DOWNLOAD,
@@ -30,7 +32,10 @@ import { BackupService } from './backup.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('backup')
 export class BackupController {
-  constructor(private readonly service: BackupService) {}
+  constructor(
+    private readonly service: BackupService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
   @Permissions('companies.read')
@@ -46,8 +51,20 @@ export class BackupController {
   @Throttle(throttle(THROTTLE_BACKUP))
   @ApiOperation({ summary: 'Create a manual backup now' })
   @ApiResponse({ status: 201, description: 'Backup created' })
-  create() {
-    return this.service.createBackup('manual');
+  async create(@CurrentUser() user: { id: string }) {
+    const result = await this.service.createBackup('manual');
+    // H17: Audit backup creation
+    this.audit
+      .log({
+        userId: user.id,
+        event: AuditEvent.BACKUP_CREATED,
+        resource: 'backup',
+        action: 'create',
+        details: { type: 'manual' },
+        severity: AuditSeverity.INFO,
+      })
+      .catch(() => {});
+    return result;
   }
 
   @Get('settings')
@@ -69,7 +86,18 @@ export class BackupController {
   @Throttle(throttle(THROTTLE_BACKUP_DOWNLOAD))
   @ApiOperation({ summary: 'Download a backup file' })
   @ApiResponse({ status: 200, description: 'Backup file stream' })
-  download(@Param('name') name: string): StreamableFile {
+  download(@Param('name') name: string, @CurrentUser() user: { id: string }): StreamableFile {
+    // H17: Audit backup download
+    this.audit
+      .log({
+        userId: user.id,
+        event: AuditEvent.BACKUP_DOWNLOADED,
+        resource: 'backup',
+        action: 'download',
+        details: { name },
+        severity: AuditSeverity.INFO,
+      })
+      .catch(() => {});
     return this.service.downloadBackup(name);
   }
 
@@ -79,8 +107,20 @@ export class BackupController {
   @Throttle(throttle(THROTTLE_BACKUP))
   @ApiOperation({ summary: 'Restore the database from a backup (online, no restart needed)' })
   @ApiResponse({ status: 200, description: 'Restore result' })
-  restore(@Param('name') name: string) {
-    return this.service.restoreBackup(name);
+  async restore(@Param('name') name: string, @CurrentUser() user: { id: string }) {
+    const result = await this.service.restoreBackup(name);
+    // H17: Audit backup restore
+    this.audit
+      .log({
+        userId: user.id,
+        event: AuditEvent.BACKUP_RESTORED,
+        resource: 'backup',
+        action: 'restore',
+        details: { name },
+        severity: AuditSeverity.CRITICAL,
+      })
+      .catch(() => {});
+    return result;
   }
 
   @Delete(':name')

@@ -15,9 +15,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { AuditService, AuditEvent, AuditSeverity } from '../common/services/audit.service';
 import {
   createFileFilter,
   createUploadLimits,
@@ -37,7 +39,10 @@ import { DataManagementService, type ImportResult } from './data-management.serv
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('data-management')
 export class DataManagementController {
-  constructor(private readonly service: DataManagementService) {}
+  constructor(
+    private readonly service: DataManagementService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get('meta')
   @Permissions('companies.read')
@@ -51,17 +56,27 @@ export class DataManagementController {
   @Throttle(throttle(THROTTLE_EXPORT))
   @ApiOperation({ summary: 'Export master data as Excel / CSV / JSON' })
   @ApiResponse({ status: 200, description: 'Downloadable file' })
-  export(
+  async export(
     @Query('entity') entity: string,
     @Query('format') format: string,
+    @CurrentUser() user: { id: string },
   ): Promise<StreamableFile> {
-    return this.service.exportData(entity, format).then(
-      (r) =>
-        new StreamableFile(r.buffer, {
-          type: r.mime,
-          disposition: `attachment; filename="${r.fileName}"`,
-        }),
-    );
+    const r = await this.service.exportData(entity, format);
+    // H17: Audit data export
+    this.audit
+      .log({
+        userId: user.id,
+        event: AuditEvent.DATA_EXPORT,
+        resource: 'data-management',
+        action: 'export',
+        details: { entity, format, fileName: r.fileName },
+        severity: AuditSeverity.INFO,
+      })
+      .catch(() => {});
+    return new StreamableFile(r.buffer, {
+      type: r.mime,
+      disposition: `attachment; filename="${r.fileName}"`,
+    });
   }
 
   @Post('import')
@@ -76,20 +91,38 @@ export class DataManagementController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Import master data from Excel / CSV / JSON (insert or upsert)' })
   @HttpCode(HttpStatus.OK)
-  import(
+  async import(
     @UploadedFile() file: any,
     @Body('entity') entity: string,
     @Body('mode') mode: 'insert' | 'upsert',
+    @CurrentUser() user: { id: string },
   ): Promise<ImportResult | { success: false; message: string }> {
     if (!file) {
       return Promise.resolve({ success: false, message: 'No file provided' });
     }
-    return this.service.importData(
+    const result = await this.service.importData(
       entity || '',
       file.originalname || '',
       file.buffer,
       mode === 'upsert' ? 'upsert' : 'insert',
     );
+    // H17: Audit data import
+    this.audit
+      .log({
+        userId: user.id,
+        event: AuditEvent.DATA_IMPORT,
+        resource: 'data-management',
+        action: 'import',
+        details: {
+          entity,
+          mode,
+          fileName: file.originalname,
+          imported: result.imported,
+        },
+        severity: result.errors.length === 0 ? AuditSeverity.INFO : AuditSeverity.WARNING,
+      })
+      .catch(() => {});
+    return result;
   }
 
   @Get('deleted')

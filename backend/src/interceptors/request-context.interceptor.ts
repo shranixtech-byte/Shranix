@@ -16,11 +16,15 @@ export class RequestContextInterceptor implements NestInterceptor {
     const rawIp = req.ip || req.socket?.remoteAddress || req.headers?.['x-forwarded-for'] || null;
     const userAgent = req.headers?.['user-agent'] || null;
     const userId = req.user?.id || null;
+    // H17: Include requestId from middleware for audit traceability
+    const requestId = (req as Record<string, unknown>).requestId || null;
+
     return this.context.run(
       {
         ip: rawIp ? String(rawIp).split(',')[0].trim() : null,
         userAgent: userAgent ? String(userAgent).slice(0, 500) : null,
         userId,
+        requestId: requestId ? String(requestId).slice(0, 128) : null,
       },
       () => next.handle(),
     );

@@ -1,10 +1,18 @@
-import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { Reflector } from '@nestjs/core';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { DatabaseService } from '../../database/database.service';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { AuditService, AuditEvent, AuditSeverity } from '../services/audit.service';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { PermissionCacheService } from '../services/permission-cache.service';
 
@@ -69,10 +77,13 @@ export function grantsPermission(grantedPermission: string, requiredPermission: 
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
+  private readonly logger = new Logger(PermissionsGuard.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly database: DatabaseService,
     private readonly cache: PermissionCacheService,
+    private readonly audit: AuditService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -107,6 +118,30 @@ export class PermissionsGuard implements CanActivate {
       ),
     );
     if (!hasPermission) {
+      // H17: Audit authorization denial
+      const request = context.switchToHttp().getRequest();
+      const method = request.method;
+      const path = request.route?.path || request.url || 'unknown';
+
+      this.audit
+        .log({
+          userId: user.id,
+          event: AuditEvent.AUTHORIZATION_DENIED,
+          resource: 'permissions',
+          action: 'access_denied',
+          details: {
+            required: requiredPermissions,
+            method,
+            path,
+          },
+          severity: AuditSeverity.WARNING,
+        })
+        .catch(() => {}); // Fire-and-forget
+
+      this.logger.warn(
+        `Authorization denied: user=${user.id} required=${requiredPermissions.join(',')} ${method} ${path}`,
+      );
+
       throw new ForbiddenException('Insufficient permissions');
     }
 
