@@ -1,0 +1,156 @@
+version: '3.8'
+
+# ═══════════════════════════════════════════════════════════════════
+# SHRANIX ERP — Reproducible Local Staging
+# ═══════════════════════════════════════════════════════════════════
+# Usage:
+#   cp .env.staging.template .env.staging
+#   # Edit .env.staging with local placeholder values
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+#   docker compose -f docker-compose.staging.yml --env-file .env.staging logs -f
+#
+# This is a LOCAL REPRODUCIBLE staging-like environment.
+# It is NOT production. Credentials are development placeholders.
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  # ── PostgreSQL 16 ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: shranix-staging-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shranix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_dev_only_123}
+      POSTGRES_DB: ${POSTGRES_DB:-shranix_erp}
+    ports:
+      - '5432:5432'
+    volumes:
+      - staging_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-shranix}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - staging-network
+    restart: unless-stopped
+
+  # ── Redis 7 ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: shranix-staging-redis
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - '6379:6379'
+    volumes:
+      - staging_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - staging-network
+    restart: unless-stopped
+
+  # ── MinIO (S3-compatible object storage) ───────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: shranix-staging-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-shranix_staging}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-staging_dev_only_123}
+    command: server /data --console-address ':9001'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - staging_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - staging-network
+    restart: unless-stopped
+
+  # ── Backend API ────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: shranix-staging-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-staging}
+      DATABASE_PROVIDER: postgresql
+      DATABASE_URL: postgresql://${POSTGRES_USER:-shranix}:${POSTGRES_PASSWORD:-staging_dev_only_123}@postgres:5432/${POSTGRES_DB:-shranix_erp}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-staging-jwt-secret-minimum-32-characters!!}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-staging-refresh-secret-minimum-32-chars!!}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      STORAGE_ADAPTER: minio
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-shranix_staging}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-staging_dev_only_123}
+      DMS_STORAGE_PATH: /app/storage/dms
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+      SWAGGER_ENABLED: 'true'
+      SWAGGER_PATH: api/docs
+    ports:
+      - '4001:4001'
+    volumes:
+      - staging_backend_storage:/app/storage
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:4001/v1/health/live',
+        ]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    networks:
+      - staging-network
+    restart: unless-stopped
+
+  # ── Frontend (Nginx serving Vite build) ────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: shranix-staging-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '80:80'
+    networks:
+      - staging-network
+    restart: unless-stopped
+
+volumes:
+  staging_postgres_data:
+  staging_redis_data:
+  staging_minio_data:
+  staging_backend_storage:
+
+networks:
+  staging-network:
+    driver: bridge
+    name: shranix-staging-network
