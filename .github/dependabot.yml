@@ -1,0 +1,55 @@
+# Dependabot configuration for automated dependency updates
+# H20 — Supply-chain automation
+version: 2
+
+updates:
+  # npm dependencies (all workspaces)
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 10
+    reviewers: []
+    labels:
+      - 'dependencies'
+      - 'automated'
+    # Group minor/patch updates together
+    groups:
+      nestjs-minor-patch:
+        patterns:
+          - '@nestjs/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      vitest-minor-patch:
+        patterns:
+          - 'vitest'
+          - '@vitest/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      radix-ui:
+        patterns:
+          - '@radix-ui/*'
+        update-types:
+          - 'minor'
+          - 'patch'
+    # Major upgrades get individual PRs for review
+    ignore:
+      # Major NestJS upgrades require manual review
+      - dependency-name: '@nestjs/*'
+        update-types:
+          - 'version-update:semver-major'
+
+  # GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'ci'
+      - 'automated'

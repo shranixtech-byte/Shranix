@@ -128,17 +128,17 @@ describe('H18 — Supply-Chain Security', () => {
   });
 
   describe('3. Package-version policy', () => {
-    it('express >= 4.21.0 (not ancient versions with known vulns)', () => {
+    it('express >= 4.21.0 or >= 5.x (not ancient versions with known vulns)', () => {
       const backendPkg = readJson(path.join(ROOT, 'backend/package.json'));
       const expressVersion = backendPkg.dependencies?.express;
       expect(expressVersion).toBeDefined();
-      // Should be >=4.21.0
       const match = expressVersion.match(/[\d.]+/);
       expect(match).toBeTruthy();
       if (match) {
         const [major, minor] = match[0].split('.').map(Number);
-        expect(major).toBe(4);
-        expect(minor).toBeGreaterThanOrEqual(21);
+        // Express 4.21+ or Express 5.x are acceptable
+        const isValid = (major === 4 && minor >= 21) || major >= 5;
+        expect(isValid).toBe(true);
       }
     });
 
@@ -161,7 +161,9 @@ describe('H18 — Supply-Chain Security', () => {
       const nonRegistry: string[] = [];
 
       const checkDeps = (deps: Record<string, string> | undefined, cat: string) => {
-        if (!deps) {return;}
+        if (!deps) {
+          return;
+        }
         Object.entries(deps).forEach(([name, version]) => {
           if (
             version.startsWith('git') ||

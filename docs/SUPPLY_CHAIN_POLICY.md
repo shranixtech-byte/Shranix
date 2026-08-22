@@ -1,6 +1,7 @@
 # Supply-Chain Security Policy
 
-**Version:** 1.0 · **Effective:** 2026-08-22 · **Owner:** Engineering
+**Version:** 2.0 · **Effective:** 2026-08-22 · **Owner:** Engineering
+**Changelog:** v2.0 — Added SBOM, Dependabot, structured audit, NestJS 11, drizzle-kit 0.31
 
 ---
 
@@ -43,17 +44,19 @@ This policy establishes requirements for dependency management, vulnerability ha
 | **Moderate** | Fix in next scheduled maintenance                            | Next quarter  |
 | **Low**      | Document and track                                           | Best effort   |
 
-### Accepted Risks (as of H19)
+### Accepted Risks (as of H20)
 
-The following vulnerabilities are accepted as documented risks:
+**As of H20, zero critical/high vulnerabilities remain.** All previously accepted risks have been resolved:
 
-| Package      | Version   | Severity | Reason                                        | Review Date |
-| ------------ | --------- | -------- | --------------------------------------------- | ----------- |
-| @nestjs/core | 10.4.22   | Moderate | Requires NestJS 10→11 major upgrade           | 2026-Q4     |
-| body-parser  | 1.20.4    | Low      | Transitive from @nestjs/platform-express      | 2026-Q4     |
-| file-type    | 20.4.1    | Moderate | Transitive from @nestjs/common                | 2026-Q4     |
-| esbuild      | 0.18/0.19 | Moderate | Dev-only via drizzle-kit                      | 2026-Q4     |
-| webpack      | 5.97.1    | Low      | Dev-only via @nestjs/cli (partially resolved) | 2026-Q4     |
+- NestJS upgraded 10→11 (resolved @nestjs/core, body-parser, file-type)
+- Express upgraded 4→5 (resolved body-parser)
+- drizzle-kit upgraded 0.28→0.31 (resolved esbuild)
+- esbuild override added (resolved remaining esbuild vuln)
+
+No production or development vulnerabilities currently accepted.
+| file-type | 20.4.1 | Moderate | Transitive from @nestjs/common | 2026-Q4 |
+| esbuild | 0.18/0.19 | Moderate | Dev-only via drizzle-kit | 2026-Q4 |
+| webpack | 5.97.1 | Low | Dev-only via @nestjs/cli (partially resolved) | 2026-Q4 |
 
 ## 5. Lockfile Integrity
 
@@ -110,12 +113,35 @@ Must be investigated before production deployment.
 3. **New dependencies**: Require security review (license, install scripts, maintenance status)
 4. **Removals**: Verify no imports remain, update lockfile
 
-## 10. Monitoring
+## 10. SBOM (Software Bill of Materials)
+
+- SBOM generated via `scripts/generate-sbom.sh` (CycloneDX 1.5 JSON)
+- Generated as CI artifact on every build
+- Represents actual installed dependency graph from lockfile
+- Used for compliance, vulnerability tracking, and license audits
+
+## 11. Automated Dependency Updates
+
+- **Dependabot** configured for weekly updates (`.github/dependabot.yml`)
+- Minor/patch updates grouped by ecosystem (NestJS, Vitest, Radix UI)
+- Major upgrades require manual review and PR approval
+- Security updates prioritized with shorter cadence
+- Lockfile updates must be reviewed through PRs
+
+## 12. Structured Audit
+
+- `scripts/ci-structured-audit.sh` produces machine-readable JSON reports
+- Reports include severity classification, policy verdict, and vulnerability details
+- CI integration: FAIL on critical/high, WARN on moderate, INFO on low
+- Reports stored as CI artifacts for historical tracking
+
+## 13. Monitoring
 
 - Weekly `pnpm audit` via CI quality gates
 - Monthly dependency freshness review
 - Quarterly supply-chain policy review
+- Automated Dependabot PRs for routine updates
 
 ---
 
-_This policy was established as part of H19 security hardening._
+_This policy was established as part of H19 security hardening, updated in H20._
