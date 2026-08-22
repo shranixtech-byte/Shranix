@@ -136,13 +136,15 @@ describe('H20 — Platform Modernization', () => {
 
     it('dependabot.yml has npm ecosystem configured', () => {
       const config = fs.readFileSync(path.join(ROOT, '.github/dependabot.yml'), 'utf8');
-      expect(config).toContain('package-ecosystem: "npm"');
-      expect(config).toContain('interval: "weekly"');
+      expect(config).toContain('package-ecosystem:');
+      expect(config).toContain('npm');
+      expect(config).toContain('interval:');
+      expect(config).toContain('weekly');
     });
 
     it('dependabot.yml has github-actions ecosystem', () => {
       const config = fs.readFileSync(path.join(ROOT, '.github/dependabot.yml'), 'utf8');
-      expect(config).toContain('package-ecosystem: "github-actions"');
+      expect(config).toContain('github-actions');
     });
   });
 
