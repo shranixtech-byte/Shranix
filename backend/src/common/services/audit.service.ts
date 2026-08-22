@@ -254,7 +254,7 @@ export class AuditService {
     const ipAddress = params.ipAddress ?? this.requestContext.getIp();
     const userAgent = params.userAgent ?? this.requestContext.getUserAgent();
     // H17: Auto-populate requestId from request context if not provided
-    const _requestId = params.requestId ?? this.requestContext.getContext().requestId ?? null;
+    const _requestId = params.requestId ?? this.requestContext.getContext?.()?.requestId ?? null;
 
     try {
       // H17: Sanitize details to remove sensitive fields and enforce bounds
