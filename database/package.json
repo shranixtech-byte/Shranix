@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "@upstash/redis": "^1.38.2",
     "argon2": "^0.45.1",
     "dotenv": "^16.4.0",
     "drizzle-kit": "^0.31.10",
