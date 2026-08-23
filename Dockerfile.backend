@@ -15,7 +15,7 @@ COPY shared/package.json ./shared/
 COPY scripts/package.json ./scripts/
 COPY desktop/package.json ./desktop/
 
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@9.15.0
 RUN pnpm install --frozen-lockfile --prefer-offline
 
 # ═══════════════════════════════════════════════════════════════════
@@ -24,6 +24,7 @@ RUN pnpm install --frozen-lockfile --prefer-offline
 FROM node:20-alpine AS builder
 LABEL stage=builder
 
+RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -36,7 +37,7 @@ COPY backend ./backend
 COPY database ./database
 COPY shared ./shared
 
-RUN npm install -g pnpm@latest
+RUN npm install -g pnpm@9.15.0
 RUN pnpm turbo run build --filter=@shranix/database --filter=@shranix/shared --filter=@shranix/backend
 RUN pnpm deploy --filter=@shranix/backend ./deploy
 
