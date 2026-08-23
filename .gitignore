@@ -132,3 +132,7 @@ frontend/nul
 **/nul
 nul
 database/src/nul
+
+# Neon CLI artifacts
+.agents/
+skills-lock.json
