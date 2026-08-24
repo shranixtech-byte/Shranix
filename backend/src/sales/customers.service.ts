@@ -754,6 +754,11 @@ export class CustomersService {
   // ═════════════════════════════════════════════════════════
 
   async create(data: any, userId?: string) {
+    // Validate required name field — reject empty / whitespace-only names.
+    const rawName = String(data?.name ?? '').trim();
+    if (!rawName) {
+      throw new BadRequestException('Customer name is required and cannot be empty');
+    }
     const settings = await this.loadSettings();
     await this.assertTaxValidation(data, settings);
     const enriched = this.applyDefaults(data, settings);
@@ -812,15 +817,42 @@ export class CustomersService {
       updatedBy: userId,
     });
 
-    await this.database.customers.create(masterData);
+    // Race-safety + soft-delete collision: auto-code may collide with a
+    // soft-deleted row that retains its UNIQUE index. Retry with bumped
+    // code on any insert failure (same pattern as supplier / asset numbering).
+    let attempts = 0;
+    let finalCode = code;
+    while (attempts < 50) {
+      try {
+        await this.database.customers.create(masterData);
+        break;
+      } catch (err: any) {
+        const msg = String(err?.message || '');
+        const isCodeCollision = /UNIQUE/i.test(msg) || /Failed query.*insert/i.test(msg);
+        if (!isCodeCollision || attempts >= 49) {
+          throw err;
+        }
+        attempts += 1;
+        const m = finalCode.match(/CUS-(\d+)/);
+        const seq = m ? parseInt(m[1], 10) + attempts : attempts;
+        finalCode = `CUS-${String(seq).padStart(4, '0')}`;
+        masterData.customerCode = finalCode;
+        ledgerData.accountId = finalCode;
+        const newNotes = this.packNotes({ ...enriched, code: finalCode });
+        (masterData as any).notes = newNotes;
+        (ledgerData as any).notes = newNotes;
+      }
+    }
     const record = await this.database.ledgerMaster.create(ledgerData);
 
     // Create/refresh the credit profile so credit limit shows immediately.
+    // Use finalCode (which may have been bumped by the retry loop) instead of
+    // the original code to avoid writing a stale / colliding code.
     if (this.creditEngine) {
       try {
         await this.creditEngine.upsertProfile(id, {
-          customerName: enriched.name || code,
-          customerCode: code,
+          customerName: enriched.name || finalCode,
+          customerCode: finalCode,
           creditLimit: num(enriched.creditLimit),
           creditDays: num(enriched.creditDays, 0),
         });
@@ -837,9 +869,9 @@ export class CustomersService {
       action: 'create',
       entityId: id,
       newValues: enriched,
-      details: { id, name: enriched.name || code, code },
+      details: { id, name: enriched.name || finalCode, code: finalCode },
     });
-    this.logger.log(`Customer created: ${id} (${code})`);
+    this.logger.log(`Customer created: ${id} (${finalCode})`);
     const composed = this.compose(record, masterData);
     composed.warnings =
       mobileWarnings.length > 0 ? { mobileDuplicates: mobileWarnings } : undefined;

@@ -65,19 +65,23 @@ export class MasterDataRepository<T extends MasterRecord> {
    * numbering services so a soft-deleted document can never cause a number
    * reuse + UNIQUE collision. Values are zero-padded (SUB-000001), so the
    * lexicographic max equals the numeric max.
-   */
-  async maxFieldValue(field: string): Promise<string | null> {
+   */ async maxFieldValue(field: string): Promise<string | null> {
     try {
-      if (this.isPostgres) {
-        const rows: any[] = await (this.db as any)
-          .select({ m: sql`max(${(this.pgTable as any)[field]})` })
-          .from(this.pgTable as any);
-        return rows[0]?.m ?? null;
+      const col = this.isPostgres ? (this.pgTable as any)[field] : (this.sqliteTable as any)[field];
+      if (!col) {
+        return null;
       }
-      const rows: any[] = await (this.db as any)
-        .select({ m: sql`max(${(this.sqliteTable as any)[field]})` })
-        .from(this.sqliteTable as any);
-      return rows[0]?.m ?? null;
+      // Use select() (all columns) — same as findAll — then compute max in JS.
+      // select({ val: col }) fails on some Drizzle/libsql table objects.
+      const rows: any[] = await this.activeDb.select().from(this.table).limit(10000);
+      let max: string | null = null;
+      for (const r of rows as any[]) {
+        const v = String(r[field] ?? '');
+        if (v && (!max || v > max)) {
+          max = v;
+        }
+      }
+      return max;
     } catch {
       return null;
     }

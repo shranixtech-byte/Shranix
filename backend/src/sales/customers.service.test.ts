@@ -342,4 +342,97 @@ describe('CustomersService (Phase 3 — dual-write facade)', () => {
       /Invalid mobile/i,
     );
   });
+
+  // ── BUG-2 Regression: empty / whitespace-only name must be rejected ──
+
+  it('rejects empty customer name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: '' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects whitespace-only customer name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: '   ' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects missing customer name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ mobile: '9876543210' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects null customer name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: null })).rejects.toThrow(/name is required/i);
+  });
+
+  it('accepts valid customer name and generates code', async () => {
+    const { service } = makeFixture();
+    const result = await service.create({ name: 'Valid Customer' });
+    expect(result.name).toBe('Valid Customer');
+    expect(result.code).toMatch(/^CUS-\d{4}$/);
+  });
+
+  // ── BUG-3 Regression: retry/bump must update credit profile code ──
+
+  it('credit profile uses finalCode after retry bump (not stale original)', async () => {
+    const { database, creditEngine, service } = makeFixture();
+
+    // Make the first create attempt fail with UNIQUE collision,
+    // then succeed on the second attempt (bumped code).
+    let callCount = 0;
+    database.customers.create = vi.fn(async (data: any) => {
+      callCount += 1;
+      if (callCount === 1) {
+        // Simulate UNIQUE collision on first attempt
+        throw new Error('UNIQUE constraint failed: customers.customer_code');
+      }
+      // Second attempt succeeds
+      const row = {
+        ...data,
+        id: data.id || `id-${callCount}`,
+        createdAt: '2026-08-06T00:00:00.000Z',
+        updatedAt: '2026-08-06T00:00:00.000Z',
+        isDeleted: false,
+        deletedAt: null,
+      };
+      database.customers._rows.set(row.id, row);
+      return { ...row };
+    });
+
+    const result = await service.create({ name: 'Retry Customer' });
+
+    // The code should have been bumped past the collision
+    expect(result.code).toMatch(/^CUS-\d{4}$/);
+    expect(callCount).toBe(2); // Two create attempts
+
+    // The credit profile must receive the FINAL code, not the original
+    expect(creditEngine.upsertProfile).toHaveBeenCalledTimes(1);
+    const profileArgs = creditEngine.upsertProfile.mock.calls[0][1];
+    expect(profileArgs.customerCode).toBe(result.code);
+  });
+
+  it('does not reuse codes from soft-deleted rows', async () => {
+    const { database, service } = makeFixture();
+
+    // Seed a soft-deleted customer with CUS-0001
+    database.customers._rows.set('old-1', {
+      id: 'old-1',
+      customerCode: 'CUS-0001',
+      name: 'Deleted Customer',
+      isDeleted: true,
+      deletedAt: '2026-08-01T00:00:00.000Z',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+    });
+
+    // maxFieldValue returns CUS-0001 (scans ALL rows including soft-deleted)
+    database.customers.maxFieldValue = vi.fn(async () => 'CUS-0001');
+    database.ledgerMaster.maxFieldValue = vi.fn(async () => null);
+
+    const result = await service.create({ name: 'New Customer' });
+
+    // Should NOT reuse CUS-0001 — must be CUS-0002 or higher
+    expect(result.code).not.toBe('CUS-0001');
+    expect(result.code).toMatch(/^CUS-000[2-9]/);
+  });
 });

@@ -721,6 +721,11 @@ export class SuppliersService {
   // ═════════════════════════════════════════════════════════
 
   async create(data: any, userId?: string) {
+    // Validate required name field — reject empty / whitespace-only names.
+    const rawName = String(data?.name ?? '').trim();
+    if (!rawName) {
+      throw new BadRequestException('Supplier name is required and cannot be empty');
+    }
     await this.assertTaxValidation(data);
     const enriched = await this.applyDefaults(data);
 
@@ -798,7 +803,11 @@ export class SuppliersService {
     try {
       await this.database.suppliers.create(masterData);
     } catch (err: any) {
-      const uniqueCode = String(err?.message || '').match(/UNIQUE constraint failed[^)]*code/);
+      const msg = String(err?.message || '');
+      const uniqueCode =
+        /UNIQUE constraint failed[^)]*code/i.test(msg) ||
+        /UNIQUE/i.test(msg) ||
+        /Failed query.*insert/i.test(msg);
       if (!uniqueCode) {
         throw err;
       }
@@ -819,7 +828,12 @@ export class SuppliersService {
           bumped = code;
           break;
         } catch (e2: any) {
-          if (!String(e2?.message || '').match(/UNIQUE constraint failed[^)]*code/)) {
+          const e2Msg = String(e2?.message || '');
+          if (
+            !/UNIQUE constraint failed[^)]*code/i.test(e2Msg) &&
+            !/UNIQUE/i.test(e2Msg) &&
+            !/Failed query.*insert/i.test(e2Msg)
+          ) {
             throw e2;
           }
         }

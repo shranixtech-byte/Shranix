@@ -571,4 +571,33 @@ describe('SuppliersService', () => {
     expect(found.name).toBe('Agro Traders');
     expect(found.addressCount).toBe(1);
   });
+
+  // ── BUG-1 Regression: empty / whitespace-only name must be rejected ──
+
+  it('rejects empty supplier name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: '' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects whitespace-only supplier name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: '   ' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects missing supplier name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ mobile: '9876543210' })).rejects.toThrow(/name is required/i);
+  });
+
+  it('rejects null supplier name (HTTP 400)', async () => {
+    const { service } = makeFixture();
+    await expect(service.create({ name: null })).rejects.toThrow(/name is required/i);
+  });
+
+  it('accepts valid supplier name', async () => {
+    const { service } = makeFixture();
+    const result = await service.create({ name: 'Valid Supplier' });
+    expect(result.name).toBe('Valid Supplier');
+    expect(result.code).toMatch(/^SUP-\d{4}$/);
+  });
 });
