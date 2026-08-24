@@ -1217,6 +1217,16 @@ export class SalesInvoicesService extends BaseMasterService {
     const { items, ...invoiceDataRest } = data;
     let invoiceData = invoiceDataRest;
 
+    // Ensure balanceAmount defaults to grandTotal for new invoices.
+    // Without this, directly-created invoices get balanceAmount=0 which
+    // prevents payment allocation (the payment goes to advance instead).
+    if (invoiceData.balanceAmount === undefined || invoiceData.balanceAmount === null) {
+      invoiceData.balanceAmount = Number(invoiceData.grandTotal) || 0;
+    }
+    if (invoiceData.paymentStatus === undefined && Number(invoiceData.grandTotal) > 0) {
+      invoiceData.paymentStatus = 'unpaid';
+    }
+
     // 2) Create the invoice record with retry on UNIQUE-invoice_number conflict
     let invoice: any = null;
     let attempts = 0;
