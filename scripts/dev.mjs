@@ -17,7 +17,8 @@ const BACKEND_PORT = 4001;
 const FRONTEND_PORT = 4000;
 // Health is excluded from global prefix (api) but URI versioning (v1) applies.
 // Routes: GET /v1/health, GET /v1/health/live, GET /v1/health/ready
-const BACKEND_HEALTH_URL = `http://localhost:${BACKEND_PORT}/v1/health`;
+// Use 127.0.0.1 instead of localhost to avoid IPv6 resolution delays on Windows.
+const BACKEND_HEALTH_URL = `http://127.0.0.1:${BACKEND_PORT}/v1/health`;
 
 function killProcessOnPort(port) {
   try {
@@ -48,22 +49,25 @@ function killProcessOnPort(port) {
   }
 }
 
-async function waitForBackend(maxWaitMs = 30000) {
+async function waitForBackend(maxWaitMs = 60000) {
   const start = Date.now();
+  // Give the OS a moment after spawn before polling.
+  await new Promise(r => setTimeout(r, 2000));
   while (Date.now() - start < maxWaitMs) {
     try {
-      const res = await fetch(BACKEND_HEALTH_URL);
+      const res = await fetch(BACKEND_HEALTH_URL, { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
         console.log(`\n✓ Backend ready after ${Date.now() - start}ms`);
         await new Promise(r => setTimeout(r, 1000));
         return true;
       }
     } catch {
-      // Backend not ready yet
+      // Backend not ready yet — retry
     }
     await new Promise(r => setTimeout(r, 500));
   }
   console.error(`\n✗ Backend did not become ready within ${maxWaitMs}ms`);
+  console.error('  The backend may still be starting. Check with: curl http://127.0.0.1:4001/v1/health');
   return false;
 }
 

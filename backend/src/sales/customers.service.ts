@@ -277,29 +277,29 @@ export class CustomersService {
     return { masters, groups, categories };
   }
 
-  /** Auto-generate the next customer code (CUS-0001 …) — scans ledger + master. */
+  /** Auto-generate the next customer code (CUS-0001 …).
+   *
+   * Uses maxFieldValue() which scans ALL rows — including soft-deleted ones —
+   * because the unique index on customerCode / accountId prevents code reuse
+   * even after soft-delete.  The old findAll-based scan filtered out deleted
+   * rows, causing the generator to produce codes that already exist in the
+   * unique index → INSERT constraint violation → 500.
+   */
   private async nextCustomerCode(): Promise<string> {
     let max = 0;
     try {
-      const ledger = await this.database.ledgerMaster.findAll({
-        page: 1,
-        pageSize: 10000,
-        filters: [{ field: 'ledgerType', operator: 'eq', value: 'customer' }],
-        fields: ['accountId'],
-      } as any);
-      for (const r of ledger?.data || []) {
-        const m = String(r.accountId || '').match(/CUS-(\d+)/);
+      // maxFieldValue scans the raw table WITHOUT soft-delete filtering,
+      // so deleted codes are counted and never reused.
+      const ledgerMax = await this.database.ledgerMaster.maxFieldValue('accountId');
+      if (ledgerMax) {
+        const m = String(ledgerMax).match(/CUS-(\d+)/);
         if (m) {
           max = Math.max(max, parseInt(m[1], 10));
         }
       }
-      const master = await this.database.customers.findAll({
-        page: 1,
-        pageSize: 10000,
-        fields: ['customerCode'],
-      } as any);
-      for (const r of master?.data || []) {
-        const m = String(r.customerCode || '').match(/CUS-(\d+)/);
+      const masterMax = await this.database.customers.maxFieldValue('customerCode');
+      if (masterMax) {
+        const m = String(masterMax).match(/CUS-(\d+)/);
         if (m) {
           max = Math.max(max, parseInt(m[1], 10));
         }
