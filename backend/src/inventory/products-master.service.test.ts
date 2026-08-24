@@ -99,6 +99,16 @@ function makeRepo(initial: any[] = []) {
         r.deletedAt = '2026-08-06T00:00:00.000Z';
       }
     }),
+    maxFieldValue: vi.fn(async (field: string) => {
+      let max: string | null = null;
+      for (const r of rows.values()) {
+        const v = String(r[field] || '');
+        if (v && (!max || v > max)) {
+          max = v;
+        }
+      }
+      return max;
+    }),
     _rows: rows,
   };
 }

@@ -11,18 +11,16 @@ export class PortalTicketsService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Auto ticket number TK-000001 — scan + retry on race. */
+  /** Auto ticket number TK-000001 — uses maxFieldValue() to include soft-deleted rows. */
   private async nextTicketNumber(): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        const res = await this.database.portalTickets
-          .findAll({ page: 1, pageSize: 5000, filters: [] } as any)
-          .catch(() => ({ data: [] }));
         let max = 0;
-        for (const t of res.data || []) {
-          const m = /TK-(\d+)/.exec(String(t.ticketNumber || ''));
+        const maxVal = await this.database.portalTickets.maxFieldValue('ticketNumber');
+        if (maxVal) {
+          const m = /TK-(\d+)/.exec(String(maxVal));
           if (m) {
-            max = Math.max(max, Number(m[1]));
+            max = Number(m[1]);
           }
         }
         const number = `TK-${String(max + 1).padStart(6, '0')}`;

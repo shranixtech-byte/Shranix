@@ -14,15 +14,17 @@ export class AssetMaintenanceService {
   ) {}
 
   async nextMaintenanceNumber(): Promise<string> {
-    const all = await this.database.assetMaintenance
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /MNT-(\d+)/.exec(String(row.maintenanceNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.assetMaintenance.maxFieldValue('maintenanceNumber');
+      if (maxVal) {
+        const m = /MNT-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `MNT-${String(max + 1).padStart(6, '0')}`;
   }

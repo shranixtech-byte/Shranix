@@ -11,15 +11,17 @@ export class EmployeeAdvancesService {
   ) {}
 
   async nextNumber(): Promise<string> {
-    const all = await this.database.employeeAdvances
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /ADV-(\d+)/.exec(String(row.advanceNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.employeeAdvances.maxFieldValue('advanceNumber');
+      if (maxVal) {
+        const m = /ADV-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `ADV-${String(max + 1).padStart(4, '0')}`;
   }
@@ -140,15 +142,17 @@ export class EmployeeExpensesService {
   ) {}
 
   async nextNumber(): Promise<string> {
-    const all = await this.database.employeeExpenses
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /EXP-(\d+)/.exec(String(row.expenseNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.employeeExpenses.maxFieldValue('expenseNumber');
+      if (maxVal) {
+        const m = /EXP-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `EXP-${String(max + 1).padStart(4, '0')}`;
   }

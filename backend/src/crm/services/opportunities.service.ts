@@ -45,15 +45,17 @@ export class OpportunitiesService {
   ) {}
 
   async nextOpportunityNumber(): Promise<string> {
-    const res = await this.database.opportunities
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const o of res.data || []) {
-      const m = /^OPP-(\d+)$/.exec(String(o.opportunityNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.opportunities.maxFieldValue('opportunityNumber');
+      if (maxVal) {
+        const m = /^OPP-(\d+)$/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `OPP-${String(max + 1).padStart(4, '0')}`;
   }

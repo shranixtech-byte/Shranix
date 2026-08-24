@@ -75,15 +75,17 @@ export class PayrollService {
   ) {}
 
   async nextRunNumber(): Promise<string> {
-    const all = await this.database.payrollRuns
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /PR-(\d+)/.exec(String(row.runNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.payrollRuns.maxFieldValue('runNumber');
+      if (maxVal) {
+        const m = /PR-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `PR-${String(max + 1).padStart(4, '0')}`;
   }

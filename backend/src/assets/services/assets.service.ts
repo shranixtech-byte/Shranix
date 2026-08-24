@@ -18,17 +18,21 @@ export class AssetsService {
     private readonly communication?: CommunicationService,
   ) {}
 
-  /** Next sequential asset code — AST-000001, AST-000002 … */
+  /** Next sequential asset code — AST-000001, AST-000002 …
+   * Uses maxFieldValue() which scans ALL rows — including soft-deleted —
+   * because the unique index on assetCode prevents code reuse after soft-delete. */
   async nextAssetCode(): Promise<string> {
-    const all = await this.database.assets
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /AST-(\d+)/.exec(String(row.assetCode || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.assets.maxFieldValue('assetCode');
+      if (maxVal) {
+        const m = /AST-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `AST-${String(max + 1).padStart(6, '0')}`;
   }
@@ -385,15 +389,17 @@ export class AssetsService {
 
   // ── Transfer ───────────────────────────────────────────
   async nextTransferNumber(): Promise<string> {
-    const all = await this.database.assetTransfers
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /TRF-(\d+)/.exec(String(row.transferNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.assetTransfers.maxFieldValue('transferNumber');
+      if (maxVal) {
+        const m = /TRF-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `TRF-${String(max + 1).padStart(6, '0')}`;
   }
@@ -603,15 +609,17 @@ export class AssetsService {
 
   // ── Disposal ───────────────────────────────────────────
   async nextDisposalNumber(): Promise<string> {
-    const all = await this.database.assetDisposals
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /DSP-(\d+)/.exec(String(row.disposalNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.assetDisposals.maxFieldValue('disposalNumber');
+      if (maxVal) {
+        const m = /DSP-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `DSP-${String(max + 1).padStart(6, '0')}`;
   }

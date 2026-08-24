@@ -15,18 +15,16 @@ export class PortalPaymentsService {
     private readonly paymentCollection: SalesPaymentCollectionService,
   ) {}
 
-  /** Auto payment number PY-000001 — scan + retry on race. */
+  /** Auto payment number PY-000001 — uses maxFieldValue() to include soft-deleted rows. */
   private async nextPaymentNumber(): Promise<string> {
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        const res = await this.database.portalPayments
-          .findAll({ page: 1, pageSize: 5000, filters: [] } as any)
-          .catch(() => ({ data: [] }));
         let max = 0;
-        for (const p of res.data || []) {
-          const m = /PY-(\d+)/.exec(String(p.paymentNumber || ''));
+        const maxVal = await this.database.portalPayments.maxFieldValue('paymentNumber');
+        if (maxVal) {
+          const m = /PY-(\d+)/.exec(String(maxVal));
           if (m) {
-            max = Math.max(max, Number(m[1]));
+            max = Number(m[1]);
           }
         }
         return `PY-${String(max + 1).padStart(6, '0')}`;

@@ -59,14 +59,19 @@ export class ProductsMasterService {
   // CODE GENERATION
   // ═════════════════════════════════════════════════════════
   private async generateProductCode(): Promise<string> {
-    const res = (await this.database.items.findAll({ page: 1, pageSize: 10000 } as any)) as any;
-    const items: any[] = res?.data || [];
     let max = 0;
-    for (const it of items) {
-      const m = /PRD-(\d+)/i.exec(cleanStr(it.productCode || it.sku));
-      if (m) {
-        max = Math.max(max, parseInt(m[1], 10));
+    try {
+      // maxFieldValue scans the raw table WITHOUT soft-delete filtering,
+      // so deleted codes are counted and never reused.
+      const maxVal = await this.database.items.maxFieldValue('productCode');
+      if (maxVal) {
+        const m = /PRD-(\d+)/i.exec(cleanStr(String(maxVal)));
+        if (m) {
+          max = parseInt(m[1], 10);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `PRD-${String(max + 1).padStart(4, '0')}`;
   }

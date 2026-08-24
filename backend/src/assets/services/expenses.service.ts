@@ -19,15 +19,17 @@ export class ExpensesService {
   ) {}
 
   async nextExpenseNumber(): Promise<string> {
-    const all = await this.database.expenses
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /EXP-(\d+)/.exec(String(row.expenseNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.expenses.maxFieldValue('expenseNumber');
+      if (maxVal) {
+        const m = /EXP-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `EXP-${String(max + 1).padStart(6, '0')}`;
   }

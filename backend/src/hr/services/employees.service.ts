@@ -10,17 +10,21 @@ export class EmployeesService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Next sequential employee code — EMP-000001, EMP-000002 … */
+  /** Next sequential employee code — EMP-000001, EMP-000002 …
+   * Uses maxFieldValue() which scans ALL rows — including soft-deleted —
+   * because the unique index on employeeCode prevents code reuse after soft-delete. */
   async nextEmployeeCode(): Promise<string> {
-    const all = await this.database.employees
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const row of all.data || []) {
-      const m = /EMP-(\d+)/.exec(String(row.employeeCode || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.employees.maxFieldValue('employeeCode');
+      if (maxVal) {
+        const m = /EMP-(\d+)/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `EMP-${String(max + 1).padStart(6, '0')}`;
   }

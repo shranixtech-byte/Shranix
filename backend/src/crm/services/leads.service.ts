@@ -72,15 +72,17 @@ export class LeadsService {
   // ═════════════════════════════════════════════════════════
 
   async nextLeadNumber(): Promise<string> {
-    const res = await this.database.leads
-      .findAll({ page: 1, pageSize: 5000 } as any)
-      .catch(() => ({ data: [] }));
     let max = 0;
-    for (const l of res.data || []) {
-      const m = /^L-(\d+)$/.exec(String(l.leadNumber || ''));
-      if (m) {
-        max = Math.max(max, Number(m[1]));
+    try {
+      const maxVal = await this.database.leads.maxFieldValue('leadNumber');
+      if (maxVal) {
+        const m = /^L-(\d+)$/.exec(String(maxVal));
+        if (m) {
+          max = Number(m[1]);
+        }
       }
+    } catch {
+      /* best-effort */
     }
     return `L-${String(max + 1).padStart(4, '0')}`;
   }
