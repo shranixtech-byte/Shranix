@@ -42,7 +42,8 @@ const SOURCE_SCORE: Record<string, number> = {
   facebook: 8,
   whatsapp: 12,
   phone_call: 12,
-  walk_in: 15,
+  'walk-in': 15,
+  walk_in: 15, // legacy alias
   advertisement: 5,
   other: 5,
 };

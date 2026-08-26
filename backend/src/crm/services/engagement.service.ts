@@ -146,6 +146,11 @@ export class FollowUpsService {
     if (!existing || existing.isDeleted) {
       throw new NotFoundException('Follow-up not found');
     }
+    if (existing.status !== 'scheduled') {
+      throw new BadRequestException(
+        `Only scheduled follow-ups can be completed (current: ${existing.status})`,
+      );
+    }
     const updated = await this.database.followUps.update(id, {
       status: 'completed',
       outcome: data.outcome ?? existing.outcome,
@@ -188,6 +193,11 @@ export class FollowUpsService {
     const existing = await this.database.followUps.findById(id);
     if (!existing || existing.isDeleted) {
       throw new NotFoundException('Follow-up not found');
+    }
+    if (existing.status !== 'scheduled') {
+      throw new BadRequestException(
+        `Only scheduled follow-ups can be marked as missed (current: ${existing.status})`,
+      );
     }
     return this.database.followUps.update(id, { status: 'missed', updatedBy: userId } as any);
   }
@@ -283,6 +293,11 @@ export class CrmTasksService {
     const existing = await this.database.crmTasks.findById(id);
     if (!existing || existing.isDeleted) {
       throw new NotFoundException('Task not found');
+    }
+    if (data.status && !TASK_STATUSES.includes(data.status)) {
+      throw new BadRequestException(
+        `Invalid task status: ${data.status}. Must be one of: ${TASK_STATUSES.join(', ')}`,
+      );
     }
     const changed: any = { ...data, updatedBy: userId };
     if (changed.status === 'completed' && existing.status !== 'completed') {
@@ -487,6 +502,11 @@ export class MeetingsService {
     const existing = await this.database.meetings.findById(id);
     if (!existing || existing.isDeleted) {
       throw new NotFoundException('Meeting not found');
+    }
+    if (data.status && !MEETING_STATUSES.includes(data.status)) {
+      throw new BadRequestException(
+        `Invalid meeting status: ${data.status}. Must be one of: ${MEETING_STATUSES.join(', ')}`,
+      );
     }
     const updated = await this.database.meetings.update(id, { ...data, updatedBy: userId } as any);
     if (data.status === 'completed') {
