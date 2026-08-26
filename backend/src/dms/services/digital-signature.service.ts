@@ -17,16 +17,22 @@ export class DigitalSignatureService {
   /**
    * Sign a document with a digital signature.
    */
-  async signDocument(documentId: string, signerId: string, options: {
-    signatureType?: string;
-    signature?: string;
-    notes?: string;
-    level?: number;
-    ipAddress?: string;
-    userAgent?: string;
-  }) {
+  async signDocument(
+    documentId: string,
+    signerId: string,
+    options: {
+      signatureType?: string;
+      signature?: string;
+      notes?: string;
+      level?: number;
+      ipAddress?: string;
+      userAgent?: string;
+    },
+  ) {
     const doc = await this.database.documents.findById(documentId);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      return { success: false, message: 'Document not found' };
+    }
 
     const signature = await this.database.digitalSignatures.create({
       documentId,
@@ -49,7 +55,11 @@ export class DigitalSignatureService {
       event: 'document_signed',
       resource: 'digital_signature',
       action: 'approve',
-      details: { documentId, signatureId: (signature as any).id, signatureType: options.signatureType },
+      details: {
+        documentId,
+        signatureId: (signature as any).id,
+        signatureType: options.signatureType,
+      },
     });
 
     // Verify the signature
@@ -64,7 +74,9 @@ export class DigitalSignatureService {
    */
   async verifySignature(signatureId: string) {
     const signature = await this.database.digitalSignatures.findById(signatureId);
-    if (!signature) {return { success: false, message: 'Signature not found' };}
+    if (!signature) {
+      return { success: false, message: 'Signature not found' };
+    }
 
     // In production, this would verify against a certificate authority
     const verified = await this.database.digitalSignatures.update(signatureId, {
@@ -79,14 +91,22 @@ export class DigitalSignatureService {
    * Get signatures for a document.
    */
   async getDocumentSignatures(documentId: string) {
-    return this.database.digitalSignatures.findAll({ page: 1, pageSize: 50, filter: { documentId } } as any);
+    return this.database.digitalSignatures.findAll({
+      page: 1,
+      pageSize: 50,
+      filters: [{ field: 'documentId', operator: 'eq', value: documentId }],
+    } as any);
   }
 
   /**
    * Check if a document has all required signatures.
    */
   async checkSignatureCompleteness(documentId: string, requiredLevel: number = 1) {
-    const result = await this.database.digitalSignatures.findAll({ page: 1, pageSize: 50, filter: { documentId } } as any);
+    const result = await this.database.digitalSignatures.findAll({
+      page: 1,
+      pageSize: 50,
+      filters: [{ field: 'documentId', operator: 'eq', value: documentId }],
+    } as any);
     const signatures = result.data || [];
     const maxLevel = Math.max(...signatures.map((s: any) => s.level || 1), 0);
     return {
@@ -103,7 +123,9 @@ export class DigitalSignatureService {
    */
   async detectTampering(documentId: string, currentChecksum: string) {
     const doc = await this.database.documents.findById(documentId);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      return { success: false, message: 'Document not found' };
+    }
 
     const storedChecksum = (doc as any).checksum;
     const isTampered = storedChecksum && storedChecksum !== currentChecksum;
@@ -112,7 +134,9 @@ export class DigitalSignatureService {
       isTampered: !!isTampered,
       storedChecksum,
       currentChecksum,
-      message: isTampered ? '⚠️ Document has been tampered with!' : '✅ Document integrity verified',
+      message: isTampered
+        ? '⚠️ Document has been tampered with!'
+        : '✅ Document integrity verified',
     };
   }
 

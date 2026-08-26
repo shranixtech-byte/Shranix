@@ -14,7 +14,9 @@ export class OcrEngineService {
    */
   async processDocument(documentId: string) {
     const doc = await this.database.documents.findById(documentId);
-    if (!doc) {return { success: false, message: 'Document not found' };}
+    if (!doc) {
+      return { success: false, message: 'Document not found' };
+    }
 
     try {
       // Create OCR record
@@ -39,7 +41,9 @@ export class OcrEngineService {
     } catch (error) {
       this.logger.error(`OCR failed for document ${documentId}`, (error as Error).message);
       await this.database.ocrResults.create({
-        documentId, status: 'failed', errorMessage: (error as Error).message,
+        documentId,
+        status: 'failed',
+        errorMessage: (error as Error).message,
       } as any);
       return { success: false, message: 'OCR processing failed', error: (error as Error).message };
     }
@@ -91,7 +95,9 @@ export class OcrEngineService {
    */
   async linkOcrToErp(documentId: string) {
     const ocrResults = await this.getOcrResults(documentId);
-    if (!ocrResults) {return { success: false, message: 'No OCR results found' };}
+    if (!ocrResults) {
+      return { success: false, message: 'No OCR results found' };
+    }
 
     const erpLinks: Record<string, string> = {};
 
@@ -115,12 +121,20 @@ export class OcrEngineService {
   }
 
   async getOcrResults(documentId: string) {
-    const results = await this.database.ocrResults.findAll({ page: 1, pageSize: 10, filter: { documentId } } as any);
+    const results = await this.database.ocrResults.findAll({
+      page: 1,
+      pageSize: 10,
+      filters: [{ field: 'documentId', operator: 'eq', value: documentId }],
+    } as any);
     return results.data?.[0] || null;
   }
 
   async getOcrQueue() {
-    const pending = await this.database.ocrResults.findAll({ page: 1, pageSize: 50, filter: { status: 'pending' } } as any);
+    const pending = await this.database.ocrResults.findAll({
+      page: 1,
+      pageSize: 50,
+      filters: [{ field: 'status', operator: 'eq', value: 'pending' }],
+    } as any);
     return pending;
   }
 }

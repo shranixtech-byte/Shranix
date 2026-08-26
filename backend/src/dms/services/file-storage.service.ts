@@ -6,9 +6,12 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 
 import { DatabaseService } from '../../database/database.service';
 
-
 export interface StorageProvider {
-  save(filename: string, buffer: Buffer, mimeType: string): Promise<{ storagePath: string; checksum: string; fileSize: number }>;
+  save(
+    filename: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{ storagePath: string; checksum: string; fileSize: number }>;
   retrieve(storagePath: string): Promise<Buffer | null>;
   delete(storagePath: string): Promise<boolean>;
 }
@@ -38,7 +41,9 @@ export class FileStorageService {
   ): Promise<{ storagePath: string; checksum: string; fileSize: number }> {
     // Validate file size
     if (buffer.length > this.maxFileSize) {
-      throw new BadRequestException(`File exceeds maximum size of ${this.maxFileSize / 1024 / 1024}MB`);
+      throw new BadRequestException(
+        `File exceeds maximum size of ${this.maxFileSize / 1024 / 1024}MB`,
+      );
     }
 
     // Generate secure filename
@@ -58,7 +63,9 @@ export class FileStorageService {
     const storagePath = path.join(docDir, filename);
     fs.writeFileSync(storagePath, buffer);
 
-    this.logger.log(`File saved: ${storagePath} (${buffer.length} bytes, SHA-256: ${checksum.substring(0, 16)}...)`);
+    this.logger.log(
+      `File saved: ${storagePath} (${buffer.length} bytes, SHA-256: ${checksum.substring(0, 16)}...)`,
+    );
 
     return { storagePath, checksum, fileSize: buffer.length };
   }
@@ -68,7 +75,7 @@ export class FileStorageService {
    */
   async readFile(storagePath: string): Promise<Buffer> {
     const fullPath = path.resolve(this.storagePath, storagePath);
-    
+
     // Security: prevent path traversal
     if (!fullPath.startsWith(path.resolve(this.storagePath))) {
       throw new BadRequestException('Invalid file path');
@@ -86,7 +93,7 @@ export class FileStorageService {
    */
   async deleteFile(storagePath: string): Promise<boolean> {
     const fullPath = path.resolve(this.storagePath, storagePath);
-    
+
     if (!fullPath.startsWith(path.resolve(this.storagePath))) {
       throw new BadRequestException('Invalid file path');
     }
@@ -115,7 +122,12 @@ export class FileStorageService {
   /**
    * Get storage statistics.
    */
-  async getStorageStats(): Promise<{ totalFiles: number; totalSize: number; storagePath: string; maxFileSize: number }> {
+  async getStorageStats(): Promise<{
+    totalFiles: number;
+    totalSize: number;
+    storagePath: string;
+    maxFileSize: number;
+  }> {
     let totalFiles = 0;
     let totalSize = 0;
 
@@ -142,9 +154,13 @@ export class FileStorageService {
    * Enforce retention policy: delete expired documents.
    */
   async enforceRetention(): Promise<number> {
-    const expired = await this.database.documents.findAll({ page: 1, pageSize: 1000, filter: { status: 'archived' } } as any);
+    const expired = await this.database.documents.findAll({
+      page: 1,
+      pageSize: 1000,
+      filters: [{ field: 'status', operator: 'eq', value: 'archived' }],
+    } as any);
     let deleted = 0;
-    for (const doc of (expired.data || [])) {
+    for (const doc of expired.data || []) {
       const docRecord = doc as any;
       if (docRecord.expiryDate && new Date(docRecord.expiryDate) < new Date()) {
         if (docRecord.storagePath) {
