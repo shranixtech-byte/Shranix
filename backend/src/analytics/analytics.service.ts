@@ -192,6 +192,19 @@ export class AnalyticsService {
     return !EXCLUDED_STATUSES.includes(String(status || ''));
   }
 
+  /** Build a date-range filter condition for a given column name. */
+  private dateFilter(field: string, filters?: AnalyticsFilters): any[] {
+    if (!filters) {return [];}
+    const conds: any[] = [];
+    if (filters.fromDate) {
+      conds.push({ field, operator: 'gte', value: filters.fromDate });
+    }
+    if (filters.toDate) {
+      conds.push({ field, operator: 'lte', value: filters.toDate });
+    }
+    return conds;
+  }
+
   private async all<T = any>(repo: any, pageSize = 5000, filters?: any[]): Promise<T[]> {
     try {
       const q: any = { page: 1, pageSize };
@@ -237,11 +250,12 @@ export class AnalyticsService {
   // 1. MANAGEMENT DASHBOARD (Phase 5.11)
   // ═════════════════════════════════════════════════════════════════
 
-  async getOverview(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getOverview(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const dfInv = this.dateFilter('invoiceDate', filters);
     const [kpis, invoices, purchaseInvoices, items, names] = await Promise.all([
       this.kpiEngine.calculateAllKpis().catch(() => []),
-      this.all<any>(this.database.salesInvoices),
-      this.all<any>(this.database.purchaseInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, dfInv),
+      this.all<any>(this.database.purchaseInvoices, 5000, dfInv),
       this.all<any>(this.database.items),
       this.nameMaps(),
     ]);
@@ -418,9 +432,10 @@ export class AnalyticsService {
   // 2. SALES ANALYTICS (Phase 5.12)
   // ═════════════════════════════════════════════════════════════════
 
-  async getSales(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getSales(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, items, productItems, returns, quotations, orders, names] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.all<any>(this.database.items),
       this.all<any>(this.database.invoiceItems),
       this.all<any>(this.database.salesReturns),
@@ -661,9 +676,10 @@ export class AnalyticsService {
   // 3. PURCHASE ANALYTICS (Phase 5.13)
   // ═════════════════════════════════════════════════════════════════
 
-  async getPurchase(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getPurchase(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, purchaseItems, orders, returns, names] = await Promise.all([
-      this.all<any>(this.database.purchaseInvoices),
+      this.all<any>(this.database.purchaseInvoices, 5000, df),
       this.all<any>(this.database.purchaseInvoiceItems).catch(() => []),
       this.all<any>(this.database.purchaseOrders),
       this.all<any>(this.database.purchaseReturns),
@@ -845,11 +861,11 @@ export class AnalyticsService {
   // 4. INVENTORY ANALYTICS (Phase 5.14)
   // ═════════════════════════════════════════════════════════════════
 
-  async getInventory(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
-    const [items, movements, _stockBalance, warehouseStock, names] = await Promise.all([
+  async getInventory(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('createdAt', filters);
+    const [items, movements, warehouseStock, names] = await Promise.all([
       this.all<any>(this.database.items),
-      this.all<any>(this.database.invStockLedger),
-      this.all<any>(this.database.invStockBalance),
+      this.all<any>(this.database.invStockLedger, 5000, df),
       this.all<any>(this.database.invStockBalance),
       this.nameMaps(),
     ]);
@@ -1056,10 +1072,11 @@ export class AnalyticsService {
   // 5. FINANCIAL ANALYTICS (Phase 5.15)
   // ═════════════════════════════════════════════════════════════════
 
-  async getFinance(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getFinance(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('entryDate', filters);
     const [kpis, glEntries, _names] = await Promise.all([
       this.kpiEngine.calculateAllKpis().catch(() => []),
-      this.all<any>(this.database.glEntries),
+      this.all<any>(this.database.glEntries, 5000, df),
       this.nameMaps(),
     ]);
 
@@ -1227,11 +1244,12 @@ export class AnalyticsService {
   // 6. GST ANALYTICS (Phase 5.10)
   // ═════════════════════════════════════════════════════════════════
 
-  async getGst(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getGst(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, items, purchaseInvoices, purchaseItems] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.all<any>(this.database.invoiceItems),
-      this.all<any>(this.database.purchaseInvoices),
+      this.all<any>(this.database.purchaseInvoices, 5000, df),
       this.all<any>(this.database.purchaseInvoiceItems).catch(() => []),
     ]);
 
@@ -1406,9 +1424,10 @@ export class AnalyticsService {
   // 7. CUSTOMER ANALYTICS (Phase 5.6)
   // ═════════════════════════════════════════════════════════════════
 
-  async getCustomers(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getCustomers(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, names, customers] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.nameMaps(),
       this.all<any>(this.database.ledgerMaster, 5000, [
         { field: 'ledgerType', operator: 'eq', value: 'customer' },
@@ -1558,9 +1577,10 @@ export class AnalyticsService {
   // 8. SUPPLIER ANALYTICS (Phase 5.7)
   // ═════════════════════════════════════════════════════════════════
 
-  async getSuppliers(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getSuppliers(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, names, suppliers] = await Promise.all([
-      this.all<any>(this.database.purchaseInvoices),
+      this.all<any>(this.database.purchaseInvoices, 5000, df),
       this.nameMaps(),
       this.all<any>(this.database.suppliers),
     ]);
@@ -1780,9 +1800,10 @@ export class AnalyticsService {
   // 10. PROFITABILITY ANALYTICS (Phase 5.16)
   // ═════════════════════════════════════════════════════════════════
 
-  async getProfitability(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getProfitability(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, items, invoiceLines, names] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.all<any>(this.database.items),
       this.all<any>(this.database.invoiceItems),
       this.nameMaps(),
@@ -1914,10 +1935,12 @@ export class AnalyticsService {
   // 11. CASH FLOW ANALYTICS (Phase 5.15)
   // ═════════════════════════════════════════════════════════════════
 
-  async getCashFlow(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
-    const [glEntries, salesPayments] = await Promise.all([
-      this.all<any>(this.database.glEntries),
+  async getCashFlow(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('entryDate', filters);
+    const [glEntries, salesPayments, purchasePayments] = await Promise.all([
+      this.all<any>(this.database.glEntries, 5000, df),
       this.all<any>(this.database.salesPayments),
+      this.all<any>(this.database.purchasePayments).catch(() => []),
     ]);
     const cashIds = await this.cashBankAccountIds();
 
@@ -1944,6 +1967,10 @@ export class AnalyticsService {
       for (const p of salesPayments) {
         const k = this.monthKey(p.paymentDate || p.createdAt);
         inMap.set(k, (inMap.get(k) || 0) + this.num(p.amount));
+      }
+      for (const p of purchasePayments) {
+        const k = this.monthKey(p.paymentDate || p.createdAt);
+        outMap.set(k, (outMap.get(k) || 0) + this.num(p.amount));
       }
     }
 
@@ -2017,9 +2044,10 @@ export class AnalyticsService {
   // 12. GROWTH ANALYTICS (Phase 5.16)
   // ═════════════════════════════════════════════════════════════════
 
-  async getGrowth(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getGrowth(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, customers, _names] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.all<any>(this.database.ledgerMaster, 5000, [
         { field: 'ledgerType', operator: 'eq', value: 'customer' },
       ]),
@@ -2126,9 +2154,10 @@ export class AnalyticsService {
   // 13. TOP / BOTTOM ANALYTICS (Phase 5.16)
   // ═════════════════════════════════════════════════════════════════
 
-  async getTopBottom(_filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+  async getTopBottom(filters?: AnalyticsFilters): Promise<AnalyticsPayload> {
+    const df = this.dateFilter('invoiceDate', filters);
     const [invoices, items, invoiceLines, names] = await Promise.all([
-      this.all<any>(this.database.salesInvoices),
+      this.all<any>(this.database.salesInvoices, 5000, df),
       this.all<any>(this.database.items),
       this.all<any>(this.database.invoiceItems),
       this.nameMaps(),
