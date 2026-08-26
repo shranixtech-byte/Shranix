@@ -1099,7 +1099,7 @@ describe('StockPostingService', () => {
   }
 
   it('posts stock from GRN with batch creation', async () => {
-    const { service, postingEngine } = makeFixture();
+    const { database, service, postingEngine } = makeFixture();
     const result = await service.postFromGrn(
       { id: 'grn-1', grnNumber: 'GRN-0001', warehouseId: 'wh-1' },
       'user-1',
