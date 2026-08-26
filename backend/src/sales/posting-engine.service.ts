@@ -704,9 +704,6 @@ export class PostingEngineService {
     const entryNumber = generateEntryNumber('SINV');
 
     const taxableAmount = input.taxableAfterDiscount;
-    const totalGst = input.cgstTotal + input.sgstTotal + input.igstTotal + input.cessTotal;
-    const netAmount = taxableAmount + totalGst;
-    const receivableAmount = netAmount;
     const cashAmount = input.paymentSplits
       .filter((p) => ['cash'].includes(p.method))
       .reduce((s, p) => s + p.amount, 0);
@@ -715,17 +712,18 @@ export class PostingEngineService {
         ['bank_transfer', 'neft', 'rtgs', 'imps', 'cheque', 'card', 'upi'].includes(p.method),
       )
       .reduce((s, p) => s + p.amount, 0);
-    const creditAmount = input.paymentSplits
-      .filter((p) => ['credit', 'wallet'].includes(p.method))
-      .reduce((s, p) => s + p.amount, 0);
 
     // DEBIT entries
-    // Customer/Receivable (total invoice amount)
-    if (creditAmount > 0 || (cashAmount === 0 && bankAmount === 0)) {
+    // Customer/Receivable — only the unpaid portion (grandTotal − cash − bank).
+    // Previous code debited the full receivableAmount AND cash/bank separately,
+    // double-counting when payments existed.  This balances: totalDebit = grandTotal =
+    // Sales + GST + roundOff (the credit side).
+    const unpaidAmount = Math.round((input.grandTotal - cashAmount - bankAmount) * 100) / 100;
+    if (unpaidAmount > 0) {
       entries.push({
         accountName: `${input.customerName} - Sundry Debtor`,
         accountType: 'debit',
-        amount: receivableAmount,
+        amount: unpaidAmount,
         narration: `Sales invoice ${input.invoiceNumber}`,
       });
     }

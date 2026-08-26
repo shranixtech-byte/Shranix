@@ -411,76 +411,157 @@ export class SalesReturnEngineService {
     }
 
     // ── Accounting: Reverse Journal Entries ──
+    // Look up account IDs from Chart of Accounts (accountId is NOT NULL in schema).
+    const accountsRes = await this.database.chartOfAccounts
+      .findAll({ page: 1, pageSize: 500 } as any)
+      .catch(() => ({ data: [] }));
+    const accounts = accountsRes?.data || [];
+
+    const findAccount = (patterns: string[]): string | null => {
+      for (const pattern of patterns) {
+        const match = accounts.find((a: any) =>
+          (a.accountName || '').toLowerCase().includes(pattern.toLowerCase()),
+        );
+        if (match) {
+          return match.id;
+        }
+      }
+      return null;
+    };
+
+    const salesReturnAccountId = findAccount(['sales return', 'return account']);
+    const cgstInputAccountId = findAccount(['cgst input', 'cgst output']);
+    const sgstInputAccountId = findAccount(['sgst input', 'sgst output']);
+    const igstInputAccountId = findAccount(['igst input', 'igst output']);
+    const receivableAccountId = findAccount(['debtor', 'receivable', 'sundry debtor']);
+
+    // Aggregate totals across all return items
+    let totalTaxableValue = 0;
+    let totalCgst = 0;
+    let totalSgst = 0;
+    let totalIgst = 0;
     for (const item of returnItems) {
-      // Reverse Sales (Credit → Debit)
-      await this.database.glEntries
-        .create({
-          entryNumber: `SRV-${returnRecord.returnNumber}-${Date.now()}`,
-          entryDate: returnRecord.returnDate,
-          accountName: 'Sales Return Account',
+      totalTaxableValue += Number(item.taxableValue || 0);
+      totalCgst += Number(item.cgst || 0);
+      totalSgst += Number(item.sgst || 0);
+      totalIgst += Number(item.igst || 0);
+    }
+
+    const reversalVoucherId = `REV-SR-${returnRecord.returnNumber}-${Date.now().toString(36)}`;
+
+    // Build balanced reversal entries: Debit Sales Return, Debit GST Input,
+    // Credit Customer/Receivable.
+    const reversalEntries: Array<{
+      accountId: string;
+      debit: number;
+      credit: number;
+      narration: string;
+    }> = [];
+
+    // Debit: Sales Return Account (reverses original credit to Sales)
+    if (salesReturnAccountId && totalTaxableValue > 0) {
+      reversalEntries.push({
+        accountId: salesReturnAccountId,
+        debit: totalTaxableValue,
+        credit: 0,
+        narration: `Sales return reversal: ${returnRecord.returnNumber}`,
+      });
+    }
+
+    // Debit: GST Input accounts (reverses original GST output credit)
+    if (totalCgst > 0 && cgstInputAccountId) {
+      reversalEntries.push({
+        accountId: cgstInputAccountId,
+        debit: totalCgst,
+        credit: 0,
+        narration: `CGST reversal: ${returnRecord.returnNumber}`,
+      });
+    }
+    if (totalSgst > 0 && sgstInputAccountId) {
+      reversalEntries.push({
+        accountId: sgstInputAccountId,
+        debit: totalSgst,
+        credit: 0,
+        narration: `SGST reversal: ${returnRecord.returnNumber}`,
+      });
+    }
+    if (totalIgst > 0 && igstInputAccountId) {
+      reversalEntries.push({
+        accountId: igstInputAccountId,
+        debit: totalIgst,
+        credit: 0,
+        narration: `IGST reversal: ${returnRecord.returnNumber}`,
+      });
+    }
+
+    // Credit: Customer/Receivable (reduces outstanding)
+    const grandTotal =
+      Math.round((totalTaxableValue + totalCgst + totalSgst + totalIgst) * 100) / 100;
+    if (receivableAccountId && grandTotal > 0) {
+      reversalEntries.push({
+        accountId: receivableAccountId,
+        debit: 0,
+        credit: grandTotal,
+        narration: `Customer credit for return: ${returnRecord.returnNumber}`,
+      });
+    }
+
+    // Verify balanced before posting
+    const totalDr = reversalEntries.reduce((s, e) => s + e.debit, 0);
+    const totalCr = reversalEntries.reduce((s, e) => s + e.credit, 0);
+    if (Math.abs(totalDr - totalCr) > 0.01) {
+      this.logger.warn(
+        `Reversal journal unbalanced: Dr ${totalDr} vs Cr ${totalCr} — posting individual lines best-effort`,
+      );
+    }
+
+    // Post each line to GL (individual rows per account — respects gl_voucher_idx)
+    let glIndex = 0;
+    for (const entry of reversalEntries) {
+      try {
+        await this.database.glEntries.create({
+          entryNumber: `${reversalVoucherId}-${String(++glIndex).padStart(3, '0')}`,
+          entryDate: returnRecord.returnDate || now.slice(0, 10),
+          accountId: entry.accountId,
+          voucherId: reversalVoucherId,
           voucherType: 'sales_return',
           voucherNumber: returnRecord.returnNumber,
-          debit: item.taxableValue,
-          credit: 0,
-          narration: `Sales return reversal: ${returnRecord.returnNumber}`,
+          debit: Math.round(entry.debit * 100) / 100,
+          credit: Math.round(entry.credit * 100) / 100,
+          balance: Math.round((entry.debit - entry.credit) * 100) / 100,
+          narration: entry.narration,
           partyId: returnRecord.customerId,
           createdBy: userId,
-          createdAt: now,
-        })
-        .catch((e) => this.logger.warn(`GL reversal warning: ${e.message}`));
-
-      // Reverse GST
-      if (item.cgst > 0) {
-        await this.database.glEntries
-          .create({
-            entryNumber: `SRV-CGST-${returnRecord.returnNumber}`,
-            entryDate: returnRecord.returnDate,
-            accountName: 'CGST Input Account',
-            voucherType: 'sales_return',
-            voucherNumber: returnRecord.returnNumber,
-            debit: item.cgst,
-            credit: 0,
-            narration: `CGST reversal: ${returnRecord.returnNumber}`,
-            partyId: returnRecord.customerId,
-            createdBy: userId,
-            createdAt: now,
-          })
-          .catch((e) => this.logger.warn(`CGST reversal warning: ${e.message}`));
-      }
-      if (item.sgst > 0) {
-        await this.database.glEntries
-          .create({
-            entryNumber: `SRV-SGST-${returnRecord.returnNumber}`,
-            entryDate: returnRecord.returnDate,
-            accountName: 'SGST Input Account',
-            voucherType: 'sales_return',
-            voucherNumber: returnRecord.returnNumber,
-            debit: item.sgst,
-            credit: 0,
-            narration: `SGST reversal: ${returnRecord.returnNumber}`,
-            partyId: returnRecord.customerId,
-            createdBy: userId,
-            createdAt: now,
-          })
-          .catch((e) => this.logger.warn(`SGST reversal warning: ${e.message}`));
+        });
+      } catch (e) {
+        this.logger.warn(`GL entry warning: ${(e as Error).message}`);
       }
     }
 
-    // ── Customer Ledger: Reduce Outstanding ──
-    const grandTotal = Number(returnRecord.grandTotal || 0);
-    await this.database.ledgerMaster
-      .create({
-        customerId: returnRecord.customerId,
-        transactionType: 'sales_return',
-        transactionNo: returnRecord.returnNumber,
-        transactionDate: returnRecord.returnDate,
-        debit: 0,
-        credit: grandTotal,
-        runningBalance: -grandTotal,
-        financialYear: returnRecord.returnDate?.slice(0, 7) || new Date().toISOString().slice(0, 7),
-        createdAt: now,
-      })
-      .catch((e) => this.logger.warn(`Customer ledger warning: ${e.message}`));
+    // ── Customer Ledger: Reduce Outstanding (UPDATE existing row, don't create new) ──
+    try {
+      const customerLedger = await this.database.ledgerMaster
+        .findById(returnRecord.customerId)
+        .catch(() => null);
+      if (customerLedger) {
+        const currentBalance = Number(customerLedger.currentBalance || 0);
+        // Return reduces receivable: subtract grandTotal from the running balance
+        const newBalance = Math.round((currentBalance - grandTotal) * 100) / 100;
+        await this.database.ledgerMaster.update(customerLedger.id, {
+          currentBalance: newBalance,
+          updatedAt: now,
+        });
+        this.logger.log(
+          `Customer ledger updated: balance ${currentBalance} → ${newBalance} (return ${returnRecord.returnNumber})`,
+        );
+      } else {
+        this.logger.warn(
+          `Customer ledger row not found for ${returnRecord.customerId} — balance update skipped`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(`Customer ledger warning: ${(e as Error).message}`);
+    }
 
     // ── Update Status ──
     await this.database.salesReturns.update(returnId, {

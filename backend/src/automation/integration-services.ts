@@ -90,14 +90,25 @@ export class SalesFinanceIntegration {
     // Create GL entries
     const glEntries: Omit<PostingEntry, 'entryNumber'>[] = [];
 
-    // Debit: Customer/Receivable account
+    // Compute the full invoice amount — use item totals when available,
+    // fall back to the header grandTotal/totalAmount for empty-item invoices.
+    const invoiceAmount =
+      totalInvoiceAmount || Number(invoice.grandTotal || invoice.totalAmount || 0);
+
+    // When items are present, split credit across Sales + GST accounts.
+    // When items are empty, credit the full invoice amount to the Sales
+    // account (taxable = invoice amount, GST = 0) to keep the journal balanced.
+    const creditSalesAmount = totalTaxableValue || invoiceAmount;
+    const creditGstAmount = totalTaxableValue > 0 ? totalGstAmount : 0;
+
+    // Debit: Customer/Receivable account (full invoice amount)
     glEntries.push({
       entryDate: invoice.invoiceDate || new Date().toISOString().split('T')[0],
       accountId: customer?.accountId || invoice.customerId,
       voucherId: invoiceId,
       voucherType: 'sales_invoice',
       voucherNumber: invoice.invoiceNumber || invoice.documentNumber,
-      debit: totalInvoiceAmount || Number(invoice.grandTotal || invoice.totalAmount || 0),
+      debit: invoiceAmount,
       credit: 0,
       narration: `Sales invoice: ${invoice.invoiceNumber || invoice.documentNumber}`,
       partyId: invoice.customerId,
@@ -112,14 +123,14 @@ export class SalesFinanceIntegration {
       voucherType: 'sales_invoice',
       voucherNumber: invoice.invoiceNumber || invoice.documentNumber,
       debit: 0,
-      credit: totalTaxableValue,
+      credit: creditSalesAmount,
       narration: `Sales invoice: ${invoice.invoiceNumber || invoice.documentNumber}`,
       partyId: invoice.customerId,
       financialYearId: invoice.financialYearId,
     });
 
     // Credit: GST Output account
-    if (totalGstAmount > 0) {
+    if (creditGstAmount > 0) {
       const taxAccountId = settings.data?.[0]?.defaultTaxAccountId || invoice.taxAccountId;
       glEntries.push({
         entryDate: invoice.invoiceDate || new Date().toISOString().split('T')[0],
@@ -128,7 +139,7 @@ export class SalesFinanceIntegration {
         voucherType: 'sales_invoice',
         voucherNumber: invoice.invoiceNumber || invoice.documentNumber,
         debit: 0,
-        credit: totalGstAmount,
+        credit: creditGstAmount,
         narration: `GST on sales invoice: ${invoice.invoiceNumber || invoice.documentNumber}`,
         partyId: invoice.customerId,
         financialYearId: invoice.financialYearId,
