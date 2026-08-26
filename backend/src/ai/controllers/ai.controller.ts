@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -37,12 +48,20 @@ export class AiController {
   @ApiOperation({ summary: 'Chat with ERP AI Copilot' })
   @HttpCode(HttpStatus.OK)
   async chat(
-    @Body() body: { message: string; history?: Array<{ role: string; content: string }>; conversationId?: string },
+    @Body()
+    body: {
+      message: string;
+      history?: Array<{ role: string; content: string }>;
+      conversationId?: string;
+    },
     @CurrentUser('id') userId: string,
   ) {
     return this.copilotService.chat(
       body.message,
-      (body.history || []).map((h) => ({ role: h.role as 'user' | 'assistant', content: h.content })),
+      (body.history || []).map((h) => ({
+        role: h.role as 'user' | 'assistant',
+        content: h.content,
+      })),
       userId,
       body.conversationId,
     );
@@ -60,7 +79,9 @@ export class AiController {
   @Permissions('ai.chat')
   @ApiOperation({ summary: 'Explain a KPI using AI' })
   @HttpCode(HttpStatus.OK)
-  async explainKPI(@Body() body: { kpiName: string; value: number; trend: string; context: string }) {
+  async explainKPI(
+    @Body() body: { kpiName: string; value: number; trend: string; context: string },
+  ) {
     return this.copilotService.explainKPI(body.kpiName, body.value, body.trend, body.context);
   }
 
@@ -68,10 +89,7 @@ export class AiController {
   @Permissions('ai.query')
   @ApiOperation({ summary: 'Execute a natural language query' })
   @HttpCode(HttpStatus.OK)
-  async query(
-    @Body() body: { question: string },
-    @CurrentUser('id') userId: string,
-  ) {
+  async query(@Body() body: { question: string }, @CurrentUser('id') userId: string) {
     return this.nlQueryService.executeQuery(body.question, userId);
   }
 
@@ -128,8 +146,21 @@ export class AiController {
   @Permissions('ai.documents')
   @ApiOperation({ summary: 'Analyze a document using AI' })
   @HttpCode(HttpStatus.OK)
-  async analyzeDocument(@Body() body: { name: string; type: string; ocrText?: string; metadata?: Record<string, unknown> }) {
-    return this.documentAiService.analyzeDocument(body.name, body.type, body.ocrText, body.metadata);
+  async analyzeDocument(
+    @Body()
+    body: {
+      name: string;
+      type: string;
+      ocrText?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    return this.documentAiService.analyzeDocument(
+      body.name,
+      body.type,
+      body.ocrText,
+      body.metadata,
+    );
   }
 
   @Post('document/suggest-tags')
@@ -152,8 +183,14 @@ export class AiController {
   @Permissions('ai.automation')
   @ApiOperation({ summary: 'Suggest approval routing' })
   @HttpCode(HttpStatus.OK)
-  async suggestApprovalRouting(@Body() body: { amount: number; department: string; module: string }) {
-    return this.smartAutomationService.suggestApprovalRouting(body.amount, body.department, body.module);
+  async suggestApprovalRouting(
+    @Body() body: { amount: number; department: string; module: string },
+  ) {
+    return this.smartAutomationService.suggestApprovalRouting(
+      body.amount,
+      body.department,
+      body.module,
+    );
   }
 
   @Get('health')
@@ -186,8 +223,12 @@ export class AiController {
   @Get('conversations/:id')
   @Permissions('ai.chat')
   @ApiOperation({ summary: 'Get conversation history' })
-  async getConversation(@Param('id') id: string) {
-    return this.conversationService.getConversation(id);
+  async getConversation(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    const conv = this.conversationService.getConversation(id);
+    if (!conv || conv.userId !== userId) {
+      return null;
+    }
+    return conv;
   }
 
   @Delete('conversations/:id')
@@ -195,7 +236,11 @@ export class AiController {
   @Permissions('ai.chat')
   @ApiOperation({ summary: 'Delete a conversation' })
   @HttpCode(HttpStatus.OK)
-  async deleteConversation(@Param('id') id: string) {
+  async deleteConversation(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    const conv = this.conversationService.getConversation(id);
+    if (!conv || conv.userId !== userId) {
+      return { deleted: false };
+    }
     return { deleted: this.conversationService.deleteConversation(id) };
   }
 

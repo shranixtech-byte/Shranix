@@ -310,6 +310,7 @@ export const sqlitePurchaseInvoices = sqliteTableBase(
     balanceAmount: sqliteReal('balance_amount').notNull().default(0),
     paymentStatus: sqliteText('payment_status').notNull().default('unpaid'), // unpaid, partial, paid
     notes: sqliteText('notes'),
+    branchId: sqliteText('branch_id'),
     financialYearId: sqliteText('financial_year_id'),
   },
   (table) => ({ invoiceNumberIdx: uniqueIndex('pi_number_idx').on(table.invoiceNumber) }),
@@ -336,6 +337,7 @@ export const pgPurchaseInvoices = pgTableBase(
     balanceAmount: pgReal('balance_amount').notNull().default(0),
     paymentStatus: pgText('payment_status').notNull().default('unpaid'),
     notes: pgText('notes'),
+    branchId: pgUuid('branch_id'),
     financialYearId: pgUuid('financial_year_id'),
   },
   (table) => ({ invoiceNumberIdx: pgUniqueIndex('pi_number_idx').on(table.invoiceNumber) }),

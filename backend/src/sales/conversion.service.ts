@@ -395,6 +395,7 @@ export class DocumentConversionService {
           paymentStatus: isCredit ? 'unpaid' : 'paid',
           paymentTerms,
           notes: `Converted from challan ${challan.challanNumber} (order ${order.orderNumber})`,
+          branchId: order.branchId || null,
           financialYearId: order.financialYearId || null,
           createdBy: userId || 'system',
         }),

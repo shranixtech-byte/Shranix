@@ -131,6 +131,7 @@ export const pgSalesQuotations = pgTableBase(
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({ quoteNumberIdx: pgUniqueIndex('sq_quote_number_idx').on(table.quoteNumber) }),
 );
 
@@ -269,6 +270,7 @@ export const pgSalesOrders = pgTableBase(
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({ orderNumberIdx: pgUniqueIndex('so_order_number_idx').on(table.orderNumber) }),
 );
 
@@ -384,9 +386,11 @@ export const pgDeliveryChallans = pgTableBase(
     status: pgText('status').notNull().default('pending'),
     notes: pgText('notes'),
     financialYearId: pgUuid('financial_year_id'),
+    branchId: pgUuid('branch_id'),
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({ challanNumberIdx: pgUniqueIndex('dc_challan_number_idx').on(table.challanNumber) }),
 );
 
@@ -459,6 +463,7 @@ export const sqliteSalesInvoices = sqliteTableBase(
     paymentTerms: sqliteText('payment_terms').notNull().default('cash'),
     notes: sqliteText('notes'),
     financialYearId: sqliteText('financial_year_id'),
+    branchId: sqliteText('branch_id'),
     createdBy: sqliteText('created_by'),
     updatedBy: sqliteText('updated_by'),
   },
@@ -490,9 +495,11 @@ export const pgSalesInvoices = pgTableBase(
     paymentTerms: pgText('payment_terms').notNull().default('cash'),
     notes: pgText('notes'),
     financialYearId: pgUuid('financial_year_id'),
+    branchId: pgUuid('branch_id'),
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({ invoiceNumberIdx: pgUniqueIndex('si_number_idx').on(table.invoiceNumber) }),
 );
 
@@ -590,9 +597,11 @@ export const pgSalesReturns = pgTableBase(
     approvedAt: pgTimestamp('approved_at', { withTimezone: true }),
     notes: pgText('notes'),
     financialYearId: pgUuid('financial_year_id'),
+    branchId: pgUuid('branch_id'),
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({ returnNumberIdx: pgUniqueIndex('sr_number_idx').on(table.returnNumber) }),
 );
 
@@ -1239,9 +1248,11 @@ export const pgSalesPayments = pgTableBase(
     notes: pgText('notes'),
     status: pgText('status').notNull().default('completed'),
     isAdvance: pgBoolean('is_advance').notNull().default(false),
+    branchId: pgUuid('branch_id'),
     createdBy: pgUuid('created_by'),
     updatedBy: pgUuid('updated_by'),
   },
+
   (table) => ({
     paymentNumberIdx: pgUniqueIndex('sp_payment_number_idx').on(table.paymentNumber),
     paymentInvoiceIdx: pgIndex('sp_payment_invoice_idx').on(table.invoiceId),
