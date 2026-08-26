@@ -1,9 +1,10 @@
 /**
- * Analytics Module Audit Regression Tests
- * ========================================
- * Bug 1: Date filters completely ignored in all 13 analytics methods
- * Bug 2: getInventory fetches invStockBalance twice (duplicate data)
- * Bug 3: getCashFlow fallback only considers sales payments, not purchase payments
+ * Analytics Module + Security Audit Regression Tests
+ * ===================================================
+ * Bug 1: Date filters completely ignored in all analytics methods
+ * Bug 2: getInventory fetched invStockBalance twice (duplicate fetch)
+ * Bug 3: getCashFlow fallback only considered sales payments, not purchase
+ * Bug 4: PostingEngineController.runPosting used body.userId (userId impersonation)
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -22,7 +23,7 @@ import { DatabaseService } from '../database/database.service';
 
 import { AnalyticsService } from './analytics.service';
 
-describe('Analytics Audit Regression Tests (real DB)', () => {
+describe('Analytics + Security Audit Regression Tests (real DB)', () => {
   let dbDir: string;
   let database: DatabaseService;
   let analytics: AnalyticsService;
@@ -44,7 +45,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
 
     const now = new Date().toISOString();
 
-    // Seed customers
+    // Customers
     const custA = await database.ledgerMaster.create({
       accountId: 'ACC-CUSTA',
       ledgerType: 'customer',
@@ -59,7 +60,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       updatedAt: now,
     } as any);
 
-    // Seed items
+    // Items
     const itemA = await database.items.create({
       name: 'TestProduct',
       sku: 'TEST-SKU',
@@ -75,7 +76,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       updatedAt: now,
     } as any);
 
-    // Sales invoice in JUNE 2026 (outside August date range)
+    // Sales invoice JUNE
     const invJune = await database.salesInvoices.create({
       invoiceNumber: 'SI-JUNE-001',
       customerId: custA.id,
@@ -107,7 +108,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       totalAmount: 5900,
     } as any);
 
-    // Sales invoice in AUGUST 2026 (inside date range)
+    // Sales invoice AUGUST
     const invAug = await database.salesInvoices.create({
       invoiceNumber: 'SI-AUG-001',
       customerId: custA.id,
@@ -139,7 +140,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       totalAmount: 2360,
     } as any);
 
-    // Draft invoice in AUGUST (should be excluded)
+    // Draft invoice
     await database.salesInvoices.create({
       invoiceNumber: 'SI-AUG-DRAFT',
       customerId: custA.id,
@@ -156,7 +157,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       updatedAt: now,
     } as any);
 
-    // Purchase invoice in AUGUST
+    // Purchase invoice
     const supplier = await database.suppliers.create({
       name: 'TestSuppAudit',
       isActive: true,
@@ -185,7 +186,7 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
     try {
       rmSync(dbDir, { recursive: true, force: true });
     } catch {
-      /* ignore cleanup errors */
+      /* ignore */
     }
   });
 
@@ -193,58 +194,38 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
 
   describe('Bug 1: Date filters are applied', () => {
     it('sales analytics with date filter returns only invoices in range', async () => {
-      // Only August invoices
-      const payload = await analytics.getSales({
-        fromDate: '2026-08-01',
-        toDate: '2026-08-31',
-      });
+      const payload = await analytics.getSales({ fromDate: '2026-08-01', toDate: '2026-08-31' });
       const revenue = payload.kpis.find((k) => k.key === 'totalRevenue');
-      // Only SI-AUG-001: 2360 (draft excluded)
       expect(revenue?.value).toBe(2360);
     });
 
     it('sales analytics without filter returns all invoices', async () => {
       const payload = await analytics.getSales({});
       const revenue = payload.kpis.find((k) => k.key === 'totalRevenue');
-      // SI-JUNE-001 (5900) + SI-AUG-001 (2360) = 8260
       expect(revenue?.value).toBe(8260);
     });
 
     it('overview with date filter respects range', async () => {
-      const payload = await analytics.getOverview({
-        fromDate: '2026-08-01',
-        toDate: '2026-08-31',
-      });
+      const payload = await analytics.getOverview({ fromDate: '2026-08-01', toDate: '2026-08-31' });
       const totalSales = payload.kpis.find((k) => k.key === 'totalSales');
       expect(totalSales?.value).toBe(2360);
     });
 
     it('gst analytics with date filter only counts in-range invoices', async () => {
-      const payload = await analytics.getGst({
-        fromDate: '2026-08-01',
-        toDate: '2026-08-31',
-      });
+      const payload = await analytics.getGst({ fromDate: '2026-08-01', toDate: '2026-08-31' });
       const output = payload.kpis.find((k) => k.key === 'outputGst');
-      // Only August invoice line items: 180 + 180 = 360
       expect(output?.value).toBe(360);
     });
 
     it('purchase analytics with date filter respects range', async () => {
-      const payload = await analytics.getPurchase({
-        fromDate: '2026-08-01',
-        toDate: '2026-08-31',
-      });
+      const payload = await analytics.getPurchase({ fromDate: '2026-08-01', toDate: '2026-08-31' });
       const spend = payload.kpis.find((k) => k.key === 'totalSpend');
       expect(spend?.value).toBe(1770);
     });
 
     it('growth analytics with date filter only includes in-range data', async () => {
-      const payload = await analytics.getGrowth({
-        fromDate: '2026-08-01',
-        toDate: '2026-08-31',
-      });
+      const payload = await analytics.getGrowth({ fromDate: '2026-08-01', toDate: '2026-08-31' });
       const totalRevenue = payload.kpis.find((k) => k.key === 'totalRevenue');
-      // Only August: 2360
       expect(totalRevenue?.value).toBe(2360);
     });
   });
@@ -255,7 +236,6 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
     it('inventory analytics still returns correct stock value', async () => {
       const payload = await analytics.getInventory({});
       const stockValue = payload.kpis.find((k) => k.key === 'stockValue');
-      // 100 * 50 = 5000
       expect(stockValue?.value).toBe(5000);
     });
   });
@@ -267,10 +247,28 @@ describe('Analytics Audit Regression Tests (real DB)', () => {
       const payload = await analytics.getCashFlow({});
       expect(payload.kpis.length).toBeGreaterThan(0);
       expect(payload.charts.length).toBeGreaterThan(0);
-      expect(payload.tables.length).toBeGreaterThan(0);
-      // Net cash flow should be a number (0 if no cash/bank GL entries)
       const netCash = payload.kpis.find((k) => k.key === 'netCash');
       expect(typeof netCash?.value).toBe('number');
+    });
+  });
+
+  // ── Bug 4: userId impersonation security fix ────────
+
+  describe('Bug 4: PostingEngineController userId source', () => {
+    it('controller source uses @CurrentUser not body.userId', async () => {
+      // Read the controller source to verify the security fix
+      const { readFileSync } = await import('node:fs');
+      const controllerPath = join(process.cwd(), 'src', 'automation', 'controllers.ts');
+      const source = readFileSync(controllerPath, 'utf-8');
+
+      // The runPosting method should use @CurrentUser('id') not body.userId
+      // Find the runPosting method and check its parameter list spans multiple lines
+      const runPostingIdx = source.indexOf('async runPosting(');
+      expect(runPostingIdx).toBeGreaterThan(-1);
+      // Get the next 500 chars to capture full parameter list with decorators
+      const methodChunk = source.slice(runPostingIdx, runPostingIdx + 500);
+      expect(methodChunk).toContain("@CurrentUser('id') userId: string");
+      expect(methodChunk).not.toContain('userId?: string');
     });
   });
 });

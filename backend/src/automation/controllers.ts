@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -31,11 +41,18 @@ export class PostingEngineController {
   @Roles('admin', 'manager', 'accountant')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'journal_entry', documentIdParam: 'id', message: 'Journal entries require approval before posting to GL' })
+  @ApprovalRequired({
+    documentType: 'journal_entry',
+    documentIdParam: 'id',
+    message: 'Journal entries require approval before posting to GL',
+  })
   @ApiOperation({ summary: 'Post GL entries with double-entry validation' })
   @HttpCode(HttpStatus.OK)
-  async runPosting(@Body() body: { entries: any[]; userId?: string; financialYearId?: string }) {
-    return this.engine.postEntries(body.entries, { userId: body.userId, financialYearId: body.financialYearId });
+  async runPosting(
+    @Body() body: { entries: any[]; financialYearId?: string },
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.engine.postEntries(body.entries, { userId, financialYearId: body.financialYearId });
   }
 
   @Post('preview')
@@ -51,10 +68,17 @@ export class PostingEngineController {
   @Roles('admin')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'journal_entry', documentIdParam: 'voucherId', message: 'Reversal requires approval' })
+  @ApprovalRequired({
+    documentType: 'journal_entry',
+    documentIdParam: 'voucherId',
+    message: 'Reversal requires approval',
+  })
   @ApiOperation({ summary: 'Reverse previously posted entries' })
   @HttpCode(HttpStatus.OK)
-  async reversePosting(@Body() body: { voucherId: string; reason?: string }, @CurrentUser() u: { id: string }) {
+  async reversePosting(
+    @Body() body: { voucherId: string; reason?: string },
+    @CurrentUser() u: { id: string },
+  ) {
     return this.engine.reverseEntries(body.voucherId, { userId: u?.id, reason: body.reason });
   }
 
@@ -80,7 +104,15 @@ export class GstEngineController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Calculate GST for a line item' })
   @HttpCode(HttpStatus.OK)
-  async calculateGst(@Body() body: { taxableValue: number; gstRate: number; supplyType: string; cessPercent?: number }) {
+  async calculateGst(
+    @Body()
+    body: {
+      taxableValue: number;
+      gstRate: number;
+      supplyType: string;
+      cessPercent?: number;
+    },
+  ) {
     return this.engine.calculateGst({ ...body, supplyType: body.supplyType as any });
   }
 
@@ -98,7 +130,11 @@ export class GstEngineController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Get GST summary for a period' })
   @HttpCode(HttpStatus.OK)
-  async gstSummary(@Query('fromDate') fromDate?: string, @Query('toDate') toDate?: string, @Query('gstin') gstin?: string) {
+  async gstSummary(
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+    @Query('gstin') gstin?: string,
+  ) {
     return this.engine.getGstSummary({ fromDate, toDate, gstin });
   }
 }
@@ -115,8 +151,20 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Trial Balance from GL data' })
   @HttpCode(HttpStatus.OK)
-  async trialBalance(@Query('financialYearId') fy?: string, @Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('branchId') branch?: string, @Query('costCenterId') cc?: string) {
-    return this.reportEngine.generateTrialBalance({ financialYearId: fy, fromDate: from, toDate: to, branchId: branch, costCenterId: cc });
+  async trialBalance(
+    @Query('financialYearId') fy?: string,
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('branchId') branch?: string,
+    @Query('costCenterId') cc?: string,
+  ) {
+    return this.reportEngine.generateTrialBalance({
+      financialYearId: fy,
+      fromDate: from,
+      toDate: to,
+      branchId: branch,
+      costCenterId: cc,
+    });
   }
 
   @Get('profit-loss')
@@ -124,8 +172,20 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Profit & Loss from GL data' })
   @HttpCode(HttpStatus.OK)
-  async profitLoss(@Query('financialYearId') fy?: string, @Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('branchId') branch?: string, @Query('costCenterId') cc?: string) {
-    return this.reportEngine.generateProfitLoss({ financialYearId: fy, fromDate: from, toDate: to, branchId: branch, costCenterId: cc });
+  async profitLoss(
+    @Query('financialYearId') fy?: string,
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('branchId') branch?: string,
+    @Query('costCenterId') cc?: string,
+  ) {
+    return this.reportEngine.generateProfitLoss({
+      financialYearId: fy,
+      fromDate: from,
+      toDate: to,
+      branchId: branch,
+      costCenterId: cc,
+    });
   }
 
   @Get('balance-sheet')
@@ -133,8 +193,18 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Balance Sheet from GL data' })
   @HttpCode(HttpStatus.OK)
-  async balanceSheet(@Query('financialYearId') fy?: string, @Query('asOnDate') asOn?: string, @Query('branchId') branch?: string, @Query('comparativeYear') compYear?: string) {
-    return this.reportEngine.generateBalanceSheet({ financialYearId: fy, asOnDate: asOn, branchId: branch, comparativeYear: compYear });
+  async balanceSheet(
+    @Query('financialYearId') fy?: string,
+    @Query('asOnDate') asOn?: string,
+    @Query('branchId') branch?: string,
+    @Query('comparativeYear') compYear?: string,
+  ) {
+    return this.reportEngine.generateBalanceSheet({
+      financialYearId: fy,
+      asOnDate: asOn,
+      branchId: branch,
+      comparativeYear: compYear,
+    });
   }
 
   @Get('cash-flow')
@@ -142,7 +212,11 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Cash Flow Statement from GL data' })
   @HttpCode(HttpStatus.OK)
-  async cashFlow(@Query('financialYearId') fy?: string, @Query('fromDate') from?: string, @Query('toDate') to?: string) {
+  async cashFlow(
+    @Query('financialYearId') fy?: string,
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+  ) {
     return this.reportEngine.generateCashFlow({ financialYearId: fy, fromDate: from, toDate: to });
   }
 
@@ -151,7 +225,11 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Day Book from GL entries' })
   @HttpCode(HttpStatus.OK)
-  async dayBook(@Query('date') date: string, @Query('voucherType') vt?: string, @Query('branchId') branch?: string) {
+  async dayBook(
+    @Query('date') date: string,
+    @Query('voucherType') vt?: string,
+    @Query('branchId') branch?: string,
+  ) {
     return this.reportEngine.generateDayBook({ date, voucherType: vt, branchId: branch });
   }
 
@@ -160,7 +238,11 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Account Statement from GL data' })
   @HttpCode(HttpStatus.OK)
-  async accountStatement(@Query('accountId') accountId: string, @Query('fromDate') from?: string, @Query('toDate') to?: string) {
+  async accountStatement(
+    @Query('accountId') accountId: string,
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+  ) {
     return this.reportEngine.generateAccountStatement({ accountId, fromDate: from, toDate: to });
   }
 
@@ -169,8 +251,18 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate General Ledger' })
   @HttpCode(HttpStatus.OK)
-  async generalLedger(@Query('financialYearId') fy?: string, @Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('accountId') acct?: string) {
-    return this.reportEngine.generateGeneralLedger({ financialYearId: fy, fromDate: from, toDate: to, accountId: acct });
+  async generalLedger(
+    @Query('financialYearId') fy?: string,
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('accountId') acct?: string,
+  ) {
+    return this.reportEngine.generateGeneralLedger({
+      financialYearId: fy,
+      fromDate: from,
+      toDate: to,
+      accountId: acct,
+    });
   }
 
   @Get('gst-register')
@@ -178,7 +270,12 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate GST Register' })
   @HttpCode(HttpStatus.OK)
-  async gstRegister(@Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('gstType') gstType?: string, @Query('gstin') gstin?: string) {
+  async gstRegister(
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('gstType') gstType?: string,
+    @Query('gstin') gstin?: string,
+  ) {
     return this.reportEngine.generateGstRegister({ fromDate: from, toDate: to, gstType, gstin });
   }
 
@@ -187,7 +284,11 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate GST Summary' })
   @HttpCode(HttpStatus.OK)
-  async gstSummary(@Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('gstin') gstin?: string) {
+  async gstSummary(
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('gstin') gstin?: string,
+  ) {
     return this.reportEngine.generateGstSummary({ fromDate: from, toDate: to, gstin });
   }
 
@@ -196,8 +297,20 @@ export class ReportsController {
   @Permissions('finance.read')
   @ApiOperation({ summary: 'Generate Audit Report' })
   @HttpCode(HttpStatus.OK)
-  async auditReport(@Query('fromDate') from?: string, @Query('toDate') to?: string, @Query('userId') userId?: string, @Query('module') mod?: string, @Query('action') action?: string) {
-    return this.reportEngine.generateAuditReport({ fromDate: from, toDate: to, userId, module: mod, action });
+  async auditReport(
+    @Query('fromDate') from?: string,
+    @Query('toDate') to?: string,
+    @Query('userId') userId?: string,
+    @Query('module') mod?: string,
+    @Query('action') action?: string,
+  ) {
+    return this.reportEngine.generateAuditReport({
+      fromDate: from,
+      toDate: to,
+      userId,
+      module: mod,
+      action,
+    });
   }
 
   @Post('recalculate')
@@ -207,9 +320,15 @@ export class ReportsController {
   @HttpCode(HttpStatus.OK)
   async recalculateReports(@Body() body: { financialYearId?: string }) {
     return {
-      trialBalance: await this.reportEngine.generateTrialBalance({ financialYearId: body.financialYearId }),
-      profitLoss: await this.reportEngine.generateProfitLoss({ financialYearId: body.financialYearId }),
-      balanceSheet: await this.reportEngine.generateBalanceSheet({ financialYearId: body.financialYearId }),
+      trialBalance: await this.reportEngine.generateTrialBalance({
+        financialYearId: body.financialYearId,
+      }),
+      profitLoss: await this.reportEngine.generateProfitLoss({
+        financialYearId: body.financialYearId,
+      }),
+      balanceSheet: await this.reportEngine.generateBalanceSheet({
+        financialYearId: body.financialYearId,
+      }),
     };
   }
 }
@@ -232,7 +351,11 @@ export class IntegrationController {
   @Roles('admin', 'manager')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'sales_invoice', documentIdParam: 'id', message: 'Sales invoice requires approval before posting to GL' })
+  @ApprovalRequired({
+    documentType: 'sales_invoice',
+    documentIdParam: 'id',
+    message: 'Sales invoice requires approval before posting to GL',
+  })
   @ApiOperation({ summary: 'Post sales invoice to GL' })
   @HttpCode(HttpStatus.OK)
   async postSalesInvoice(@Param('id') id: string, @CurrentUser() u: { id: string }) {
@@ -252,7 +375,11 @@ export class IntegrationController {
   @Roles('admin', 'manager')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'purchase_invoice', documentIdParam: 'id', message: 'Purchase invoice requires approval before posting to GL' })
+  @ApprovalRequired({
+    documentType: 'purchase_invoice',
+    documentIdParam: 'id',
+    message: 'Purchase invoice requires approval before posting to GL',
+  })
   @ApiOperation({ summary: 'Post purchase invoice to GL' })
   @HttpCode(HttpStatus.OK)
   async postPurchaseInvoice(@Param('id') id: string, @CurrentUser() u: { id: string }) {
@@ -272,7 +399,11 @@ export class IntegrationController {
   @Roles('admin', 'manager')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'goods_receipt', documentIdParam: 'id', message: 'GRN requires approval before posting to GL' })
+  @ApprovalRequired({
+    documentType: 'goods_receipt',
+    documentIdParam: 'id',
+    message: 'GRN requires approval before posting to GL',
+  })
   @ApiOperation({ summary: 'Post goods receipt to GL' })
   @HttpCode(HttpStatus.OK)
   async postGoodsReceipt(@Param('id') id: string, @CurrentUser() u: { id: string }) {
@@ -283,7 +414,11 @@ export class IntegrationController {
   @Roles('admin', 'manager')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'stock_issue', documentIdParam: 'id', message: 'Stock issue requires approval before posting to GL' })
+  @ApprovalRequired({
+    documentType: 'stock_issue',
+    documentIdParam: 'id',
+    message: 'Stock issue requires approval before posting to GL',
+  })
   @ApiOperation({ summary: 'Post goods issue to GL' })
   @HttpCode(HttpStatus.OK)
   async postGoodsIssue(@Param('id') id: string, @CurrentUser() u: { id: string }) {
@@ -321,17 +456,27 @@ export class IntegrationController {
   @Roles('admin')
   @Permissions('finance.create')
   @UseGuards(ApprovalGuard)
-  @ApprovalRequired({ documentType: 'year_closing', documentIdParam: 'financialYearId', message: 'Year-end closing requires approval' })
+  @ApprovalRequired({
+    documentType: 'year_closing',
+    documentIdParam: 'financialYearId',
+    message: 'Year-end closing requires approval',
+  })
   @ApiOperation({ summary: 'Execute financial year closing' })
   @HttpCode(HttpStatus.OK)
-  async executeClosing(@Body() body: { financialYearId: string; closingType: string }, @CurrentUser() _u?: { id: string }) {
+  async executeClosing(
+    @Body() body: { financialYearId: string; closingType: string },
+    @CurrentUser() _u?: { id: string },
+  ) {
     return {
       success: true,
       message: 'Financial year closing executed',
       params: body,
       closingResult: {
-        revenueAccountsClosed: 0, expenseAccountsClosed: 0, profitTransferred: 0,
-        retainedEarningsUpdated: true, openingBalancesCreated: true,
+        revenueAccountsClosed: 0,
+        expenseAccountsClosed: 0,
+        profitTransferred: 0,
+        retainedEarningsUpdated: true,
+        openingBalancesCreated: true,
       },
     };
   }
@@ -386,9 +531,13 @@ export class SchedulerController {
   @ApiOperation({ summary: 'Manually trigger auto-posting' })
   @HttpCode(HttpStatus.OK)
   async triggerAutoPost() {
-    const job = await this.scheduler.schedulePostingJob('Manual auto-posting', 'auto_post', async () => {
-      return { posted: true, timestamp: new Date().toISOString() };
-    });
+    const job = await this.scheduler.schedulePostingJob(
+      'Manual auto-posting',
+      'auto_post',
+      async () => {
+        return { posted: true, timestamp: new Date().toISOString() };
+      },
+    );
     return job;
   }
 }
@@ -398,9 +547,7 @@ export class SchedulerController {
 @UseGuards(JwtAuthGuard)
 @Controller('automation/dashboard')
 export class AutomationDashboardController {
-  constructor(
-    private readonly scheduler: FinancialScheduler,
-  ) {}
+  constructor(private readonly scheduler: FinancialScheduler) {}
 
   @Get()
   @Roles('admin', 'manager', 'accountant')
