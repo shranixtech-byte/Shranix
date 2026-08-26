@@ -15,6 +15,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { FinancialClosingEngineService } from '../gst_audit/services';
 import { ApprovalGuard, ApprovalRequired } from '../workflow/guards/approval.guard';
 
 import { FinancialScheduler } from './financial-scheduler';
@@ -345,6 +346,7 @@ export class IntegrationController {
     private readonly payroll: PayrollFinanceIntegration,
     private readonly expense: ExpenseFinanceIntegration,
     private readonly bank: BankFinanceIntegration,
+    private readonly financialClosing: FinancialClosingEngineService,
   ) {}
 
   @Post('sales/invoice/:id')
@@ -465,22 +467,13 @@ export class IntegrationController {
   @HttpCode(HttpStatus.OK)
   async executeClosing(
     @Body() body: { financialYearId: string; closingType: string },
-    @CurrentUser() _u?: { id: string },
+    @CurrentUser('id') userId?: string,
   ) {
-    return {
-      success: false,
-      implemented: false,
-      message:
-        'Financial year closing is not yet implemented. Revenue accounts, expense accounts, profit transfer, retained earnings, and opening balance creation require a full closing workflow.',
-      params: body,
-      closingResult: {
-        revenueAccountsClosed: 0,
-        expenseAccountsClosed: 0,
-        profitTransferred: 0,
-        retainedEarningsUpdated: false,
-        openingBalancesCreated: false,
-      },
-    };
+    return this.financialClosing.closeYear({
+      financialYearId: body.financialYearId,
+      closingType: body.closingType || 'full',
+      userId,
+    });
   }
 }
 

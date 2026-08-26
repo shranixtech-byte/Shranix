@@ -2,7 +2,7 @@
  * Automation Module Audit Regression Tests
  * =========================================
  * 1. GL entry number generation uses findMaxSequenceForPrefix (not count()+1)
- * 2. Financial year closing returns explicit NOT_IMPLEMENTED
+ * 2. Financial year closing uses real FinancialClosingEngineService
  */
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -59,31 +59,54 @@ describe('Automation Audit Regression Tests (real DB)', () => {
     });
   });
 
-  describe('Financial year closing', () => {
-    it('FinancialClosingEngineService returns NOT_IMPLEMENTED', async () => {
-      const { FinancialClosingEngineService } = await import('../gst_audit/services');
-      const service = new FinancialClosingEngineService();
-      const result = await service.closeYear({
-        financialYearId: 'test-fy',
-        closingType: 'full',
-        userId: 'test-user',
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.implemented).toBe(false);
-      expect(result.message).toContain('not yet implemented');
-      expect(result.closingResult.retainedEarningsUpdated).toBe(false);
-      expect(result.closingResult.openingBalancesCreated).toBe(false);
+  describe('Financial year closing - real implementation', () => {
+    it('FinancialClosingEngineService has real closing logic (not a stub)', () => {
+      const filePath = join(process.cwd(), 'src', 'gst_audit', 'services.ts');
+      const source = readFileSync(filePath, 'utf-8');
+      // Should contain real closing implementation
+      expect(source).toContain('year_end_closing');
+      expect(source).toContain('year_end_transfer');
+      expect(source).toContain('retainedEarnings');
+      // Should NOT contain the old stub
+      expect(source).not.toContain('not yet implemented');
     });
 
-    it('automation controller closing returns NOT_IMPLEMENTED', () => {
+    it('FinancialClosingEngineService validates FY exists', async () => {
+      const { FinancialClosingEngineService } = await import('../gst_audit/services');
+      const mockDatabase = {
+        financialYears: { findById: async () => null },
+      };
+      const service = new FinancialClosingEngineService(mockDatabase as any);
+      await expect(
+        service.closeYear({ financialYearId: 'nonexistent', closingType: 'full' }),
+      ).rejects.toThrow('not found');
+    });
+
+    it('FinancialClosingEngineService rejects already closed FY', async () => {
+      const { FinancialClosingEngineService } = await import('../gst_audit/services');
+      const mockDatabase = {
+        financialYears: {
+          findById: async () => ({
+            id: 'fy-1',
+            name: 'FY 2025-26',
+            isClosed: true,
+            startDate: '2025-04-01',
+            endDate: '2026-03-31',
+          }),
+        },
+      };
+      const service = new FinancialClosingEngineService(mockDatabase as any);
+      const result = await service.closeYear({ financialYearId: 'fy-1', closingType: 'full' });
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('already closed');
+    });
+
+    it('automation controller closing uses real service', () => {
       const filePath = join(process.cwd(), 'src', 'automation', 'controllers.ts');
       const source = readFileSync(filePath, 'utf-8');
-      // Should NOT have the old fake success response
-      expect(source).not.toMatch(/success:\s*true.*Financial year closing executed/);
-      // Should have the NOT_IMPLEMENTED response
-      expect(source).toContain('implemented: false');
-      expect(source).toContain('not yet implemented');
+      expect(source).toContain('FinancialClosingEngineService');
+      expect(source).toContain('this.financialClosing.closeYear');
+      expect(source).not.toMatch(/implemented:\s*false/);
     });
   });
 });

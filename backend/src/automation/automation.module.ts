@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 
 import { AuditService } from '../common/services/audit.service';
 import { DatabaseService } from '../database/database.service';
+import { FinancialClosingEngineService } from '../gst_audit/services';
 import { WorkflowModule } from '../workflow/workflow.module';
 
 import {
@@ -50,6 +51,7 @@ import { TransactionManager } from './transaction.manager';
     BankFinanceIntegration,
     DatabaseService,
     AuditService,
+    FinancialClosingEngineService,
   ],
   exports: [
     TransactionManager,
