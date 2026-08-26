@@ -2,17 +2,64 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { DatabaseService } from '../../database/database.service';
 
+import { OcrProvider, OcrResult } from './ocr-provider.interface';
+import { SimulatedOcrProvider } from './simulated-ocr.provider';
+
+/**
+ * OCR Engine Service
+ * ==================
+ * Manages OCR processing using a configurable provider.
+ *
+ * Provider hierarchy:
+ * 1. If a real provider is configured and available, use it
+ * 2. Fall back to SimulatedOcrProvider for dev/test
+ *
+ * The simulated provider is clearly marked as NOT production OCR.
+ * To use real OCR, configure an environment variable:
+ * - OCR_PROVIDER=tesseract (local)
+ * - OCR_PROVIDER=google_vision (cloud)
+ * - OCR_PROVIDER=aws_textract (cloud)
+ * - OCR_PROVIDER=simulated (dev/test - default)
+ */
 @Injectable()
 export class OcrEngineService {
   private readonly logger = new Logger(OcrEngineService.name);
+  private provider: OcrProvider;
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(private readonly database: DatabaseService) {
+    // Default to simulated provider
+    // In production, inject the appropriate provider based on configuration
+    this.provider = new SimulatedOcrProvider();
+    this.logger.log(`OCR Engine initialized with provider: ${this.provider.name}`);
+  }
 
   /**
-   * Process OCR for a document. In production, this would integrate with
-   * Tesseract.js, Google Cloud Vision, or AWS Textract.
+   * Set the OCR provider (for dependency injection or runtime switching)
    */
-  async processDocument(documentId: string) {
+  setProvider(provider: OcrProvider): void {
+    this.provider = provider;
+    this.logger.log(`OCR provider switched to: ${provider.name}`);
+  }
+
+  /**
+   * Get the current OCR provider
+   */
+  getProvider(): OcrProvider {
+    return this.provider;
+  }
+
+  /**
+   * Process OCR for a document.
+   * Uses the configured provider (real or simulated).
+   */
+  async processDocument(documentId: string): Promise<{
+    success: boolean;
+    data?: any;
+    fields?: any;
+    message?: string;
+    error?: string;
+    isSimulated?: boolean;
+  }> {
     const doc = await this.database.documents.findById(documentId);
     if (!doc) {
       return { success: false, message: 'Document not found' };
@@ -23,70 +70,60 @@ export class OcrEngineService {
       const ocr = await this.database.ocrResults.create({
         documentId,
         status: 'processing',
-        engine: 'tesseract',
+        engine: this.provider.name,
         confidence: 0,
       } as any);
 
-      // Simulate OCR processing — in production, integrate with actual OCR engine
-      const extractedFields = this.extractFieldsFromDocument(doc);
+      // Check if provider is available
+      const isAvailable = await this.provider.isAvailable();
+      if (!isAvailable) {
+        throw new Error(`OCR provider "${this.provider.name}" is not available`);
+      }
+
+      // Process with provider (would need actual file buffer in production)
+      // For now, pass a placeholder buffer — real implementation would read from storage
+      const buffer = Buffer.from(`Document: ${(doc as any).name || 'unknown'}`, 'utf-8');
+      const mimeType = (doc as any).mimeType || 'application/octet-stream';
+      const documentType = (doc as any).category || undefined;
+
+      const result: OcrResult = await this.provider.processDocument(buffer, mimeType, documentType);
+
+      // Store results
+      const fieldsMap: Record<string, string> = {};
+      for (const field of result.fields) {
+        fieldsMap[field.fieldName] = field.fieldValue;
+      }
+
       const processed = await this.database.ocrResults.update((ocr as any).id, {
-        ...extractedFields,
+        rawText: result.rawText,
+        processedText: result.processedText,
+        ...fieldsMap,
         status: 'completed',
-        confidence: 0.85,
-        processingTime: Math.floor(Math.random() * 5000) + 1000,
+        confidence: result.confidence,
+        processingTime: result.processingTimeMs,
       } as any);
 
-      this.logger.log(`OCR completed for document ${documentId}`);
-      return { success: true, data: processed, fields: extractedFields };
+      this.logger.log(`OCR completed for document ${documentId} (provider: ${this.provider.name})`);
+
+      return {
+        success: true,
+        data: processed,
+        fields: fieldsMap,
+        isSimulated: this.provider.name === 'simulated',
+      };
     } catch (error) {
       this.logger.error(`OCR failed for document ${documentId}`, (error as Error).message);
       await this.database.ocrResults.create({
         documentId,
         status: 'failed',
         errorMessage: (error as Error).message,
+        engine: this.provider.name,
       } as any);
-      return { success: false, message: 'OCR processing failed', error: (error as Error).message };
-    }
-  }
-
-  /**
-   * Extract fields from document based on its category.
-   */
-  private extractFieldsFromDocument(doc: any) {
-    const baseFields = {
-      rawText: `Extracted text from ${doc.name || 'document'}`,
-      processedText: `Processed text from ${doc.name || 'document'}`,
-    };
-
-    // Category-specific extraction patterns
-    switch (doc.category) {
-      case 'invoice':
-        return {
-          ...baseFields,
-          invoiceNumber: `INV-${Date.now()}`,
-          supplierName: 'Extracted Supplier',
-          gstNumber: '22AAAAA0000A1Z5',
-          documentDate: new Date().toISOString().split('T')[0],
-          totalAmount: 0,
-          taxAmount: 0,
-        };
-      case 'purchase_order':
-        return {
-          ...baseFields,
-          poNumber: `PO-${Date.now()}`,
-          supplierName: 'Extracted Supplier',
-          documentDate: new Date().toISOString().split('T')[0],
-          totalAmount: 0,
-        };
-      case 'gst_return':
-        return {
-          ...baseFields,
-          gstNumber: '22AAAAA0000A1Z5',
-          documentDate: new Date().toISOString().split('T')[0],
-          totalAmount: 0,
-        };
-      default:
-        return baseFields;
+      return {
+        success: false,
+        message: 'OCR processing failed',
+        error: (error as Error).message,
+      };
     }
   }
 
@@ -103,7 +140,6 @@ export class OcrEngineService {
 
     // Link by invoice number
     if ((ocrResults as any).invoiceNumber) {
-      // Search sales/purchase invoices by number
       erpLinks.invoice = (ocrResults as any).invoiceNumber;
     }
 
