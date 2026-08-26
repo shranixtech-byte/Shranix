@@ -1,9 +1,11 @@
 import { Controller, Get, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { THROTTLE_ANALYTICS, throttle } from '../common/utils/rate-limit-policies';
 
 import { AnalyticsService, type AnalyticsFilters } from './analytics.service';
 
@@ -11,16 +13,25 @@ import { AnalyticsService, type AnalyticsFilters } from './analytics.service';
  * Enterprise BI Analytics API — reads existing source-of-truth data
  * (sales / purchase / inventory / GL / masters) and returns structured
  * KPI cards, chart series and report tables consumed by the BI dashboards.
+ *
+ * All endpoints accept optional `branchId` query parameter to scope
+ * analytics to a specific branch, preventing cross-branch data leakage.
  */
 @ApiTags('Analytics')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
+@Throttle(throttle(THROTTLE_ANALYTICS))
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 
-  private filters(fromDate?: string, toDate?: string, period?: string): AnalyticsFilters {
-    return { fromDate, toDate, period };
+  private filters(
+    fromDate?: string,
+    toDate?: string,
+    period?: string,
+    branchId?: string,
+  ): AnalyticsFilters {
+    return { fromDate, toDate, period, branchId };
   }
 
   @Get('overview')
@@ -32,8 +43,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getOverview(this.filters(from, to, period));
+    return this.analytics.getOverview(this.filters(from, to, period, branchId));
   }
 
   @Get('sales')
@@ -47,8 +59,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getSales(this.filters(from, to, period));
+    return this.analytics.getSales(this.filters(from, to, period, branchId));
   }
 
   @Get('purchase')
@@ -62,8 +75,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getPurchase(this.filters(from, to, period));
+    return this.analytics.getPurchase(this.filters(from, to, period, branchId));
   }
 
   @Get('inventory')
@@ -77,8 +91,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getInventory(this.filters(from, to, period));
+    return this.analytics.getInventory(this.filters(from, to, period, branchId));
   }
 
   @Get('finance')
@@ -92,8 +107,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getFinance(this.filters(from, to, period));
+    return this.analytics.getFinance(this.filters(from, to, period, branchId));
   }
 
   @Get('gst')
@@ -105,8 +121,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getGst(this.filters(from, to, period));
+    return this.analytics.getGst(this.filters(from, to, period, branchId));
   }
 
   @Get('customers')
@@ -118,8 +135,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getCustomers(this.filters(from, to, period));
+    return this.analytics.getCustomers(this.filters(from, to, period, branchId));
   }
 
   @Get('suppliers')
@@ -131,8 +149,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getSuppliers(this.filters(from, to, period));
+    return this.analytics.getSuppliers(this.filters(from, to, period, branchId));
   }
 
   @Get('warehouses')
@@ -144,8 +163,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getWarehouses(this.filters(from, to, period));
+    return this.analytics.getWarehouses(this.filters(from, to, period, branchId));
   }
 
   @Get('profitability')
@@ -157,8 +177,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getProfitability(this.filters(from, to, period));
+    return this.analytics.getProfitability(this.filters(from, to, period, branchId));
   }
 
   @Get('cashflow')
@@ -170,8 +191,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getCashFlow(this.filters(from, to, period));
+    return this.analytics.getCashFlow(this.filters(from, to, period, branchId));
   }
 
   @Get('growth')
@@ -183,8 +205,9 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getGrowth(this.filters(from, to, period));
+    return this.analytics.getGrowth(this.filters(from, to, period, branchId));
   }
 
   @Get('top-bottom')
@@ -196,7 +219,8 @@ export class AnalyticsController {
     @Query('fromDate') from?: string,
     @Query('toDate') to?: string,
     @Query('period') period?: string,
+    @Query('branchId') branchId?: string,
   ) {
-    return this.analytics.getTopBottom(this.filters(from, to, period));
+    return this.analytics.getTopBottom(this.filters(from, to, period, branchId));
   }
 }

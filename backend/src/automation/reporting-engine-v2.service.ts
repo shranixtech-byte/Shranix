@@ -98,7 +98,9 @@ export class ReportingEngineV2Service {
           const aVal = a[sort.field];
           const bVal = b[sort.field];
           const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-          if (cmp !== 0) {return sort.direction === 'desc' ? -cmp : cmp;}
+          if (cmp !== 0) {
+            return sort.direction === 'desc' ? -cmp : cmp;
+          }
         }
         return 0;
       });
@@ -145,7 +147,9 @@ export class ReportingEngineV2Service {
   async exportReport(config: ReportConfig, options: ExportOptions) {
     const result = await this.executeReport(config);
 
-    if (!result.success) {return result;}
+    if (!result.success) {
+      return result;
+    }
 
     switch (options.format) {
       case 'csv':
@@ -187,9 +191,17 @@ export class ReportingEngineV2Service {
    */
   async getSavedReports(module?: string, category?: string) {
     const filter: Record<string, any> = {};
-    if (module) {filter.module = module;}
-    if (category) {filter.category = category;}
-    const result = await this.database.reportCache.findAll({ page: 1, pageSize: 100, filter } as any);
+    if (module) {
+      filter.module = module;
+    }
+    if (category) {
+      filter.category = category;
+    }
+    const result = await this.database.reportCache.findAll({
+      page: 1,
+      pageSize: 100,
+      filter,
+    } as any);
     if (result.data) {
       result.data = result.data.map((r: any) => ({
         ...r,
@@ -234,7 +246,9 @@ export class ReportingEngineV2Service {
     const groupMap = new Map<string, any[]>();
     for (const row of data) {
       const key = String(row[groupField] || 'Other');
-      if (!groupMap.has(key)) {groupMap.set(key, []);}
+      if (!groupMap.has(key)) {
+        groupMap.set(key, []);
+      }
       groupMap.get(key)!.push(row);
     }
 
@@ -244,11 +258,23 @@ export class ReportingEngineV2Service {
         if (col.aggregation && col.field !== groupField) {
           const values = items.map((i) => Number(i[col.field]) || 0);
           switch (col.aggregation) {
-            case 'sum': group.aggregates[col.field] = values.reduce((a, b) => a + b, 0); break;
-            case 'avg': group.aggregates[col.field] = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0; break;
-            case 'count': group.aggregates[col.field] = values.length; break;
-            case 'min': group.aggregates[col.field] = Math.min(...values); break;
-            case 'max': group.aggregates[col.field] = Math.max(...values); break;
+            case 'sum':
+              group.aggregates[col.field] = values.reduce((a, b) => a + b, 0);
+              break;
+            case 'avg':
+              group.aggregates[col.field] = values.length
+                ? values.reduce((a, b) => a + b, 0) / values.length
+                : 0;
+              break;
+            case 'count':
+              group.aggregates[col.field] = values.length;
+              break;
+            case 'min':
+              group.aggregates[col.field] = Math.min(...values);
+              break;
+            case 'max':
+              group.aggregates[col.field] = Math.max(...values);
+              break;
           }
         }
       }
@@ -257,43 +283,114 @@ export class ReportingEngineV2Service {
     return grouped;
   }
 
+  /**
+   * Safe arithmetic expression evaluator — NO eval().
+   * Supports: numbers, field references, +, -, *, /, parentheses.
+   * Rejects: functions, property access chains, constructors, prototypes.
+   */
   private evaluateCalculatedColumn(expression: string, row: any): number {
     try {
-      // Safe expression evaluator: only supports basic arithmetic and field references
-      const safeExpression = expression
+      // Step 1: Replace field references with their numeric values
+      const substituted = expression
         .replace(/[^0-9+\-*/.()\s\w]/g, '') // Remove unsafe characters
         .replace(/\b\w+\b/g, (match) => {
-          if (/^\d+\.?\d*$/.test(match)) {return match;} // Numbers stay
-          if (['+','-','*','/','(',')','.'].includes(match)) {return match;} // Operators stay
+          if (/^\d+\.?\d*$/.test(match)) {
+            return match;
+          } // Numbers stay
+          if (['+', '-', '*', '/', '(', ')', '.'].includes(match)) {
+            return match;
+          } // Operators stay
           const val = row[match];
-          return val !== undefined ? String(val) : '0'; // Replace field refs with values
+          return val !== undefined ? String(Number(val) || 0) : '0'; // Replace field refs
         });
-      // eslint-disable-next-line no-eval
-      const result = eval(safeExpression);
+
+      // Step 2: Validate — only digits, operators, parens, dots, spaces allowed
+      if (!/^[0-9+\-*/.()\s]+$/.test(substituted)) {
+        return 0;
+      }
+
+      // Step 3: Recursive descent parser for arithmetic expressions
+      const tokens = substituted.replace(/\s+/g, ' ').trim().split(' ');
+      let pos = 0;
+
+      const parseExpr = (): number => {
+        let left = parseTerm();
+        while (pos < tokens.length && (tokens[pos] === '+' || tokens[pos] === '-')) {
+          const op = tokens[pos++];
+          const right = parseTerm();
+          left = op === '+' ? left + right : left - right;
+        }
+        return left;
+      };
+
+      const parseTerm = (): number => {
+        let left = parseFactor();
+        while (pos < tokens.length && (tokens[pos] === '*' || tokens[pos] === '/')) {
+          const op = tokens[pos++];
+          const right = parseFactor();
+          left = op === '*' ? left * right : right !== 0 ? left / right : 0;
+        }
+        return left;
+      };
+
+      const parseFactor = (): number => {
+        if (pos >= tokens.length) {return 0;}
+        const token = tokens[pos];
+        if (token === '(') {
+          pos++; // skip '('
+          const val = parseExpr();
+          if (pos < tokens.length && tokens[pos] === ')') {pos++;} // skip ')'
+          return val;
+        }
+        if (token === '-') {
+          pos++;
+          return -parseFactor();
+        }
+        if (token === '+') {
+          pos++;
+          return parseFactor();
+        }
+        pos++;
+        const n = Number(token);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const result = parseExpr();
       return typeof result === 'number' && isFinite(result) ? result : 0;
     } catch {
       return 0;
     }
   }
 
-  private exportToCsv(data: any[], columns: ReportColumn[]): { success: boolean; content: string; format: string; filename: string } {
+  private exportToCsv(
+    data: any[],
+    columns: ReportColumn[],
+  ): { success: boolean; content: string; format: string; filename: string } {
     const headers = columns.filter((c) => c.visible !== false).map((c) => c.label);
     const rows = data.map((row) =>
-      columns.filter((c) => c.visible !== false).map((c) => {
-        const val = row[c.field];
-        return typeof val === 'string' && val.includes(',') ? `"${val}"` : String(val ?? '');
-      }),
+      columns
+        .filter((c) => c.visible !== false)
+        .map((c) => {
+          const val = row[c.field];
+          return typeof val === 'string' && val.includes(',') ? `"${val}"` : String(val ?? '');
+        }),
     );
     const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     return { success: true, content: csv, format: 'csv', filename: `report_${Date.now()}.csv` };
   }
 
-  private exportToExcel(_data: any[], _columns: ReportColumn[]): { success: boolean; message: string } {
+  private exportToExcel(
+    _data: any[],
+    _columns: ReportColumn[],
+  ): { success: boolean; message: string } {
     // Placeholder — real Excel export requires exceljs or similar
     return { success: true, message: 'Excel export — ready for exceljs integration' };
   }
 
-  private exportToPdf(_data: any[], _columns: ReportColumn[]): { success: boolean; message: string } {
+  private exportToPdf(
+    _data: any[],
+    _columns: ReportColumn[],
+  ): { success: boolean; message: string } {
     // Placeholder — real PDF export requires pdfkit or similar
     return { success: true, message: 'PDF export — ready for pdfkit integration' };
   }
