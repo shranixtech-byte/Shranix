@@ -468,15 +468,17 @@ export class IntegrationController {
     @CurrentUser() _u?: { id: string },
   ) {
     return {
-      success: true,
-      message: 'Financial year closing executed',
+      success: false,
+      implemented: false,
+      message:
+        'Financial year closing is not yet implemented. Revenue accounts, expense accounts, profit transfer, retained earnings, and opening balance creation require a full closing workflow.',
       params: body,
       closingResult: {
         revenueAccountsClosed: 0,
         expenseAccountsClosed: 0,
         profitTransferred: 0,
-        retainedEarningsUpdated: true,
-        openingBalancesCreated: true,
+        retainedEarningsUpdated: false,
+        openingBalancesCreated: false,
       },
     };
   }

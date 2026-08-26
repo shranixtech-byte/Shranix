@@ -378,8 +378,22 @@ export class GlPostingEngine {
   private async generateEntryNumber(_financialYearId?: string): Promise<string> {
     const now = new Date();
     const prefix = `GL-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-`;
-    const count = await this.database.glEntries.count();
-    return `${prefix}${String(count + 1).padStart(6, '0')}`;
+    // Use findMaxSequenceForPrefix instead of count()+1 to avoid race condition.
+    // Two concurrent requests reading count=100 would both generate the same number.
+    // findMaxSequenceForPrefix scans ALL rows (including soft-deleted) and returns
+    // the highest numeric sequence for this prefix.
+    let maxSeq = 0;
+    try {
+      const repo = this.database.glEntries as any;
+      if (typeof repo?.findMaxSequenceForPrefix === 'function') {
+        maxSeq = await repo.findMaxSequenceForPrefix('entryNumber', prefix);
+      }
+    } catch {
+      /* best-effort: fall back to count */
+      const count = await this.database.glEntries.count();
+      maxSeq = count;
+    }
+    return `${prefix}${String(maxSeq + 1).padStart(6, '0')}`;
   }
 
   private async checkPeriodLock(

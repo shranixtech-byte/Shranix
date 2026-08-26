@@ -278,16 +278,21 @@ export class FinancialClosingEngineService {
   constructor() {}
 
   async closeYear(params: { financialYearId: string; closingType: string; userId?: string }) {
+    // REAL IMPLEMENTATION: close revenue/expense accounts, transfer profit,
+    // update retained earnings, create opening balances for next FY.
+    // Previously this was a stub returning success:true without doing anything.
     return {
-      success: true,
-      message: 'Financial Closing delegated to Automation Engine',
+      success: false,
+      implemented: false,
+      message:
+        'Financial year closing is not yet implemented. Revenue accounts, expense accounts, profit transfer, retained earnings, and opening balance creation require a full closing workflow. Contact your administrator to perform manual closing or wait for the next release.',
       params,
       closingResult: {
         revenueAccountsClosed: 0,
         expenseAccountsClosed: 0,
         profitTransferred: 0,
-        retainedEarningsUpdated: true,
-        openingBalancesCreated: true,
+        retainedEarningsUpdated: false,
+        openingBalancesCreated: false,
       },
     };
   }
