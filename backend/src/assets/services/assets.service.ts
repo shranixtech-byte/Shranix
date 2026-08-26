@@ -991,4 +991,233 @@ export class AssetsService {
       total: rows.length,
     };
   }
+
+  async categorySummaryReport() {
+    const all = await this.database.assets
+      .findAll({ page: 1, pageSize: 10000 } as any)
+      .catch(() => ({ data: [] }));
+    const rows = (all.data || []).filter((a: any) => !a.isDeleted);
+    const cats = await this.database.assetCategories
+      .findAll({ page: 1, pageSize: 200 } as any)
+      .catch(() => ({ data: [] }));
+    const catMap = new Map((cats.data || []).map((c: any) => [c.id, c.categoryName]));
+
+    const summary: Record<
+      string,
+      { count: number; totalCost: number; totalDepreciation: number; totalBookValue: number }
+    > = {};
+    for (const a of rows) {
+      const name = catMap.get(a.categoryId) || 'Uncategorized';
+      if (!summary[name]) {
+        summary[name] = { count: 0, totalCost: 0, totalDepreciation: 0, totalBookValue: 0 };
+      }
+      summary[name].count++;
+      summary[name].totalCost += Number(a.capitalizedCost) || Number(a.purchaseCost) || 0;
+      summary[name].totalDepreciation += Number(a.accumulatedDepreciation) || 0;
+      summary[name].totalBookValue += Number(a.currentBookValue) || 0;
+    }
+
+    return {
+      categories: Object.entries(summary).map(([name, data]) => ({
+        name,
+        ...data,
+        totalCost: Math.round(data.totalCost * 100) / 100,
+        totalDepreciation: Math.round(data.totalDepreciation * 100) / 100,
+        totalBookValue: Math.round(data.totalBookValue * 100) / 100,
+      })),
+      totalAssets: rows.length,
+      grandTotalCost:
+        Math.round(
+          rows.reduce(
+            (s: number, a: any) => s + (Number(a.capitalizedCost) || Number(a.purchaseCost) || 0),
+            0,
+          ) * 100,
+        ) / 100,
+      grandTotalDepreciation:
+        Math.round(
+          rows.reduce((s: number, a: any) => s + (Number(a.accumulatedDepreciation) || 0), 0) * 100,
+        ) / 100,
+    };
+  }
+
+  async statusSummaryReport() {
+    const all = await this.database.assets
+      .findAll({ page: 1, pageSize: 10000 } as any)
+      .catch(() => ({ data: [] }));
+    const rows = (all.data || []).filter((a: any) => !a.isDeleted);
+
+    const summary: Record<string, { count: number; totalCost: number; totalBookValue: number }> =
+      {};
+    for (const a of rows) {
+      const status = a.status || 'unknown';
+      if (!summary[status]) {
+        summary[status] = { count: 0, totalCost: 0, totalBookValue: 0 };
+      }
+      summary[status].count++;
+      summary[status].totalCost += Number(a.capitalizedCost) || Number(a.purchaseCost) || 0;
+      summary[status].totalBookValue += Number(a.currentBookValue) || 0;
+    }
+
+    return {
+      statuses: Object.entries(summary).map(([status, data]) => ({
+        status,
+        ...data,
+        totalCost: Math.round(data.totalCost * 100) / 100,
+        totalBookValue: Math.round(data.totalBookValue * 100) / 100,
+      })),
+      totalAssets: rows.length,
+      grandTotalCost:
+        Math.round(
+          rows.reduce(
+            (s: number, a: any) => s + (Number(a.capitalizedCost) || Number(a.purchaseCost) || 0),
+            0,
+          ) * 100,
+        ) / 100,
+    };
+  }
+
+  async depreciationReport(query: { period?: string; categoryId?: string }) {
+    const filters: any[] = [];
+    if (query.period) {
+      filters.push({ field: 'period', operator: 'eq', value: query.period });
+    }
+    const depRecords = await this.database.assetDepreciation
+      .findAll({ page: 1, pageSize: 10000, ...(filters.length ? { filters } : {}) } as any)
+      .catch(() => ({ data: [] }));
+
+    const assetIds = [
+      ...new Set((depRecords.data || []).map((d: any) => d.assetId).filter(Boolean)),
+    ];
+    const assets = assetIds.length
+      ? await this.database.assets
+          .findAll({
+            page: 1,
+            pageSize: 10000,
+            filters: [{ field: 'id', operator: 'in', value: assetIds.join(',') }],
+          } as any)
+          .catch(() => ({ data: [] }))
+      : { data: [] };
+    const assetMap = new Map((assets.data || []).map((a: any) => [a.id, a]));
+
+    const cats = await this.database.assetCategories
+      .findAll({ page: 1, pageSize: 200 } as any)
+      .catch(() => ({ data: [] }));
+    const catMap = new Map((cats.data || []).map((c: any) => [c.id, c.categoryName]));
+
+    let records = (depRecords.data || []).map((d: any) => {
+      const asset = assetMap.get(d.assetId) as any;
+      return {
+        period: d.period,
+        assetCode: asset?.assetCode,
+        assetName: asset?.assetName,
+        category: catMap.get(asset?.categoryId) || null,
+        amount: d.amount,
+        bookValueAfter: d.bookValueAfter,
+        method: asset?.depreciationMethod || 'straight_line',
+      };
+    });
+
+    if (query.categoryId) {
+      records = records.filter((r: any) => {
+        const asset = Array.from(assetMap.values()).find((a: any) => a.assetCode === r.assetCode);
+        return asset && (asset as any).categoryId === query.categoryId;
+      });
+    }
+
+    const totalDepreciation = records.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0);
+
+    return {
+      records,
+      totalRecords: records.length,
+      totalDepreciation: Math.round(totalDepreciation * 100) / 100,
+    };
+  }
+
+  async disposalReport(query: { dateFrom?: string; dateTo?: string }) {
+    const filters: any[] = [];
+    if (query.dateFrom) {
+      filters.push({ field: 'disposalDate', operator: 'gte', value: query.dateFrom });
+    }
+    if (query.dateTo) {
+      filters.push({ field: 'disposalDate', operator: 'lte', value: query.dateTo });
+    }
+    const disposals = await this.database.assetDisposals
+      .findAll({ page: 1, pageSize: 10000, ...(filters.length ? { filters } : {}) } as any)
+      .catch(() => ({ data: [] }));
+
+    const assetIds = [
+      ...new Set((disposals.data || []).map((d: any) => d.assetId).filter(Boolean)),
+    ];
+    const assets = assetIds.length
+      ? await this.database.assets
+          .findAll({
+            page: 1,
+            pageSize: 10000,
+            filters: [{ field: 'id', operator: 'in', value: assetIds.join(',') }],
+          } as any)
+          .catch(() => ({ data: [] }))
+      : { data: [] };
+    const assetMap = new Map((assets.data || []).map((a: any) => [a.id, a]));
+
+    const records = (disposals.data || []).map((d: any) => {
+      const asset = assetMap.get(d.assetId) as any;
+      return {
+        disposalNumber: d.disposalNumber,
+        assetCode: asset?.assetCode,
+        assetName: asset?.assetName,
+        disposalType: d.disposalType,
+        disposalDate: d.disposalDate,
+        saleValue: d.saleValue,
+        disposalCost: d.disposalCost,
+        bookValue: d.bookValue,
+        gainLoss: d.gainLoss,
+        reason: d.reason,
+      };
+    });
+
+    const totalSaleValue = records.reduce((s: number, r: any) => s + (Number(r.saleValue) || 0), 0);
+    const totalGainLoss = records.reduce((s: number, r: any) => s + (Number(r.gainLoss) || 0), 0);
+
+    return {
+      records,
+      totalDisposals: records.length,
+      totalSaleValue: Math.round(totalSaleValue * 100) / 100,
+      totalGainLoss: Math.round(totalGainLoss * 100) / 100,
+    };
+  }
+
+  async assignmentReport() {
+    const all = await this.database.assets
+      .findAll({ page: 1, pageSize: 10000 } as any)
+      .catch(() => ({ data: [] }));
+    const rows = (all.data || []).filter((a: any) => !a.isDeleted);
+    const assigned = rows.filter((a: any) => a.status === 'assigned');
+
+    const allocations = await this.database.assetAllocations
+      .findAll({ page: 1, pageSize: 10000 } as any)
+      .catch(() => ({ data: [] }));
+
+    const activeAllocations = (allocations.data || []).filter((al: any) => al.status === 'active');
+    const returnedAllocations = (allocations.data || []).filter(
+      (al: any) => al.status === 'returned',
+    );
+
+    return {
+      assignedAssets: assigned.length,
+      availableAssets: rows.filter((a: any) => a.status === 'available').length,
+      totalAllocations: (allocations.data || []).length,
+      activeAllocations: activeAllocations.length,
+      returnedAllocations: returnedAllocations.length,
+      assignments: activeAllocations.map((al: any) => {
+        const asset = rows.find((a: any) => a.id === al.assetId);
+        return {
+          assetCode: (asset as any)?.assetCode,
+          assetName: (asset as any)?.assetName,
+          assignedToType: al.assignedToType,
+          assignedToId: al.assignedToId,
+          assignedAt: al.assignedAt,
+        };
+      }),
+    };
+  }
 }

@@ -34,6 +34,44 @@ export class AssetsController {
     return this.service.reports({ status, categoryId, departmentId });
   }
 
+  @Get('reports/category-summary')
+  @Permissions('asset.report')
+  @ApiOperation({ summary: 'Asset category summary report' })
+  async categorySummary() {
+    return this.service.categorySummaryReport();
+  }
+
+  @Get('reports/status-summary')
+  @Permissions('asset.report')
+  @ApiOperation({ summary: 'Asset status summary report' })
+  async statusSummary() {
+    return this.service.statusSummaryReport();
+  }
+
+  @Get('reports/depreciation')
+  @Permissions('asset.report')
+  @ApiOperation({ summary: 'Depreciation report' })
+  async depreciationReport(
+    @Query('period') period?: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.service.depreciationReport({ period, categoryId });
+  }
+
+  @Get('reports/disposal')
+  @Permissions('asset.report')
+  @ApiOperation({ summary: 'Asset disposal report' })
+  async disposalReport(@Query('dateFrom') dateFrom?: string, @Query('dateTo') dateTo?: string) {
+    return this.service.disposalReport({ dateFrom, dateTo });
+  }
+
+  @Get('reports/assignment')
+  @Permissions('asset.report')
+  @ApiOperation({ summary: 'Asset assignment report' })
+  async assignmentReport() {
+    return this.service.assignmentReport();
+  }
+
   @Get('next-code')
   @Permissions('asset.view')
   @ApiOperation({ summary: 'Next auto asset code' })
