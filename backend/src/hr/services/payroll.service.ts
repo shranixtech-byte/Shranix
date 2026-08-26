@@ -247,6 +247,9 @@ export class PayrollService {
     if (run.status !== 'draft') {
       throw new BadRequestException(`Payroll run already ${run.status}`);
     }
+    if (Number(run.employeeCount) === 0) {
+      throw new BadRequestException('Cannot approve a payroll run with 0 employees');
+    }
     await this.database.payrollRuns.update(id, {
       status: 'approved',
       approvedBy: userId,
@@ -262,14 +265,20 @@ export class PayrollService {
     return { approved: true, id };
   }
 
-  /** Mark a payroll run as paid. */
+  /** Mark a payroll run as paid — only from 'approved' status.
+   *  Previous code also allowed 'draft' → 'paid', which bypasses approval. */
   async markPaid(id: string, userId: string, paymentMode?: string) {
     const run = await this.database.payrollRuns.findById(id);
     if (!run || run.isDeleted) {
       throw new NotFoundException('Payroll run not found');
     }
-    if (!['draft', 'approved'].includes(run.status)) {
-      throw new BadRequestException(`Payroll run cannot be paid from status ${run.status}`);
+    if (run.status !== 'approved') {
+      throw new BadRequestException(
+        `Payroll run must be approved before marking as paid (current status: ${run.status})`,
+      );
+    }
+    if (Number(run.employeeCount) === 0) {
+      throw new BadRequestException('Cannot pay a payroll run with 0 employees');
     }
     const updated = await this.database.payrollRuns.update(id, {
       status: 'paid',

@@ -174,6 +174,11 @@ export class EmployeeExpensesService {
     if (!exp || exp.isDeleted) {
       throw new NotFoundException('Expense not found');
     }
+    if (exp.status !== 'draft') {
+      throw new BadRequestException(
+        `Only draft expenses can be submitted (current: ${exp.status})`,
+      );
+    }
     await this.database.employeeExpenses.update(id, { status: 'submitted' } as any);
     await this.audit.log({
       userId,
@@ -189,6 +194,11 @@ export class EmployeeExpensesService {
     const exp = await this.database.employeeExpenses.findById(id);
     if (!exp || exp.isDeleted) {
       throw new NotFoundException('Expense not found');
+    }
+    if (exp.status !== 'submitted') {
+      throw new BadRequestException(
+        `Only submitted expenses can be approved (current: ${exp.status})`,
+      );
     }
     await this.database.employeeExpenses.update(id, {
       status: 'approved',
@@ -209,6 +219,11 @@ export class EmployeeExpensesService {
     const exp = await this.database.employeeExpenses.findById(id);
     if (!exp || exp.isDeleted) {
       throw new NotFoundException('Expense not found');
+    }
+    if (exp.status !== 'submitted') {
+      throw new BadRequestException(
+        `Only submitted expenses can be rejected (current: ${exp.status})`,
+      );
     }
     await this.database.employeeExpenses.update(id, {
       status: 'rejected',
@@ -302,6 +317,15 @@ export class PerformanceReviewsService {
   }
 
   async submit(id: string, userId: string) {
+    const review = await this.database.performanceReviews.findById(id);
+    if (!review || review.isDeleted) {
+      throw new NotFoundException('Performance review not found');
+    }
+    if (review.status !== 'draft') {
+      throw new BadRequestException(
+        `Only draft reviews can be submitted (current: ${review.status})`,
+      );
+    }
     await this.database.performanceReviews.update(id, { status: 'submitted' } as any);
     await this.audit.log({
       userId,
@@ -314,6 +338,15 @@ export class PerformanceReviewsService {
   }
 
   async review(id: string, data: any, userId: string) {
+    const review = await this.database.performanceReviews.findById(id);
+    if (!review || review.isDeleted) {
+      throw new NotFoundException('Performance review not found');
+    }
+    if (review.status !== 'submitted') {
+      throw new BadRequestException(
+        `Only submitted reviews can be reviewed (current: ${review.status})`,
+      );
+    }
     await this.database.performanceReviews.update(id, {
       ...data,
       status: 'reviewed',
