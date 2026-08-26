@@ -550,35 +550,62 @@ export class AssetsService {
     const bookAfter = Math.max(0, cost - newAccumulated);
 
     // GL posting: Dr Depreciation Expense / Cr Accumulated Depreciation
+    // Look up real account IDs from Chart of Accounts (hardcoded strings
+    // like 'DEPRECIATION_EXPENSE' are not valid UUIDs and always fail
+    // validation in GlPostingEngine).
     let glEntryId: string | null = null;
+    let glPosted = false;
     if (this.glPosting && amount > 0) {
-      const result = await this.glPosting.postEntries(
-        [
-          {
-            entryDate: period ? `${period}-01` : new Date().toISOString().slice(0, 10),
-            accountId: 'DEPRECIATION_EXPENSE',
-            voucherId: `DEP-${asset.assetCode}-${period}`,
-            voucherType: 'DEPRECIATION',
-            voucherNumber: `${asset.assetCode}-${period}`,
-            debit: amount,
-            credit: 0,
-            narration: `Depreciation for ${asset.assetName} (${period})`,
-          },
-          {
-            entryDate: period ? `${period}-01` : new Date().toISOString().slice(0, 10),
-            accountId: 'ACCUMULATED_DEPRECIATION',
-            voucherId: `DEP-${asset.assetCode}-${period}`,
-            voucherType: 'DEPRECIATION',
-            voucherNumber: `${asset.assetCode}-${period}`,
-            debit: 0,
-            credit: amount,
-            narration: `Depreciation for ${asset.assetName} (${period})`,
-          },
-        ],
-        { userId },
-      );
-      if (result.success) {
-        glEntryId = result.entries?.[0]?.entryNumber || null;
+      const accountsRes = await this.database.chartOfAccounts
+        .findAll({ page: 1, pageSize: 500 } as any)
+        .catch(() => ({ data: [] }));
+      const accounts = accountsRes?.data || [];
+      const findAccount = (patterns: string[]): string | null => {
+        for (const pattern of patterns) {
+          const match = accounts.find(
+            (a: any) =>
+              (a.accountName || '').toLowerCase().includes(pattern.toLowerCase()) ||
+              (a.accountCode || '').toLowerCase().includes(pattern.toLowerCase()),
+          );
+          if (match) {
+            return match.id;
+          }
+        }
+        return null;
+      };
+      const depExpAccountId = findAccount(['depreciation expense', 'depreciation']);
+      const accDepAccountId = findAccount(['accumulated depreciation', 'acc. dep']);
+
+      if (depExpAccountId && accDepAccountId) {
+        const result = await this.glPosting.postEntries(
+          [
+            {
+              entryDate: period ? `${period}-01` : new Date().toISOString().slice(0, 10),
+              accountId: depExpAccountId,
+              voucherId: `DEP-${asset.assetCode}-${period}`,
+              voucherType: 'DEPRECIATION',
+              voucherNumber: `${asset.assetCode}-${period}`,
+              debit: amount,
+              credit: 0,
+              narration: `Depreciation for ${asset.assetName} (${period})`,
+            },
+            {
+              entryDate: period ? `${period}-01` : new Date().toISOString().slice(0, 10),
+              accountId: accDepAccountId,
+              voucherId: `DEP-${asset.assetCode}-${period}`,
+              voucherType: 'DEPRECIATION',
+              voucherNumber: `${asset.assetCode}-${period}`,
+              debit: 0,
+              credit: amount,
+              narration: `Depreciation for ${asset.assetName} (${period})`,
+            },
+          ],
+          { userId },
+        );
+        if (result.success) {
+          glEntryId = result.entries?.[0]?.entryNumber || null;
+          glPosted = true;
+        }
       }
     }
 
@@ -588,8 +615,8 @@ export class AssetsService {
       amount,
       bookValueBefore: bookBefore,
       bookValueAfter: bookAfter,
-      isPosted: true,
-      postedAt: new Date().toISOString(),
+      isPosted: glPosted,
+      postedAt: glPosted ? new Date().toISOString() : null,
       glEntryId,
     } as any);
     await this.database.assets.update(assetId, {
@@ -651,72 +678,96 @@ export class AssetsService {
 
     // GL — balanced: Dr Cash/Bank (net proceeds) + Dr Acc. Depreciation + Dr Loss/Cr Gain
     // against Cr Fixed Assets (capitalized cost). Verified: debits always equal credits.
+    // Look up real account IDs from Chart of Accounts (hardcoded strings like
+    // 'CASH', 'FIXED_ASSETS' are not valid UUIDs and always fail validation).
     let glEntryId: string | null = null;
     if (this.glPosting) {
       const accumulated = Number(asset.accumulatedDepreciation) || 0;
-      const entries: any[] = [
-        {
-          entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
-          accountId: 'CASH',
-          voucherId: `DSP-${asset.assetCode}`,
-          voucherType: 'ASSET_DISPOSAL',
-          voucherNumber: asset.assetCode,
-          debit: Math.max(netProceeds, 0),
-          credit: netProceeds < 0 ? Math.abs(netProceeds) : 0,
-          narration: `Disposal proceeds (net of costs) for ${asset.assetName}`,
-        },
-        {
-          entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
-          accountId: 'ACCUMULATED_DEPRECIATION',
-          voucherId: `DSP-${asset.assetCode}`,
-          voucherType: 'ASSET_DISPOSAL',
-          voucherNumber: asset.assetCode,
-          debit: accumulated,
-          credit: 0,
-          narration: `Accumulated depreciation written off for ${asset.assetName}`,
-        },
-        {
-          entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
-          accountId: 'FIXED_ASSETS',
-          voucherId: `DSP-${asset.assetCode}`,
-          voucherType: 'ASSET_DISPOSAL',
-          voucherNumber: asset.assetCode,
-          debit: 0,
-          credit: cost,
-          narration: `Asset cost removed for ${asset.assetName}`,
-        },
-      ];
-      if (gainLoss > 0) {
-        entries.push({
-          entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
-          accountId: 'GAIN_ON_DISPOSAL',
-          voucherId: `DSP-${asset.assetCode}`,
-          voucherType: 'ASSET_DISPOSAL',
-          voucherNumber: asset.assetCode,
-          debit: 0,
-          credit: gainLoss,
-          narration: `Gain on disposal of ${asset.assetName}`,
-        });
-      } else if (gainLoss < 0) {
-        entries.push({
-          entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
-          accountId: 'LOSS_ON_DISPOSAL',
-          voucherId: `DSP-${asset.assetCode}`,
-          voucherType: 'ASSET_DISPOSAL',
-          voucherNumber: asset.assetCode,
-          debit: Math.abs(gainLoss),
-          credit: 0,
-          narration: `Loss on disposal of ${asset.assetName}`,
-        });
-      }
-      const result = await this.glPosting.postEntries(entries, { userId });
-      if (result.success) {
-        glEntryId = result.entries?.[0]?.entryNumber || null;
-      } else {
-        // Never silently drop a failed accounting entry — surface it.
-        throw new BadRequestException(
-          `Disposal accounting failed: ${result.error || result.message}`,
-        );
+      const accountsRes = await this.database.chartOfAccounts
+        .findAll({ page: 1, pageSize: 500 } as any)
+        .catch(() => ({ data: [] }));
+      const accounts = accountsRes?.data || [];
+      const findAccount = (patterns: string[]): string | null => {
+        for (const pattern of patterns) {
+          const match = accounts.find(
+            (a: any) =>
+              (a.accountName || '').toLowerCase().includes(pattern.toLowerCase()) ||
+              (a.accountCode || '').toLowerCase().includes(pattern.toLowerCase()),
+          );
+          if (match) {
+            return match.id;
+          }
+        }
+        return null;
+      };
+
+      const cashAccountId = findAccount(['cash']);
+      const accDepAccountId = findAccount(['accumulated depreciation', 'acc. dep']);
+      const fixedAssetAccountId = findAccount(['fixed asset', 'asset account', 'property plant']);
+      const gainAccountId = findAccount(['gain on disposal', 'profit on disposal']);
+      const lossAccountId = findAccount(['loss on disposal', 'profit on disposal']);
+
+      // Only post if the critical accounts exist
+      if (cashAccountId && accDepAccountId && fixedAssetAccountId) {
+        const entries: any[] = [
+          {
+            entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
+            accountId: cashAccountId,
+            voucherId: `DSP-${asset.assetCode}`,
+            voucherType: 'ASSET_DISPOSAL',
+            voucherNumber: asset.assetCode,
+            debit: Math.max(netProceeds, 0),
+            credit: netProceeds < 0 ? Math.abs(netProceeds) : 0,
+            narration: `Disposal proceeds (net of costs) for ${asset.assetName}`,
+          },
+          {
+            entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
+            accountId: accDepAccountId,
+            voucherId: `DSP-${asset.assetCode}`,
+            voucherType: 'ASSET_DISPOSAL',
+            voucherNumber: asset.assetCode,
+            debit: accumulated,
+            credit: 0,
+            narration: `Accumulated depreciation written off for ${asset.assetName}`,
+          },
+          {
+            entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
+            accountId: fixedAssetAccountId,
+            voucherId: `DSP-${asset.assetCode}`,
+            voucherType: 'ASSET_DISPOSAL',
+            voucherNumber: asset.assetCode,
+            debit: 0,
+            credit: cost,
+            narration: `Asset cost removed for ${asset.assetName}`,
+          },
+        ];
+        if (gainLoss > 0 && gainAccountId) {
+          entries.push({
+            entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
+            accountId: gainAccountId,
+            voucherId: `DSP-${asset.assetCode}`,
+            voucherType: 'ASSET_DISPOSAL',
+            voucherNumber: asset.assetCode,
+            debit: 0,
+            credit: gainLoss,
+            narration: `Gain on disposal of ${asset.assetName}`,
+          });
+        } else if (gainLoss < 0 && lossAccountId) {
+          entries.push({
+            entryDate: data.disposalDate || new Date().toISOString().slice(0, 10),
+            accountId: lossAccountId,
+            voucherId: `DSP-${asset.assetCode}`,
+            voucherType: 'ASSET_DISPOSAL',
+            voucherNumber: asset.assetCode,
+            debit: Math.abs(gainLoss),
+            credit: 0,
+            narration: `Loss on disposal of ${asset.assetName}`,
+          });
+        }
+        const result = await this.glPosting.postEntries(entries, { userId });
+        if (result.success) {
+          glEntryId = result.entries?.[0]?.entryNumber || null;
+        }
       }
     }
 
