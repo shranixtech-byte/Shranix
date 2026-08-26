@@ -52,7 +52,9 @@ export const environmentSchema = z
     DATABASE_PROVIDER: z.enum(['sqlite', 'postgresql']).default('sqlite'),
 
     // ── Logging ──────────────────────────────────────────────
-    LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('debug'),
+    LOG_LEVEL: z
+      .enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
+      .default('debug'),
     LOG_FORMAT: z.enum(['pretty', 'json']).default('pretty'),
 
     // ── Auth / JWT ───────────────────────────────────────────

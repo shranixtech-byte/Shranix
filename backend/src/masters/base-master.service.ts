@@ -111,6 +111,23 @@ export class BaseMasterService {
     if (!before) {
       throw new NotFoundException(`${this.entityName} with id "${id}" not found`);
     }
+    // Check unique field constraint on update (skip if the value hasn't changed)
+    if (
+      this.uniqueField &&
+      data[this.uniqueField] &&
+      data[this.uniqueField] !== before[this.uniqueField]
+    ) {
+      const existing = await this.repository.findAll({
+        filters: [{ field: this.uniqueField, operator: 'eq', value: data[this.uniqueField] }],
+        page: 1,
+        pageSize: 1,
+      });
+      if (existing.data.length > 0) {
+        throw new ConflictException(
+          `${this.entityName} with ${this.uniqueField} "${data[this.uniqueField]}" already exists`,
+        );
+      }
+    }
     const record = await this.repository.update(id, data);
     if (this.audit && userId) {
       await this.audit.log({
