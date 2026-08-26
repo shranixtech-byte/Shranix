@@ -86,8 +86,20 @@ export class EscalationEngineService {
             await this.database.workflowTasks.update(task.id, { isOverdue: true } as any);
           }
 
-          // Escalate to higher level
+          // Escalate to higher level (idempotent — skip if already escalated)
           if (rule.escalateToRole || rule.escalateToUserId) {
+            const existingEscalated = await this.database.workflowTasks.findAll({
+              page: 1,
+              pageSize: 1,
+              filters: [
+                { field: 'instanceId', operator: 'eq', value: task.instanceId },
+                { field: 'title', operator: 'like', value: 'ESCALATED: %' },
+                { field: 'status', operator: 'eq', value: 'pending' },
+              ],
+            } as any);
+            if ((existingEscalated as any).data && (existingEscalated as any).data.length > 0) {
+              continue; // Already escalated for this instance
+            }
             await this.taskEngine.createTask({
               instanceId: task.instanceId,
               documentId: task.documentId,

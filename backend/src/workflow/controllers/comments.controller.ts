@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,9 +40,14 @@ export class CommentsController {
   @ApiOperation({ summary: 'Add a comment to a workflow instance' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: any, @CurrentUser() u: { id: string }) {
+    // H2: userId is ALWAYS the authenticated actor; client-supplied dto.userId
+    // must never override the session identity (impersonation guard).
+    if (dto.userId && dto.userId !== u?.id) {
+      throw new ForbiddenException('userId mismatch — use your authenticated identity');
+    }
     return this.service.createComment({
       ...dto,
-      userId: u?.id || dto.userId,
+      userId: u?.id,
     });
   }
 

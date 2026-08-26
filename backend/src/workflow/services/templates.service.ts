@@ -3,7 +3,11 @@ import { Injectable, Logger, NotFoundException, ConflictException } from '@nestj
 import { AuditService } from '../../common/services/audit.service';
 import { DatabaseService } from '../../database/database.service';
 
-import { StateMachineService , StateDefinition, TransitionDefinition } from './state-machine.service';
+import {
+  StateMachineService,
+  StateDefinition,
+  TransitionDefinition,
+} from './state-machine.service';
 
 export interface CreateWorkflowTemplateDto {
   name: string;
@@ -38,28 +42,50 @@ export class WorkflowTemplatesService {
   ) {}
 
   async findAll(page = 1, pageSize = 50, search?: string, module?: string) {
-    const filter: Record<string, any> = {};
-    if (module) {filter.module = module;}
-    const result = await this.database.workflowTemplates.findAll({ page, pageSize, search, filter } as any);
+    // NOTE: `filters` (array of {field, operator, value}) is the format the
+    // enterprise query builder understands — a plain `filter` object is silently
+    // ignored and would return every template (module filter never applied).
+    const filters: any[] = [];
+    if (module) {
+      filters.push({ field: 'module', operator: 'eq', value: module });
+    }
+    const result = await this.database.workflowTemplates.findAll({
+      page,
+      pageSize,
+      search,
+      filters,
+    } as any);
     return result;
   }
 
   async findById(id: string) {
     const record = await this.database.workflowTemplates.findById(id);
-    if (!record) {throw new NotFoundException(`Workflow template with id "${id}" not found`);}
+    if (!record) {
+      throw new NotFoundException(`Workflow template with id "${id}" not found`);
+    }
     return record;
   }
 
   async findByCode(code: string) {
-    const result = await this.database.workflowTemplates.findAll({ search: code, page: 1, pageSize: 1 } as any);
-    if (result.data.length > 0) {return result.data[0];}
+    // NOTE: use exact-match filter instead of text search to avoid matching
+    // partial codes (e.g. 'sales' matching 'sales-invoice').
+    const result = await this.database.workflowTemplates.findAll({
+      page: 1,
+      pageSize: 1,
+      filters: [{ field: 'code', operator: 'eq', value: code }],
+    } as any);
+    if (result.data.length > 0) {
+      return result.data[0];
+    }
     return null;
   }
 
   async create(data: CreateWorkflowTemplateDto, userId?: string) {
     // Check unique code
     const existing = await this.findByCode(data.code);
-    if (existing) {throw new ConflictException(`Workflow template with code "${data.code}" already exists`);}
+    if (existing) {
+      throw new ConflictException(`Workflow template with code "${data.code}" already exists`);
+    }
 
     const record = await this.database.workflowTemplates.create({
       name: data.name,
@@ -85,7 +111,13 @@ export class WorkflowTemplatesService {
     );
 
     if (userId) {
-      await this.audit.log({ userId, event: 'workflow_template_created' as any, resource: 'workflow_template', action: 'create', details: { id: record.id, code: data.code } });
+      await this.audit.log({
+        userId,
+        event: 'workflow_template_created' as any,
+        resource: 'workflow_template',
+        action: 'create',
+        details: { id: record.id, code: data.code },
+      });
     }
     this.logger.log(`Workflow template created: ${data.code} (${record.id})`);
     return record;
@@ -95,13 +127,27 @@ export class WorkflowTemplatesService {
     const record = await this.findById(id);
 
     const updateData: Record<string, any> = {};
-    if (data.name !== undefined) {updateData.name = data.name;}
-    if (data.description !== undefined) {updateData.description = data.description;}
-    if (data.isActive !== undefined) {updateData.isActive = data.isActive;}
-    if (data.initialState !== undefined) {updateData.initialState = data.initialState;}
-    if (data.states !== undefined) {updateData.states = JSON.stringify(data.states);}
-    if (data.transitions !== undefined) {updateData.transitions = JSON.stringify(data.transitions);}
-    if (data.config !== undefined) {updateData.config = JSON.stringify(data.config);}
+    if (data.name !== undefined) {
+      updateData.name = data.name;
+    }
+    if (data.description !== undefined) {
+      updateData.description = data.description;
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = data.isActive;
+    }
+    if (data.initialState !== undefined) {
+      updateData.initialState = data.initialState;
+    }
+    if (data.states !== undefined) {
+      updateData.states = JSON.stringify(data.states);
+    }
+    if (data.transitions !== undefined) {
+      updateData.transitions = JSON.stringify(data.transitions);
+    }
+    if (data.config !== undefined) {
+      updateData.config = JSON.stringify(data.config);
+    }
     updateData.version = (record as any).version + 1;
     updateData.updatedBy = userId || null;
 
@@ -117,7 +163,13 @@ export class WorkflowTemplatesService {
     }
 
     if (userId) {
-      await this.audit.log({ userId, event: 'workflow_template_updated' as any, resource: 'workflow_template', action: 'update', details: { id, changes: Object.keys(data) } });
+      await this.audit.log({
+        userId,
+        event: 'workflow_template_updated' as any,
+        resource: 'workflow_template',
+        action: 'update',
+        details: { id, changes: Object.keys(data) },
+      });
     }
     return updated;
   }
@@ -126,7 +178,13 @@ export class WorkflowTemplatesService {
     await this.findById(id);
     await this.database.workflowTemplates.softDelete(id);
     if (userId) {
-      await this.audit.log({ userId, event: 'workflow_template_deleted' as any, resource: 'workflow_template', action: 'delete', details: { id } });
+      await this.audit.log({
+        userId,
+        event: 'workflow_template_deleted' as any,
+        resource: 'workflow_template',
+        action: 'delete',
+        details: { id },
+      });
     }
     return { message: 'Workflow template deleted successfully' };
   }

@@ -11,15 +11,24 @@ export class ApprovalMatrixService {
   ) {}
 
   async findAll(page = 1, pageSize = 50, search?: string, module?: string, documentType?: string) {
-    const filter: Record<string, any> = {};
-    if (module) {filter.module = module;}
-    if (documentType) {filter.documentType = documentType;}
-    return this.database.approvalMatrix.findAll({ page, pageSize, search, filter } as any);
+    // NOTE: `filters` (array of {field, operator, value}) is the format the
+    // enterprise query builder understands — a plain `filter` object is silently
+    // ignored and would return every matrix entry (module/documentType filters never applied).
+    const filters: any[] = [];
+    if (module) {
+      filters.push({ field: 'module', operator: 'eq', value: module });
+    }
+    if (documentType) {
+      filters.push({ field: 'documentType', operator: 'eq', value: documentType });
+    }
+    return this.database.approvalMatrix.findAll({ page, pageSize, search, filters } as any);
   }
 
   async findById(id: string) {
     const record = await this.database.approvalMatrix.findById(id);
-    if (!record) {throw new NotFoundException(`Approval matrix entry with id "${id}" not found`);}
+    if (!record) {
+      throw new NotFoundException(`Approval matrix entry with id "${id}" not found`);
+    }
     return record;
   }
 
@@ -35,7 +44,13 @@ export class ApprovalMatrixService {
     } as any);
 
     if (userId) {
-      await this.audit.log({ userId, event: 'approval_matrix_created' as any, resource: 'approval_matrix', action: 'create', details: { id: record.id, name: data.name } });
+      await this.audit.log({
+        userId,
+        event: 'approval_matrix_created' as any,
+        resource: 'approval_matrix',
+        action: 'create',
+        details: { id: record.id, name: data.name },
+      });
     }
     return record;
   }
@@ -43,12 +58,22 @@ export class ApprovalMatrixService {
   async update(id: string, data: any, userId?: string) {
     await this.findById(id);
     const updateData = { ...data, updatedBy: userId || null };
-    if (data.minAmount !== undefined) {updateData.minAmount = Number(data.minAmount);}
-    if (data.maxAmount !== undefined) {updateData.maxAmount = data.maxAmount !== null ? Number(data.maxAmount) : null;}
+    if (data.minAmount !== undefined) {
+      updateData.minAmount = Number(data.minAmount);
+    }
+    if (data.maxAmount !== undefined) {
+      updateData.maxAmount = data.maxAmount !== null ? Number(data.maxAmount) : null;
+    }
     const record = await this.database.approvalMatrix.update(id, updateData as any);
 
     if (userId) {
-      await this.audit.log({ userId, event: 'approval_matrix_updated' as any, resource: 'approval_matrix', action: 'update', details: { id, changes: Object.keys(data) } });
+      await this.audit.log({
+        userId,
+        event: 'approval_matrix_updated' as any,
+        resource: 'approval_matrix',
+        action: 'update',
+        details: { id, changes: Object.keys(data) },
+      });
     }
     return record;
   }
@@ -57,7 +82,13 @@ export class ApprovalMatrixService {
     await this.findById(id);
     await this.database.approvalMatrix.softDelete(id);
     if (userId) {
-      await this.audit.log({ userId, event: 'approval_matrix_deleted' as any, resource: 'approval_matrix', action: 'delete', details: { id } });
+      await this.audit.log({
+        userId,
+        event: 'approval_matrix_deleted' as any,
+        resource: 'approval_matrix',
+        action: 'delete',
+        details: { id },
+      });
     }
     return { message: 'Approval matrix entry deleted' };
   }
