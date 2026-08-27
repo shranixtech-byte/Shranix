@@ -277,7 +277,7 @@ export class CreateSalesInvoiceItemDto {
 }
 
 export class CreateSalesInvoiceDto {
-  @ApiProperty() @IsString() invoiceNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() invoiceNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() orderId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() challanId?: string;
   @ApiProperty() @IsString() customerId!: string;
