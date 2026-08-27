@@ -1283,7 +1283,53 @@ export class SalesInvoicesService extends BaseMasterService {
       }
     }
 
-    // 4) Return invoice with items
+    // 4) When invoice is posted: deduct stock + update credit profile
+    const isPosted = String(invoiceData.status) === 'posted';
+    if (isPosted && createdItems.length > 0) {
+      // a) Stock deduction: reduce currentStock for each sold item
+      for (const item of createdItems) {
+        try {
+          const prod = (await this.db.items.findById(item.itemId)) as any;
+          if (prod) {
+            const currentStock = Number(prod.currentStock || prod.stock || 0);
+            const qty = Number(item.quantity) || 0;
+            const newStock = Math.max(0, currentStock - qty);
+            await this.db.items.update(item.itemId, {
+              currentStock: newStock,
+              updatedAt: new Date().toISOString(),
+            } as any);
+            this.logger.log(
+              `Stock deducted: ${prod.name || item.itemId} ${currentStock} → ${newStock} (invoice ${invoiceData.invoiceNumber})`,
+            );
+          }
+        } catch (e) {
+          this.logger.warn(
+            `Stock deduction skipped for item ${item.itemId}: ${(e as Error).message}`,
+          );
+        }
+      }
+
+      // b) Credit profile update: increase outstanding for credit invoices
+      const totalPaid = Number(invoiceData.paidAmount) || 0;
+      const grandTotal = Number(invoiceData.grandTotal) || 0;
+      const balanceAmount = Number(invoiceData.balanceAmount) || grandTotal - totalPaid;
+      if (balanceAmount > 0 && invoiceData.customerId) {
+        try {
+          // Import is at top of file — use dynamic require to avoid circular
+          const creditEngineMod = await import('./credit-engine.service');
+          const CreditEngineClass = creditEngineMod.SalesCreditEngineService;
+          const creditEngine = new CreditEngineClass(this.db, this.audit);
+          await creditEngine.addOutstanding(invoiceData.customerId, balanceAmount);
+          this.logger.log(
+            `Credit profile updated: customer ${invoiceData.customerId} outstanding += ₹${balanceAmount} (invoice ${invoiceData.invoiceNumber})`,
+          );
+        } catch (e) {
+          this.logger.warn(`Credit profile update skipped: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    // 5) Return invoice with items
     return {
       ...invoice,
       items: createdItems,

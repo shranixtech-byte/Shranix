@@ -15,10 +15,11 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
+import { downloadInvoicePdf } from '@/services/invoice-pdf.service';
 
 import type { InvoiceLineItem } from './product-selection-screen';
 
@@ -949,6 +950,7 @@ export function InvoicePostingEngineScreen({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [approvalStatus, setApprovalStatus] = useState('pending');
+  const saveInProgressRef = useRef(false);
 
   // ── Computed values ────────────────────────────────
   const computed = useMemo(() => {
@@ -1165,9 +1167,11 @@ export function InvoicePostingEngineScreen({
   // ── Save Handlers ────────────────────────────────
   const handleSave = useCallback(
     async (action: 'draft' | 'post') => {
-      if (saving) {
+      // Duplicate submission guard: prevent double-click / double-submit
+      if (saving || saveInProgressRef.current) {
         return;
       }
+      saveInProgressRef.current = true;
       setSaving(true);
       setSaveError(null);
       try {
@@ -1181,6 +1185,7 @@ export function InvoicePostingEngineScreen({
         setSaveError(err?.message || 'Failed to save invoice. Please try again.');
       } finally {
         setSaving(false);
+        saveInProgressRef.current = false;
       }
     },
     [postingPayload, onSaveToBackend, onComplete, saving],
@@ -1295,10 +1300,18 @@ export function InvoicePostingEngineScreen({
               onSaveDraft={() => handleSave('draft')}
               onSavePost={() => handleSave('post')}
               onSaveNew={() => handleSave('draft')}
-              onGeneratePDF={() => {}}
+              onGeneratePDF={() => {
+                downloadInvoicePdf(`${invoiceNumber || 'invoice'}.pdf`).catch((err) => {
+                  setSaveError(`PDF generation failed: ${(err as Error).message}`);
+                });
+              }}
               onPrint={() => window.print()}
-              onWhatsApp={() => {}}
-              onEmail={() => {}}
+              onWhatsApp={() => {
+                // TODO: WhatsApp sharing integration
+              }}
+              onEmail={() => {
+                // TODO: Email sharing integration
+              }}
               disabled={saving || (hasErrors && approvalStatus !== 'approved')}
             />
             <AuditTrail audit={postingPayload.audit} />
