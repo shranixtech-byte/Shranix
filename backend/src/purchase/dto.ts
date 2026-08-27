@@ -179,7 +179,7 @@ export class BulkSupplierDeleteDto {
 // PURCHASE REQUISITION DTOs (PRM-016 Module 2)
 // ═════════════════════════════════════════════════════════
 export class CreatePurchaseRequisitionDto {
-  @ApiProperty() @IsString() prNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() prNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() department?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() requestedBy?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() requiredDate?: string;
@@ -230,7 +230,7 @@ export class UpdatePurchaseQuotationDto {
 // ENHANCED PURCHASE ORDER DTOs (PRM-016 Module 3)
 // ═════════════════════════════════════════════════════════
 export class CreatePurchaseOrderDto {
-  @ApiProperty() @IsString() poNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() poNumber?: string;
   @ApiProperty() @IsString() supplierId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() branchId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
@@ -279,7 +279,7 @@ export class POItemDto {
 // ENHANCED GRN DTOs (PRM-016 Module 4)
 // ═════════════════════════════════════════════════════════
 export class CreateGrnDto {
-  @ApiProperty() @IsString() grnNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() grnNumber?: string;
   @ApiProperty() @IsString() poId!: string;
   @ApiProperty() @IsString() supplierId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() warehouseId?: string;
