@@ -530,7 +530,12 @@ export class DocumentConversionService {
         /* keep default */
       }
     }
-    return String(paymentTerms || 'credit').toLowerCase();
+    // Normalize: any term other than explicit 'cash' / 'cod' is credit.
+    // Terms like '30 days', '60 days', 'net 30' etc. are all credit terms.
+    const normalized = String(paymentTerms || 'credit')
+      .toLowerCase()
+      .trim();
+    return normalized === 'cash' || normalized === 'cod' ? 'cash' : 'credit';
   }
 
   private dueDateFrom(deliveryDate?: string | null): string | null {
