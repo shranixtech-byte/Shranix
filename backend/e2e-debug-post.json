@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "data": {
+    "success": true,
+    "data": {
+      "success": true,
+      "message": "Invoice SI-CA26-183 posted successfully with 0 journal entries",
+      "journalEntryId": "SINV-MTBVBKGTHVW",
+      "errors": []
+    },
+    "timestamp": "2026-08-27T18:40:33.689Z",
+    "path": "/api/v1/sales/invoices/f9ab5650-d421-4e6a-9dcd-d08c4c62913a/post",
+    "method": "POST"
+  },
+  "setCookies": []
+}

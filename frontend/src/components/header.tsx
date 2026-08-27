@@ -230,12 +230,12 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
     breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : 'Dashboard';
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-4 shadow-lg shadow-slate-900/5 backdrop-blur-2xl transition-all duration-200 sm:px-6 lg:px-6 dark:border-white/[0.08] dark:bg-[#111827]/90 dark:shadow-black/40">
+    <header className="sm:h-13 sticky top-0 z-30 flex h-12 shrink-0 items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white/90 px-3.5 shadow-md shadow-slate-900/5 backdrop-blur-2xl transition-all duration-200 sm:rounded-2xl sm:px-5 dark:border-white/[0.08] dark:bg-[#111827]/90 dark:shadow-black/40">
       {/* ── Left: Sidebar Toggle + Title + Breadcrumbs ── */}
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
-          className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+          className="shadow-xs group relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
           aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <Menu className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-110" />
@@ -374,7 +374,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
         {/* Theme Toggle Button */}
         <button
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-          className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-amber-500/40 hover:bg-amber-50/60 hover:text-amber-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-amber-400/40 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+          className="shadow-xs group relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-amber-500/40 hover:bg-amber-50/60 hover:text-amber-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-amber-400/40 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
           aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}
         >
           {resolvedTheme === 'dark' ? (
@@ -388,7 +388,7 @@ export function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-            className="shadow-xs group relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/60 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
+            className="shadow-xs group relative flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-50/80 text-slate-600 transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-50/60 hover:text-emerald-600 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
             aria-label="Notifications"
           >
             <Bell className="h-4.5 w-4.5 transition-transform duration-200 group-hover:scale-110" />

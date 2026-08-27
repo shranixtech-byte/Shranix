@@ -1,0 +1,25 @@
+[SETUP] Customer: 45c12242-b452-4ece-8ad3-9e630bf0d370, Item: इमिडाक्लोप्रिड 17.8% SL, Rate: 550, GST: 18%
+  [HELPER] Return-Test-1: Invoice 0a90c43e-4ec0-4528-8cb0-a5eb5716fa47, Post → 200
+  [TEST 1] POST → 201
+  [TEST 1] Created: SR-mtbvbjt9-0001, CN: CN-SR-mtbvbjt9-0001
+  [TEST 2] Credit note: CN-SR-mtbvbjt9-0001, status: draft
+  [TEST 3] POST → 200
+  [TEST 3] Return posted: Sales return SR-mtbvbjt9-0001 posted
+  [TEST 4] Return status: posted
+  [HELPER] OverReturn-Test: Invoice 210d0a51-495f-485c-b574-a98602d67968, Post → 200
+  [TEST 5] Over-return → 400
+  [TEST 6] Missing invoice → 404
+  [HELPER] ZeroQty-Test: Invoice 284931b2-0dae-4cd9-889a-6749b08918bd, Post → 200
+  [TEST 7] Zero qty → 400
+  [TEST 8] Double-post → 400
+  [TEST 9] 10 return reasons available
+  [TEST 10] Register: 28 returns
+  [TEST 11] Summary: 28 returns, 9 posted
+  [HELPER] Validate-Test: Invoice 15485bd5-d53b-4f2d-b800-f53fba14ddf7, Post → 200
+  [TEST 12] Valid: canReturn=true
+  [TEST 12] Over: canReturn=false
+  [HELPER] PartialReturn-Test: Invoice 5f31e693-9fcd-4f08-a59e-f0c2dc0b9e5a, Post → 200
+  [TEST 13] Partial 1 → 201
+  [TEST 13] Partial 2 → 201
+  [TEST 13] Over-return → 400
+  [TEST 13] Partial tracking: 3+2=5 returned, 6th rejected ✅

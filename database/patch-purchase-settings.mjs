@@ -1,16 +1,5 @@
 /**
- * 🔧 PATCH — Purchase Settings columns on shranix_purchase_settings
- *
- * Adds the 5 new Purchase Settings columns (auto_grn, supplier_credit_days,
- * default_tax_group_id, default_warehouse_id, default_payment_mode) to EVERY
- * dev.db copy in the repo, idempotently.
- *
- * Why: the schema lives in database/src/schema/purchase.ts and is synced by
- * sync-schema.mjs (which only targets ../data/dev.db). backend/data/dev.db and
- * database/data/dev.db are older copies — saving Purchase Settings there
- * throws "no such column". This script patches all of them.
- *
- * Usage: cd database && node patch-purchase-settings.mjs
+ * 🔧 PATCH — Purchase Settings & Invoices columns
  */
 import { createClient } from '@libsql/client';
 import { existsSync } from 'node:fs';
@@ -22,19 +11,24 @@ const TARGETS = [
   resolve(root, 'data/dev.db'),
   resolve(root, 'backend/data/dev.db'),
   resolve(root, 'database/data/dev.db'),
+  resolve(process.cwd(), 'data/dev.db'),
 ];
 
-const COLUMNS = [
+const SETTINGS_COLUMNS = [
   ['auto_grn', 'integer DEFAULT 0'],
   ['supplier_credit_days', 'integer DEFAULT 30'],
   ['default_tax_group_id', 'text'],
   ['default_warehouse_id', 'text'],
   ['default_payment_mode', "text DEFAULT 'credit'"],
-  // Supplier Settings (Settings Hub → Purchase → Supplier) — match schema notNull defaults
   ['default_supplier_category', 'text'],
   ['default_vendor_rating', 'integer NOT NULL DEFAULT 3'],
   ['default_gst_rate', 'real NOT NULL DEFAULT 0'],
   ['require_vendor_approval', 'integer NOT NULL DEFAULT 0'],
+];
+
+const INVOICE_COLUMNS = [
+  ['branch_id', 'text'],
+  ['financial_year_id', 'text'],
 ];
 
 async function columnExists(client, table, col) {
@@ -54,24 +48,33 @@ for (const url of TARGETS) {
   }
   const client = createClient({ url: `file:${url}` });
   try {
-    if (!(await tableExists(client, 'shranix_purchase_settings'))) {
-      console.log(`--- ${url}: table not found (skipped)`);
-      client.close();
-      continue;
-    }
-    let added = 0;
-    for (const [col, def] of COLUMNS) {
-      if (!(await columnExists(client, 'shranix_purchase_settings', col))) {
-        await client.execute(`ALTER TABLE shranix_purchase_settings ADD COLUMN ${col} ${def}`);
-        added++;
-        console.log(`+ ${url} → ${col}`);
+    if (await tableExists(client, 'shranix_purchase_settings')) {
+      let added = 0;
+      for (const [col, def] of SETTINGS_COLUMNS) {
+        if (!(await columnExists(client, 'shranix_purchase_settings', col))) {
+          await client.execute(`ALTER TABLE shranix_purchase_settings ADD COLUMN ${col} ${def}`);
+          added++;
+          console.log(`+ ${url} → shranix_purchase_settings.${col}`);
+        }
       }
+      console.log(`--- ${url}: ${added} settings column(s) added`);
     }
-    console.log(`--- ${url}: ${added} column(s) added`);
+
+    if (await tableExists(client, 'shranix_purchase_invoices')) {
+      let addedInv = 0;
+      for (const [col, def] of INVOICE_COLUMNS) {
+        if (!(await columnExists(client, 'shranix_purchase_invoices', col))) {
+          await client.execute(`ALTER TABLE shranix_purchase_invoices ADD COLUMN ${col} ${def}`);
+          addedInv++;
+          console.log(`+ ${url} → shranix_purchase_invoices.${col}`);
+        }
+      }
+      console.log(`--- ${url}: ${addedInv} purchase invoices column(s) added`);
+    }
   } catch (e) {
     console.log(`--- ${url}: ERROR ${e.message}`);
   } finally {
     client.close();
   }
 }
-console.log('\n✅ PURCHASE SETTINGS COLUMNS PATCH COMPLETE');
+console.log('\n✅ PURCHASE SETTINGS & INVOICES COLUMNS PATCH COMPLETE');

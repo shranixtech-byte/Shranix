@@ -41,7 +41,7 @@ export function AppLayout() {
 
       {/* Desktop sidebar - Floating Curved Card */}
       {(isMobile ? mobileSidebarOpen : true) && (
-        <div className={isMobile ? '' : 'h-full shrink-0 p-3 pr-0'}>
+        <div className={isMobile ? '' : 'h-full shrink-0 p-2 pr-0'}>
           <Sidebar
             collapsed={sidebarCollapsed}
             onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -52,12 +52,12 @@ export function AppLayout() {
 
       {/* Main Container - Floating Header + Content */}
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        <div className={isMobile ? '' : 'px-3 pt-3'}>
+        <div className={isMobile ? '' : 'px-2.5 pt-2'}>
           <Header onToggleSidebar={handleToggleSidebar} sidebarCollapsed={sidebarCollapsed} />
         </div>
         <UpdateBanner />
         <main
-          className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-20 pt-4' : 'p-4 lg:p-6'}`}
+          className={`flex-1 overflow-y-auto ${isMobile ? 'px-4 pb-20 pt-4' : 'flex min-h-0 flex-col p-2 sm:p-2.5 xl:p-2.5'}`}
           style={{
             paddingBottom: isMobile ? 'calc(5rem + env(safe-area-inset-bottom, 0px))' : undefined,
           }}

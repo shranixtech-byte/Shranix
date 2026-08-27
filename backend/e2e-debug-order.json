@@ -1,0 +1,30 @@
+{
+  "status": 200,
+  "data": {
+    "success": true,
+    "data": {
+      "challan": {
+        "challanNumber": "DC-0171",
+        "orderId": "55fa8c62-ae59-45df-909e-aecf25d33890",
+        "customerId": "45c12242-b452-4ece-8ad3-9e630bf0d370",
+        "warehouseId": null,
+        "dispatchDate": "2026-08-27",
+        "dispatchType": "full",
+        "status": "dispatched",
+        "notes": "Converted from sales order SO-0240",
+        "financialYearId": null,
+        "createdBy": "1d2f290b-902d-4e53-91d6-98b3050de0d6",
+        "id": "5829b162-df42-4869-bf28-5512d8487e83",
+        "createdAt": "2026-08-27T18:40:34.997Z",
+        "updatedAt": "2026-08-27T18:40:34.997Z",
+        "deletedAt": null,
+        "isDeleted": false
+      },
+      "itemCount": 1
+    },
+    "timestamp": "2026-08-27T18:40:35.016Z",
+    "path": "/api/v1/sales/orders/55fa8c62-ae59-45df-909e-aecf25d33890/convert",
+    "method": "POST"
+  },
+  "setCookies": []
+}

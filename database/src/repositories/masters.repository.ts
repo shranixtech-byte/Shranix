@@ -206,7 +206,17 @@ export class MasterDataRepository<T extends MasterRecord> {
     if (this.hasColumn('isDeleted')) {
       values.isDeleted = false;
     }
-    await this.activeDb.insert(this.table).values(values);
+    try {
+      await this.activeDb.insert(this.table).values(values);
+      console.log(
+        `[MasterDataRepo] INSERT OK: ${this.table[Symbol.for('drizzle:Name')] || 'unknown'} id=${id}`,
+      );
+    } catch (err: any) {
+      console.error(
+        `[MasterDataRepo] INSERT FAILED: ${this.table[Symbol.for('drizzle:Name')] || 'unknown'} err=${err.message}`,
+      );
+      throw err;
+    }
     return values as T;
   }
 
