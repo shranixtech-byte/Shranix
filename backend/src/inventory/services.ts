@@ -333,8 +333,8 @@ export class InventoryPostingEngine {
     // posted by reverseMovement (which restores the balance itself).
     let balance = null;
     if (input.direction !== 'REVERSAL') {
-      const whId =
-        input.warehouseId || (await this.resolveWarehouseId(input.warehouseId)) || undefined;
+      // Always resolve warehouse: if it's a UUID, use directly; if it's a name/code, resolve to UUID
+      const whId = (await this.resolveWarehouseId(input.warehouseId)) || undefined;
       if (whId) {
         balance = await this.applyBalanceDelta(
           whId,

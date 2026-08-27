@@ -1336,77 +1336,10 @@ export class SalesInvoicesService extends BaseMasterService {
     };
   }
 
-  /**
-   * Override update: when status transitions to 'posted',
-   * deduct stock + update credit profile (mirrors create() logic).
-   * Prevents double-deduction by checking status before update.
-   */
-  override async update(id: string, data: any, userId?: string) {
-    // Read current state before update
-    const existing = (await this.findById(id)) as any;
-    const wasPosted = String(existing?.status) === 'posted';
-    const isPosted = String(data?.status) === 'posted';
-
-    // Perform the update
-    const record = await super.update(id, data, userId);
-
-    // Only run stock + credit logic on draft→posted transition (not if already posted)
-    if (!wasPosted && isPosted) {
-      // a) Stock deduction: get invoice items and reduce currentStock
-      try {
-        const invItems = await this.invoiceItemsRepo.findAll({
-          filters: [{ field: 'invoiceId', operator: 'eq', value: id }],
-          page: 1,
-          pageSize: 1000,
-        } as any);
-        const items = (invItems as any)?.data || [];
-        for (const item of items) {
-          try {
-            const prod = (await this.db.items.findById(item.itemId)) as any;
-            if (prod) {
-              const currentStock = Number(prod.currentStock || prod.stock || 0);
-              const qty = Number(item.quantity) || 0;
-              const newStock = Math.max(0, currentStock - qty);
-              await this.db.items.update(item.itemId, {
-                currentStock: newStock,
-                updatedAt: new Date().toISOString(),
-              } as any);
-              this.logger.log(
-                `Stock deducted (update): ${prod.name || item.itemId} ${currentStock} → ${newStock} (invoice ${existing?.invoiceNumber || id})`,
-              );
-            }
-          } catch (e) {
-            this.logger.warn(
-              `Stock deduction skipped for item ${item.itemId}: ${(e as Error).message}`,
-            );
-          }
-        }
-      } catch (e) {
-        this.logger.warn(`Stock deduction failed on update: ${(e as Error).message}`);
-      }
-
-      // b) Credit profile update for unpaid portion
-      try {
-        const totalPaid = Number(data.paidAmount ?? existing?.paidAmount) || 0;
-        const grandTotal = Number(data.grandTotal ?? existing?.grandTotal) || 0;
-        const balance =
-          Number(data.balanceAmount ?? existing?.balanceAmount) || grandTotal - totalPaid;
-        if (balance > 0 && existing?.customerId) {
-          const creditEngineMod = await import('./credit-engine.service');
-          const CreditEngineClass = creditEngineMod.SalesCreditEngineService;
-          const creditEngine = new CreditEngineClass(this.db, this.audit as any);
-          await creditEngine.addOutstanding(existing.customerId, balance);
-          this.logger.log(
-            `Credit profile updated (update): customer ${existing.customerId} outstanding += ₹${balance} (invoice ${existing?.invoiceNumber || id})`,
-          );
-        }
-      } catch (e) {
-        this.logger.warn(`Credit profile update skipped (update): ${(e as Error).message}`);
-      }
-    }
-
-    return record;
-  }
+  // NOTE: Invoice posting (status → posted) MUST go through POST :id/post endpoint
+  // which uses PostingEngineService for transactional GL + stock + GST + credit posting.
+  // The PUT endpoint only handles draft-level metadata updates (notes, addresses, etc.)
+  // and should NOT be used to change status to 'posted'.
 }
 @Injectable()
 export class SalesReturnsService extends BaseMasterService {
