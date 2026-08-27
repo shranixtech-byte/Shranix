@@ -319,7 +319,7 @@ export class UpdateSalesInvoiceDto {
 }
 
 export class PostSalesInvoiceDto {
-  @ApiProperty() @IsString() userId!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() userId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() userEmail?: string;
 }
 
