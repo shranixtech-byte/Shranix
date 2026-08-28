@@ -35,6 +35,7 @@ import { ForgotPasswordPage } from '@/pages/auth/forgot-password';
 import { LoginPage } from '@/pages/auth/login';
 import { RegisterPage } from '@/pages/auth/register';
 import { SessionExpiredPage } from '@/pages/auth/session-expired';
+import { SetupWizardPage } from '@/pages/auth/setup-wizard';
 import {
   CreateCustomerPage,
   CustomerDashboardPage,
@@ -726,6 +727,7 @@ export const routes: RouteObject[] = [
       { path: 'forgot-password', element: <ForgotPasswordPage /> },
       { path: 'access-denied', element: <AccessDeniedPage /> },
       { path: 'session-expired', element: <SessionExpiredPage /> },
+      { path: 'setup', element: <SetupWizardPage /> },
     ],
   },
 

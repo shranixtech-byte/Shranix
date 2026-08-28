@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/context/AuthContext';
+import { resolveApiBase } from '@/lib/api-base';
 import { getPreferredLandingPath, usePreferences } from '@/providers/preferences-provider';
 
 // ═══════════════════════════════════════════════════════════
@@ -295,8 +296,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
-  // Default Landing Page (Settings → Dashboard) — fresh login par preferred page,
-  // par agar user kisi specific page se redirect hua hai to wahi page mile.
   const dest = from && from !== '/' ? from : getPreferredLandingPath(preferences, user);
 
   const [email, setEmail] = useState('');
@@ -307,6 +306,31 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [language, setLanguage] = useState<'en' | 'mr'>('en');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+
+  // First-run detection: check if setup wizard is needed
+  useEffect(() => {
+    if (localStorage.getItem('shranix_setup_complete') === 'true') {
+      setNeedsSetup(false);
+      return;
+    }
+    const apiBase = resolveApiBase();
+    fetch(`${apiBase}/auth/setup/status`)
+      .then((r) => r.json())
+      .then((data) => {
+        const needed = data?.data?.needsSetup ?? data?.needsSetup ?? false;
+        setNeedsSetup(needed);
+        if (!needed) {
+          localStorage.setItem('shranix_setup_complete', 'true');
+        }
+      })
+      .catch(() => setNeedsSetup(false));
+  }, []);
+
+  // Redirect to setup wizard if needed
+  if (needsSetup === true) {
+    return <Navigate to="/auth/setup" replace />;
+  }
 
   // Redirect if already authenticated
   if (isAuthenticated) {

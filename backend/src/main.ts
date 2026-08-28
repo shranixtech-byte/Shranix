@@ -24,10 +24,43 @@ import { ResponseInterceptor } from './interceptors/response.interceptor';
 import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
 
 async function bootstrap() {
-  // ── Auto-migration: run drizzle-kit push for SQLite offline mode ──
+  // ── SQLite health check + auto-migration (offline desktop mode) ──
   const provider = process.env.DATABASE_PROVIDER || 'sqlite';
   if (provider === 'sqlite') {
-    const logger = new Logger('Migrate');
+    const logger = new Logger('Startup');
+
+    // 1. Database corruption detection
+    try {
+      const { execSync } = await import('child_process');
+      logger.log('Running SQLite integrity check...');
+      const dbUrl = process.env.DATABASE_URL || 'file:./data/dev.db';
+      const dbPath = dbUrl.replace(/^file:(\/\/)?/, '');
+      const { existsSync } = await import('fs');
+      if (existsSync(dbPath)) {
+        // integrity_check via sqlite3 CLI (if available) or skip gracefully
+        try {
+          const result = execSync(
+            `node -e "const c=require('@libsql/client');const cl=c.createClient({url:'${dbUrl}'});cl.execute('PRAGMA integrity_check').then(r=>{console.log(JSON.stringify(r.rows));process.exit(0)}).catch(e=>{console.error(e.message);process.exit(1)})"`,
+            { timeout: 15000, stdio: 'pipe', cwd: process.cwd() },
+          )
+            .toString()
+            .trim();
+          if (result.includes('ok')) {
+            logger.log('Database integrity: OK');
+          } else {
+            logger.warn(`Database integrity: ${result.slice(0, 200)}`);
+          }
+        } catch {
+          logger.warn('Integrity check skipped (tool not available)');
+        }
+      } else {
+        logger.log('Fresh database — will be created on first use');
+      }
+    } catch {
+      // Non-critical — continue startup
+    }
+
+    // 2. Auto-migration via drizzle-kit push
     try {
       const { execSync } = await import('child_process');
       logger.log('Running auto-migration (drizzle-kit push)...');
@@ -41,7 +74,6 @@ async function bootstrap() {
       logger.log('Auto-migration completed successfully');
     } catch (err) {
       const msg = (err as Error).message || String(err);
-      // drizzle-kit push may fail if schema is already up to date — that's fine
       if (msg.includes('Already up to date') || msg.includes('No changes')) {
         logger.log('Database schema is up to date');
       } else {

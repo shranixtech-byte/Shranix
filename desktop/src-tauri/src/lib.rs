@@ -291,18 +291,44 @@ fn wait_for_backend(port: u16, max_wait_secs: u64) -> bool {
     false
 }
 
-/// Check if the backend has any users (first-run detection).
-fn is_first_run(port: u16) -> bool {
-    let url = format!("http://127.0.0.1:{}/v1/health/ready", port);
-    match ureq::get(&url).call() {
-        Ok(resp) => {
-            let body = resp.into_string().unwrap_or_default();
-            // If health says "unhealthy" or DB not ready, it's likely first run
-            // with empty DB. Also check users endpoint.
-            !body.contains("healthy")
+/// Spawn a health monitor thread that periodically checks if the backend is alive.
+/// If the backend dies, it attempts to restart it automatically.
+fn spawn_health_monitor(port: u16) {
+    std::thread::spawn(move || {
+        let url = format!("http://127.0.0.1:{}/v1/health/live", port);
+        let mut consecutive_failures = 0u32;
+        loop {
+            std::thread::sleep(Duration::from_secs(10));
+            match ureq::get(&url).call() {
+                Ok(resp) if resp.status() == 200 => {
+                    consecutive_failures = 0;
+                }
+                _ => {
+                    consecutive_failures += 1;
+                    log::warn!(
+                        "[desktop] Backend health check failed ({}/3)",
+                        consecutive_failures
+                    );
+                    if consecutive_failures >= 3 {
+                        log::error!("[desktop] Backend appears dead — attempting restart");
+                        match BackendManager::new(port) {
+                            Ok(mgr) => {
+                                if let Ok(_pid) = mgr.start() {
+                                    if wait_for_backend(port, 15) {
+                                        log::info!("[desktop] Backend restarted successfully");
+                                        consecutive_failures = 0;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("[desktop] Restart failed: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
         }
-        Err(_) => true,
-    }
+    });
 }
 
 // ── Window Manager ───────────────────────────────────────
@@ -499,6 +525,11 @@ pub fn run() {
             false
         }
     };
+
+    // ── Start health monitor thread ──
+    if backend_started {
+        spawn_health_monitor(port);
+    }
 
     let app_state = AppState::new();
     if let Ok(mut port_lock) = app_state.backend_port.lock() {
