@@ -1,0 +1,2 @@
+f5c4f4b02f3fd5320dfc975905b52166ab6f00ecac6d11fb27038f125c3a0151 *SHRANIX Krushi ERP_1.0.0_x64-setup.exe
+ce64aefaacd07a4a14a22553b3ac0af8abe3a69bbf7514efd77fb891654efa17 *shranix-krushi-erp.exe
