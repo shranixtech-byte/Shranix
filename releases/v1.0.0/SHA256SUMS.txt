@@ -1,2 +1,9 @@
-f5c4f4b02f3fd5320dfc975905b52166ab6f00ecac6d11fb27038f125c3a0151 *SHRANIX Krushi ERP_1.0.0_x64-setup.exe
-ce64aefaacd07a4a14a22553b3ac0af8abe3a69bbf7514efd77fb891654efa17 *shranix-krushi-erp.exe
+# SHRANIX Krushi ERP v1.0.0 — SHA-256 Checksums
+# Date: 2026-08-28
+# Includes bundled Node.js v24.18.0 runtime
+
+# EXE (standalone, requires system Node.js)
+1dccc42bdbdda2802e38bd740830def9a9dd08d806d1911dfe3b145d2268268f  shranix-krushi-erp.exe
+
+# NSIS Installer (self-contained, includes bundled Node.js + backend runtime)
+4b599affd6c5134d7ec5d665c53408348b3960507dc91a4bb13c3184f091bc66  SHRANIX Krushi ERP_1.0.0_x64-setup.exe

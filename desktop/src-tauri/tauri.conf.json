@@ -45,7 +45,7 @@
       "icons/icon.ico"
     ],
     "targets": ["nsis"],
-    "resources": [],
+    "resources": ["../runtime/**/*"],
     "windows": {
       "nsis": {
         "installMode": "currentUser"

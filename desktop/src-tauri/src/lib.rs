@@ -111,16 +111,12 @@ impl BackendManager {
         let exe_dir = exe_path.parent().unwrap_or(&exe_path);
 
         let candidates = vec![
-            // Production: runtime/backend-dist/ next to the EXE
-            exe_dir.join("../../runtime/backend-dist"),
-            exe_dir.join("runtime/backend-dist"),
-            exe_dir.join("../runtime/backend-dist"),
-            // Development: project root backend/
-            exe_dir
-                .join("../../..")
-                .join("backend"),
-            // Same directory as exe
-            exe_dir.join("backend"),
+            // Installed app: runtime/backend/ next to the EXE (Tauri resources)
+            exe_dir.join("runtime/backend"),
+            // Dev build: exe is in target/release/
+            exe_dir.join("../../../backend"),
+            // Dev build alternative
+            exe_dir.join("../../backend"),
             // CWD fallback
             std::env::current_dir()
                 .unwrap_or_default()
@@ -149,16 +145,10 @@ impl BackendManager {
         // 1. Bundled node in the runtime directory
         let mut bundled_paths: Vec<std::path::PathBuf> = vec![];
         if let Some(ed) = exe_dir {
-            // Production: runtime/node/node.exe next to the EXE
-            bundled_paths.push(ed.join("../../runtime/node/node.exe"));
+            // Installed app: runtime/node/node.exe next to the EXE (Tauri resources)
             bundled_paths.push(ed.join("runtime/node/node.exe"));
-            bundled_paths.push(ed.join("../runtime/node/node.exe"));
-        }
-        // Dev: relative to backend dir
-        bundled_paths.push(self.backend_dir.join("../../desktop/runtime/node/node.exe"));
-        // Desktop node directory
-        if let Some(ed) = exe_dir {
-            bundled_paths.push(ed.join("../../../desktop/node/win-x64/node.exe"));
+            // Dev build: exe is in target/release/
+            bundled_paths.push(ed.join("../../../../desktop/node/win-x64/node.exe"));
         }
 
         for p in &bundled_paths {
@@ -225,8 +215,6 @@ impl BackendManager {
             .env(
                 "NODE_PATH",
                 self.backend_dir
-                    .parent()
-                    .unwrap_or(&self.backend_dir)
                     .join("node_modules")
                     .to_string_lossy()
                     .to_string(),
