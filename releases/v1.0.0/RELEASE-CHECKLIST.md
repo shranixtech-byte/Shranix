@@ -5,18 +5,6 @@
 
 ---
 
-## Production Infrastructure
-
-| Item                        | Status     | Notes                                        |
-| --------------------------- | ---------- | -------------------------------------------- |
-| Production backend deployed | 🟡 BLOCKED | Requires deployment to production server     |
-| Production database         | 🟡 BLOCKED | Requires PostgreSQL on production server     |
-| HTTPS configured            | 🟡 BLOCKED | Requires SSL certificate for api.shranix.com |
-| Domain configured           | 🟡 BLOCKED | Requires DNS for api.shranix.com             |
-| CORS configured             | 🟡 BLOCKED | Requires production CORS_ORIGINS             |
-
----
-
 ## Desktop Application
 
 | Item                      | Status   | Notes                                              |
@@ -28,9 +16,6 @@
 | CSP configured            | ✅ READY | Production domains only                            |
 | DevTools disabled         | ✅ READY | `#[cfg(debug_assertions)]` guards                  |
 | Version consistent        | ✅ READY | 1.0.0 across all configs                           |
-| Icon/branding             | ✅ READY | Consistent across all platforms                    |
-| Installer tested          | ✅ READY | Valid PE32 NSIS archive                            |
-| EXE launch tested         | ✅ READY | Runs stable, connects to API                       |
 
 ---
 
@@ -57,6 +42,18 @@
 
 ---
 
+## Production Infrastructure
+
+| Item                | Status     | Notes                         |
+| ------------------- | ---------- | ----------------------------- |
+| Neon PostgreSQL     | 🟡 BLOCKED | Requires user credentials     |
+| Railway deployment  | 🟡 BLOCKED | Requires user Railway account |
+| api.shranix.com DNS | 🟡 BLOCKED | Requires DNS configuration    |
+| HTTPS/SSL           | 🟡 BLOCKED | Requires SSL certificate      |
+| CORS configuration  | 🟡 BLOCKED | Requires production domain    |
+
+---
+
 ## Security
 
 | Item                    | Status   | Notes                           |
@@ -66,28 +63,31 @@
 | DevTools disabled       | ✅ READY | Release build guards            |
 | CSP active              | ✅ READY | Production domains only         |
 | Updater disabled        | ✅ READY | Placeholder key, not production |
-| Error messages safe     | ✅ READY | No stack traces exposed         |
 
 ---
 
 ## Documentation
 
-| Item               | Status   | Notes                   |
-| ------------------ | -------- | ----------------------- |
-| Release notes      | ✅ READY | `RELEASE-NOTES.md`      |
-| Installation guide | ✅ READY | `INSTALLATION-GUIDE.md` |
-| Admin guide        | ✅ READY | `ADMIN-GUIDE.md`        |
-| SHA-256 checksums  | ✅ READY | `SHA256SUMS.txt`        |
+| Item               | Status   | Notes                            |
+| ------------------ | -------- | -------------------------------- |
+| Release notes      | ✅ READY | `RELEASE-NOTES.md`               |
+| Installation guide | ✅ READY | `INSTALLATION-GUIDE.md`          |
+| Admin guide        | ✅ READY | `ADMIN-GUIDE.md`                 |
+| Deployment guide   | ✅ READY | `PRODUCTION-DEPLOYMENT-GUIDE.md` |
+| SHA-256 checksums  | ✅ READY | `SHA256SUMS.txt`                 |
 
 ---
 
-## Support
+## Deferred Items (Not Required for V1)
 
-| Item                     | Status      | Notes                              |
-| ------------------------ | ----------- | ---------------------------------- |
-| Support email configured | 🟡 DEFERRED | Requires support@shranix.com setup |
-| Documentation site       | 🟡 DEFERRED | Requires docs.shranix.com          |
-| Error monitoring         | 🟡 DEFERRED | Requires Sentry/similar            |
+| Item                | Status      | Notes                      |
+| ------------------- | ----------- | -------------------------- |
+| Auto-update         | ⏸️ DEFERRED | Requires signing key       |
+| Monitoring (Sentry) | ⏸️ DEFERRED | Optional for V1            |
+| Payment gateway     | ⏸️ DEFERRED | Not required for V1        |
+| Email/SMTP          | ⏸️ DEFERRED | Optional for V1            |
+| OCR provider        | ⏸️ DEFERRED | Basic implementation works |
+| AI provider         | ⏸️ DEFERRED | Placeholder only           |
 
 ---
 
@@ -95,45 +95,42 @@
 
 | Category         | Ready  | Blocked | Deferred |
 | ---------------- | ------ | ------- | -------- |
-| Desktop App      | 10     | 0       | 0        |
+| Desktop App      | 7      | 0       | 0        |
 | Frontend         | 4      | 0       | 0        |
-| Backend          | 4      | 0       | 0        |
-| Security         | 6      | 0       | 0        |
-| Documentation    | 4      | 0       | 0        |
+| Backend          | 5      | 0       | 0        |
 | Production Infra | 0      | 5       | 0        |
-| Support          | 0      | 0       | 3        |
-| **Total**        | **28** | **5**   | **3**    |
+| Security         | 5      | 0       | 0        |
+| Documentation    | 5      | 0       | 0        |
+| Deferred         | 0      | 0       | 6        |
+| **Total**        | **26** | **5**   | **6**    |
 
 ---
 
 ## Decision
 
-**🟡 CONDITIONALLY READY**
+### 🟡 CONDITIONALLY READY
 
 The desktop application, frontend, backend, security, and documentation are all READY.
 
-However, the production backend infrastructure (server, database, HTTPS, domain) is BLOCKED and must be deployed before the application can be used by customers.
+Production infrastructure (Neon database, Railway deployment, DNS, HTTPS) requires user credentials and configuration.
 
-### To Release V1.0.0:
+### To Complete Production Deployment:
 
-1. Deploy production backend to `api.shranix.com`
-2. Configure HTTPS with valid SSL certificate
-3. Set up production database
-4. Configure CORS for production origins
-5. Test end-to-end with production backend
-6. Distribute installer to customers
+1. Provision Neon PostgreSQL database
+2. Configure Railway project with environment variables
+3. Deploy backend via `railway up --production`
+4. Configure DNS: api.shranix.com → Railway
+5. Set up SSL certificate (Railway provides this)
+6. Run database migrations
+7. Test production E2E
 
-### Deferred Items (Not Required for V1):
+### Deployment Files Created:
 
-- Offline database
-- Offline sync
-- Real updater signing key
-- Auto-update
-- Real OCR provider
-- Real AI provider
-- Real payment gateway
-- CA digital signatures
-- Multi-tenant architecture
+- `deployment/railway.json` — Railway configuration
+- `deployment/env.production.template` — Environment variables template
+- `deployment/deploy-production.sh` — Deployment script
+- `deployment/rollback-production.sh` — Rollback script
+- `deployment/PRODUCTION-DEPLOYMENT-GUIDE.md` — Complete guide
 
 ---
 
