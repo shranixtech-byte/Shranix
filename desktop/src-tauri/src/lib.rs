@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::TrayIconEvent,
@@ -7,11 +8,18 @@ use tauri::{
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_notification::NotificationExt;
 
+// ── Backend Port ─────────────────────────────────────────
+const DEFAULT_PORT: u16 = 19256;
+
+// ── Global backend PID for cleanup ───────────────────────
+static mut BACKEND_PID: Option<u32> = None;
+
 // ── Application State ────────────────────────────────────
 struct AppState {
     window_visible: Mutex<bool>,
     update_available: Mutex<bool>,
     app_version: String,
+    backend_port: Mutex<u16>,
 }
 
 impl AppState {
@@ -20,27 +28,188 @@ impl AppState {
             window_visible: Mutex::new(false),
             update_available: Mutex::new(false),
             app_version: env!("CARGO_PKG_VERSION").to_string(),
+            backend_port: Mutex::new(DEFAULT_PORT),
         }
     }
 }
 
+// ── Backend Process Manager ──────────────────────────────
+struct BackendManager {
+    backend_dir: std::path::PathBuf,
+    port: u16,
+}
+
+impl BackendManager {
+    fn new(port: u16) -> Result<Self, String> {
+        let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
+        let exe_dir = exe_path.parent().unwrap_or(&exe_path);
+
+        // Try multiple paths for the backend dist
+        let candidates = vec![
+            exe_dir
+                .join("..")
+                .join("..")
+                .join("..")
+                .join("backend"),
+            exe_dir.join("resources").join("backend"),
+            exe_dir.join("backend"),
+            std::env::current_dir()
+                .unwrap_or_default()
+                .join("backend"),
+        ];
+
+        let backend_root = candidates
+            .iter()
+            .find(|p| p.join("dist").join("main.js").exists())
+            .ok_or_else(|| {
+                let searched: Vec<String> =
+                    candidates.iter().map(|p| p.display().to_string()).collect();
+                format!(
+                    "Backend not found. Searched: {}. Build backend first.",
+                    searched.join(", ")
+                )
+            })?;
+
+        Ok(Self {
+            backend_dir: backend_root.to_path_buf(),
+            port,
+        })
+    }
+
+    fn start(&self) -> Result<u32, String> {
+        let main_js = self.backend_dir.join("dist").join("main.js");
+        if !main_js.exists() {
+            return Err(format!(
+                "Backend main.js not found at {}",
+                main_js.display()
+            ));
+        }
+
+        // Database path in app data directory
+        let app_data = dirs_next::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("com.shranix.krushi-erp")
+            .join("data");
+
+        std::fs::create_dir_all(&app_data)
+            .map_err(|e| format!("Failed to create data directory: {}", e))?;
+
+        let db_path = app_data.join("erp.db");
+        let db_url = format!("file:{}", db_path.to_string_lossy().replace('\\', "/"));
+
+        log::info!("[desktop] Starting backend on port {}", self.port);
+        log::info!("[desktop] Database: {}", db_url);
+
+        let mut cmd = std::process::Command::new("node");
+        cmd.arg(&main_js)
+            .env("APP_PORT", self.port.to_string())
+            .env("NODE_ENV", "production")
+            .env("DATABASE_PROVIDER", "sqlite")
+            .env("DATABASE_URL", &db_url)
+            .env(
+                "JWT_SECRET",
+                "shranix-offline-jwt-2024-change-in-production",
+            )
+            .env(
+                "JWT_REFRESH_SECRET",
+                "shranix-offline-refresh-2024-change-in-production",
+            )
+            .env("SWAGGER_ENABLED", "false")
+            .env("DATABASE_LOG_LEVEL", "error")
+            .current_dir(&self.backend_dir)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let child = cmd.spawn().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                "Node.js is not installed. Install Node.js v20+ from https://nodejs.org/ and add it to PATH.".to_string()
+            } else {
+                format!("Failed to start backend: {}", e)
+            }
+        })?;
+
+        let pid = child.id();
+
+        // Detach stdout/stderr
+        if let Some(stdout) = child.stdout {
+            std::thread::spawn(move || {
+                use std::io::BufRead;
+                for line in std::io::BufReader::new(stdout).lines().flatten() {
+                    log::info!("[backend] {}", line);
+                }
+            });
+        }
+        if let Some(stderr) = child.stderr {
+            std::thread::spawn(move || {
+                use std::io::BufRead;
+                for line in std::io::BufReader::new(stderr).lines().flatten() {
+                    log::warn!("[backend] {}", line);
+                }
+            });
+        }
+
+        unsafe {
+            BACKEND_PID = Some(pid);
+        }
+
+        Ok(pid)
+    }
+}
+
+impl Drop for BackendManager {
+    fn drop(&mut self) {
+        if let Some(pid) = unsafe { BACKEND_PID } {
+            log::info!("[desktop] Killing backend PID {}", pid);
+            #[cfg(target_os = "windows")]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/PID", &pid.to_string()])
+                    .output();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .output();
+            }
+        }
+    }
+}
+
+// ── Health check helper ──────────────────────────────────
+fn wait_for_backend(port: u16, max_wait_secs: u64) -> bool {
+    let url = format!("http://127.0.0.1:{}/v1/health/live", port);
+    for _ in 0..(max_wait_secs * 10) {
+        match ureq::get(&url).call() {
+            Ok(response) if response.status() == 200 => return true,
+            _ => {}
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    false
+}
+
 // ── Window Manager ───────────────────────────────────────
 fn setup_splash_to_main(app: &AppHandle) {
-    let splash_window = app.get_webview_window("splashscreen");
-    let main_window = app.get_webview_window("main");
-
-    if let Some(splash) = splash_window {
+    if let Some(splash) = app.get_webview_window("splashscreen") {
         let splash_clone = splash.clone();
         std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::thread::sleep(Duration::from_secs(2));
             let _ = splash_clone.close();
         });
     }
 
-    if let Some(main) = main_window {
+    if let Some(main) = app.get_webview_window("main") {
         let main_clone = main.clone();
         std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            std::thread::sleep(Duration::from_secs(3));
             let _ = main_clone.show();
             let _ = main_clone.set_focus();
         });
@@ -60,8 +229,8 @@ fn create_tray_menu(app: &AppHandle) -> Menu<tauri::Wry> {
     let check_update =
         MenuItem::with_id(app, "check_update", "Check for Updates...", true, None::<&str>)
             .unwrap();
-    let about =
-        MenuItem::with_id(app, "about", "About SHRANIX Krushi ERP", true, None::<&str>).unwrap();
+    let about = MenuItem::with_id(app, "about", "About SHRANIX Krushi ERP", true, None::<&str>)
+        .unwrap();
     let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("CmdOrCtrl+Q")).unwrap();
     let separator = PredefinedMenuItem::separator(app).unwrap();
 
@@ -81,18 +250,15 @@ fn create_tray_menu(app: &AppHandle) -> Menu<tauri::Wry> {
 }
 
 fn handle_tray_event(app: &AppHandle, event: TrayIconEvent) {
-    match event {
-        TrayIconEvent::Click { .. } => {
-            if let Some(window) = app.get_webview_window("main") {
-                if window.is_visible().unwrap_or(false) {
-                    let _ = window.hide();
-                } else {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+    if let TrayIconEvent::Click { .. } = event {
+        if let Some(window) = app.get_webview_window("main") {
+            if window.is_visible().unwrap_or(false) {
+                let _ = window.hide();
+            } else {
+                let _ = window.show();
+                let _ = window.set_focus();
             }
         }
-        _ => {}
     }
 }
 
@@ -100,11 +266,14 @@ fn handle_tray_event(app: &AppHandle, event: TrayIconEvent) {
 
 #[tauri::command]
 fn get_app_info(state: State<AppState>) -> Result<serde_json::Value, String> {
+    let port = state.backend_port.lock().map_err(|e| e.to_string())?;
     Ok(serde_json::json!({
         "name": "SHRANIX Krushi ERP",
         "version": state.app_version,
         "platform": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
+        "backendPort": *port,
+        "mode": "offline",
     }))
 }
 
@@ -169,10 +338,53 @@ fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
     Ok(response)
 }
 
+#[tauri::command]
+fn get_backend_status(state: State<AppState>) -> Result<serde_json::Value, String> {
+    let port = state.backend_port.lock().map_err(|e| e.to_string())?;
+    let url = format!("http://127.0.0.1:{}/v1/health/live", *port);
+    let healthy = ureq::get(&url)
+        .call()
+        .map(|r| r.status() == 200)
+        .unwrap_or(false);
+    Ok(serde_json::json!({
+        "port": *port,
+        "healthy": healthy,
+        "url": format!("http://127.0.0.1:{}", *port),
+    }))
+}
+
 // ── Application Entry Point ──────────────────────────────
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
+
+    // ── Start local backend process ──
+    let backend_started = match BackendManager::new(DEFAULT_PORT) {
+        Ok(mgr) => match mgr.start() {
+            Ok(pid) => {
+                log::info!("[desktop] Backend started PID={}", pid);
+                if wait_for_backend(DEFAULT_PORT, 30) {
+                    log::info!("[desktop] Backend healthy on port {}", DEFAULT_PORT);
+                } else {
+                    log::warn!("[desktop] Backend health check timed out — continuing");
+                }
+                true
+            }
+            Err(e) => {
+                log::error!("[desktop] Backend start failed: {}", e);
+                false
+            }
+        },
+        Err(e) => {
+            log::error!("[desktop] BackendManager init failed: {}", e);
+            false
+        }
+    };
+
+    let app_state = AppState::new();
+    if let Ok(mut port) = app_state.backend_port.lock() {
+        *port = DEFAULT_PORT;
+    }
 
     tauri::Builder::default()
         // ── Plugins ──────────────────────────────────────────
@@ -186,8 +398,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
 
         // ── System Tray ──────────────────────────────────────
-        .setup(|app| {
-            // Create and configure tray icon
+        .setup(move |app| {
+            // Create tray icon
             let tray_menu = create_tray_menu(app.handle());
             let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
                 .menu(&tray_menu)
@@ -196,76 +408,36 @@ pub fn run() {
 
             // Build application menu
             let menu = {
-                let app_handle = app.handle().clone();
+                let ah = app.handle().clone();
 
-                let preferences = MenuItem::with_id(
-                    &app_handle,
-                    "preferences",
-                    "Preferences",
-                    true,
-                    Some("CmdOrCtrl+,"),
-                )
-                .unwrap();
-                let quit = MenuItem::with_id(
-                    &app_handle,
-                    "quit_menu",
-                    "Quit",
-                    true,
-                    Some("CmdOrCtrl+Q"),
-                )
-                .unwrap();
-                let file_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
-                let file_menu = Submenu::with_items(
-                    &app_handle,
-                    "File",
-                    true,
-                    &[&preferences, &file_separator, &quit],
-                )
-                .unwrap();
+                let preferences =
+                    MenuItem::with_id(&ah, "preferences", "Preferences", true, Some("CmdOrCtrl+,"))
+                        .unwrap();
+                let quit =
+                    MenuItem::with_id(&ah, "quit_menu", "Quit", true, Some("CmdOrCtrl+Q")).unwrap();
+                let sep = PredefinedMenuItem::separator(&ah).unwrap();
+                let file_menu =
+                    Submenu::with_items(&ah, "File", true, &[&preferences, &sep, &quit]).unwrap();
 
-                let undo = MenuItem::with_id(
-                    &app_handle,
-                    "undo",
-                    "Undo",
-                    true,
-                    Some("CmdOrCtrl+Z"),
-                )
-                .unwrap();
+                let undo =
+                    MenuItem::with_id(&ah, "undo", "Undo", true, Some("CmdOrCtrl+Z")).unwrap();
                 let redo = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "redo",
                     "Redo",
                     true,
                     Some("CmdOrCtrl+Shift+Z"),
                 )
                 .unwrap();
-                let edit_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
-                let cut = MenuItem::with_id(
-                    &app_handle,
-                    "cut",
-                    "Cut",
-                    true,
-                    Some("CmdOrCtrl+X"),
-                )
-                .unwrap();
-                let copy = MenuItem::with_id(
-                    &app_handle,
-                    "copy",
-                    "Copy",
-                    true,
-                    Some("CmdOrCtrl+C"),
-                )
-                .unwrap();
-                let paste = MenuItem::with_id(
-                    &app_handle,
-                    "paste",
-                    "Paste",
-                    true,
-                    Some("CmdOrCtrl+V"),
-                )
-                .unwrap();
+                let sep2 = PredefinedMenuItem::separator(&ah).unwrap();
+                let cut =
+                    MenuItem::with_id(&ah, "cut", "Cut", true, Some("CmdOrCtrl+X")).unwrap();
+                let copy =
+                    MenuItem::with_id(&ah, "copy", "Copy", true, Some("CmdOrCtrl+C")).unwrap();
+                let paste =
+                    MenuItem::with_id(&ah, "paste", "Paste", true, Some("CmdOrCtrl+V")).unwrap();
                 let select_all = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "select_all",
                     "Select All",
                     true,
@@ -273,17 +445,17 @@ pub fn run() {
                 )
                 .unwrap();
                 let edit_menu = Submenu::with_items(
-                    &app_handle,
+                    &ah,
                     "Edit",
                     true,
                     &[
-                        &undo, &redo, &edit_separator, &cut, &copy, &paste, &select_all,
+                        &undo, &redo, &sep2, &cut, &copy, &paste, &select_all,
                     ],
                 )
                 .unwrap();
 
                 let toggle_sidebar = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "toggle_sidebar",
                     "Toggle Sidebar",
                     true,
@@ -291,7 +463,7 @@ pub fn run() {
                 )
                 .unwrap();
                 let zoom_in = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "zoom_in",
                     "Zoom In",
                     true,
@@ -299,16 +471,16 @@ pub fn run() {
                 )
                 .unwrap();
                 let zoom_out = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "zoom_out",
                     "Zoom Out",
                     true,
                     Some("CmdOrCtrl+-"),
                 )
                 .unwrap();
-                let view_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
+                let sep3 = PredefinedMenuItem::separator(&ah).unwrap();
                 let toggle_devtools = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "toggle_devtools",
                     "Toggle DevTools",
                     true,
@@ -316,21 +488,21 @@ pub fn run() {
                 )
                 .unwrap();
                 let view_menu = Submenu::with_items(
-                    &app_handle,
+                    &ah,
                     "View",
                     true,
                     &[
                         &toggle_sidebar,
                         &zoom_in,
                         &zoom_out,
-                        &view_separator,
+                        &sep3,
                         &toggle_devtools,
                     ],
                 )
                 .unwrap();
 
                 let about = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "about_menu",
                     "About SHRANIX Krushi ERP",
                     true,
@@ -338,42 +510,40 @@ pub fn run() {
                 )
                 .unwrap();
                 let check_update = MenuItem::with_id(
-                    &app_handle,
+                    &ah,
                     "check_update_menu",
                     "Check for Updates...",
                     true,
                     None::<&str>,
                 )
                 .unwrap();
-                let documentation = MenuItem::with_id(
-                    &app_handle,
-                    "documentation",
-                    "Documentation",
-                    true,
-                    Some("F1"),
-                )
-                .unwrap();
+                let documentation =
+                    MenuItem::with_id(&ah, "documentation", "Documentation", true, Some("F1"))
+                        .unwrap();
                 let help_menu = Submenu::with_items(
-                    &app_handle,
+                    &ah,
                     "Help",
                     true,
                     &[&about, &check_update, &documentation],
                 )
                 .unwrap();
 
-                Menu::with_items(
-                    &app_handle,
-                    &[&file_menu, &edit_menu, &view_menu, &help_menu],
-                )
-                .unwrap()
+                Menu::with_items(&ah, &[&file_menu, &edit_menu, &view_menu, &help_menu]).unwrap()
             };
 
             app.set_menu(menu)?;
 
-            // Setup splash screen to main window transition
+            // Inject backend port into webview
+            if let Some(window) = app.get_webview_window("main") {
+                let js = format!(
+                    "window.__SHRANIX_BACKEND_PORT__='{}';localStorage.setItem('shranix_backend_port','{}');",
+                    DEFAULT_PORT, DEFAULT_PORT
+                );
+                window.eval(&js).ok();
+            }
+
             setup_splash_to_main(app.handle());
 
-            // Register deep link handler
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = app.get_webview_window("main") {
@@ -381,15 +551,16 @@ pub fn run() {
                 }
             }
 
-            // Register deep link scheme
             app.deep_link().register_all().ok();
 
-            // Emit app ready event
             let _ = app.emit("app:ready", {
                 let state = app.state::<AppState>();
                 serde_json::json!({
                     "version": state.app_version,
                     "platform": std::env::consts::OS,
+                    "mode": "offline",
+                    "backendPort": DEFAULT_PORT,
+                    "backendStarted": backend_started,
                 })
             });
 
@@ -398,7 +569,24 @@ pub fn run() {
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
             match id {
-                "quit_menu" => std::process::exit(0),
+                "quit_menu" => {
+                    // Kill backend before exit
+                    if let Some(pid) = unsafe { BACKEND_PID } {
+                        #[cfg(target_os = "windows")]
+                        {
+                            let _ = std::process::Command::new("taskkill")
+                                .args(["/F", "/PID", &pid.to_string()])
+                                .output();
+                        }
+                        #[cfg(not(target_os = "windows"))]
+                        {
+                            let _ = std::process::Command::new("kill")
+                                .args(["-9", &pid.to_string()])
+                                .output();
+                        }
+                    }
+                    std::process::exit(0);
+                }
                 "toggle_sidebar" => {
                     let _ = app.emit("menu:toggle-sidebar", ());
                 }
@@ -433,9 +621,7 @@ pub fn run() {
         .on_tray_icon_event(|app, event| {
             handle_tray_event(app, event);
         })
-        // ─── Application State ────────────────────────────────
-        .manage(AppState::new())
-        // ── IPC Commands ──────────────────────────────────────
+        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             toggle_window_visibility,
@@ -444,6 +630,7 @@ pub fn run() {
             get_app_data_dir,
             get_document_dir,
             check_for_updates,
+            get_backend_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SHRANIX Krushi ERP");

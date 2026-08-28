@@ -1,13 +1,13 @@
 /**
- * Shared API base URL resolver.
+ * Shared API base URL resolver — OFFLINE-FIRST DESKTOP.
  *
  * Environment precedence:
  *   1. VITE_API_URL — absolute http(s) URL or root-relative path (highest priority)
  *   2. Web dev proxy — /api/v1 (when served by Vite dev server)
- *   3. Desktop dev — http://localhost:4001/api/v1 (file:// protocol, development only)
+ *   3. Desktop — http://127.0.0.1:<backend-port>/api/v1 (file:// protocol, offline-first)
  *
- * Production desktop builds MUST set VITE_API_URL at build time.
- * The file:// fallback only activates in development (when VITE_API_URL is not set).
+ * The desktop app spawns a LOCAL backend process on startup.
+ * Internet is NEVER required for normal ERP operations.
  */
 export function resolveApiBase(): string {
   const configured = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
@@ -21,14 +21,17 @@ export function resolveApiBase(): string {
     return '/api/v1';
   }
 
-  // Desktop (file://) without VITE_API_URL — development-only fallback.
-  // Production desktop builds MUST set VITE_API_URL at build time.
-  if (import.meta.env.MODE === 'production') {
-    console.error(
-      '[SHRANIX] CRITICAL: VITE_API_URL is not configured for production desktop build. ' +
-        'Set VITE_API_URL to your production API URL (e.g. https://api.shranix.com/api/v1).',
-    );
+  // ── Desktop (file://) — OFFLINE-FIRST LOCAL BACKEND ──
+  // The Tauri app spawns the backend on a local port at startup.
+  // The backend port is communicated via window.__SHRANIX_BACKEND_PORT__
+  // set by the Rust side before the frontend loads.
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    const port =
+      (window as any).__SHRANIX_BACKEND_PORT__ ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('shranix_backend_port')) ||
+      '19256';
+    return `http://127.0.0.1:${port}/api/v1`;
   }
 
-  return 'http://localhost:4001/api/v1';
+  return 'http://127.0.0.1:19256/api/v1';
 }
