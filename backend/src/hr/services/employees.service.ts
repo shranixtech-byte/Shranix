@@ -11,20 +11,28 @@ export class EmployeesService {
   ) {}
 
   /** Next sequential employee code — EMP-000001, EMP-000002 …
-   * Uses maxFieldValue() which scans ALL rows — including soft-deleted —
-   * because the unique index on employeeCode prevents code reuse after soft-delete. */
+   * Scans ALL rows (including soft-deleted) to find the highest numeric suffix,
+   * then increments. Handles mixed formats like EMP-QA-001 alongside EMP-000001. */
   async nextEmployeeCode(): Promise<string> {
     let max = 0;
     try {
-      const maxVal = await this.database.employees.maxFieldValue('employeeCode');
-      if (maxVal) {
-        const m = /EMP-(\d+)/.exec(String(maxVal));
+      const rows = await (this.database as any).employees.findAll({
+        page: 1,
+        pageSize: 10000,
+        fields: ['employeeCode'],
+      } as any);
+      for (const row of (rows?.data || []) as any[]) {
+        const code = String(row.employeeCode || '');
+        const m = /EMP-(\d+)/.exec(code);
         if (m) {
-          max = Number(m[1]);
+          const num = Number(m[1]);
+          if (!isNaN(num) && num > max) {
+            max = num;
+          }
         }
       }
     } catch {
-      /* best-effort */
+      /* best-effort — fall back to EMP-000001 */
     }
     return `EMP-${String(max + 1).padStart(6, '0')}`;
   }
