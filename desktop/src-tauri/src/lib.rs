@@ -1,7 +1,8 @@
 use std::sync::Mutex;
 use tauri::{
-    AppHandle, CustomMenuItem, Manager, Menu, MenuItem, State, Submenu,
-    SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
+    tray::TrayIconEvent,
+    AppHandle, Emitter, Manager, State,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_notification::NotificationExt;
@@ -29,7 +30,6 @@ fn setup_splash_to_main(app: &AppHandle) {
     let main_window = app.get_webview_window("main");
 
     if let Some(splash) = splash_window {
-        // Close splash after 2 seconds and show main window
         let splash_clone = splash.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(2));
@@ -46,7 +46,6 @@ fn setup_splash_to_main(app: &AppHandle) {
         });
     }
 
-    // Update state
     if let Some(state) = app.try_state::<AppState>() {
         if let Ok(mut visible) = state.window_visible.lock() {
             *visible = true;
@@ -55,23 +54,35 @@ fn setup_splash_to_main(app: &AppHandle) {
 }
 
 // ── System Tray ──────────────────────────────────────────
-fn create_tray_menu() -> SystemTrayMenu {
-    SystemTrayMenu::new()
-        .add_item(CustomMenuItem::new("show", "Show Window").accelerator("CmdOrCtrl+Shift+S"))
-        .add_item(CustomMenuItem::new("hide", "Hide Window").accelerator("CmdOrCtrl+Shift+H"))
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("check_update", "Check for Updates..."))
-        .add_item(CustomMenuItem::new(
-            "about",
-            "About SHRANIX Krushi ERP",
-        ))
-        .add_native_item(SystemTrayMenuItem::Separator)
-        .add_item(CustomMenuItem::new("quit", "Quit").accelerator("CmdOrCtrl+Q"))
+fn create_tray_menu(app: &AppHandle) -> Menu<tauri::Wry> {
+    let show = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>).unwrap();
+    let hide = MenuItem::with_id(app, "hide", "Hide Window", true, None::<&str>).unwrap();
+    let check_update =
+        MenuItem::with_id(app, "check_update", "Check for Updates...", true, None::<&str>)
+            .unwrap();
+    let about =
+        MenuItem::with_id(app, "about", "About SHRANIX Krushi ERP", true, None::<&str>).unwrap();
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, Some("CmdOrCtrl+Q")).unwrap();
+    let separator = PredefinedMenuItem::separator(app).unwrap();
+
+    Menu::with_items(
+        app,
+        &[
+            &show,
+            &hide,
+            &separator,
+            &check_update,
+            &about,
+            &separator,
+            &quit,
+        ],
+    )
+    .unwrap()
 }
 
-fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
+fn handle_tray_event(app: &AppHandle, event: TrayIconEvent) {
     match event {
-        SystemTrayEvent::LeftClick { .. } => {
+        TrayIconEvent::Click { .. } => {
             if let Some(window) = app.get_webview_window("main") {
                 if window.is_visible().unwrap_or(false) {
                     let _ = window.hide();
@@ -81,33 +92,6 @@ fn handle_tray_event(app: &AppHandle, event: SystemTrayEvent) {
                 }
             }
         }
-        SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
-            "show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                    let _ = window.set_always_on_top(true);
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    let _ = window.set_always_on_top(false);
-                }
-            }
-            "hide" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
-                }
-            }
-            "check_update" => {
-                // Trigger update check - updater plugin handles this
-                let _ = app.emit("menu:check-update", ());
-            }
-            "about" => {
-                let _ = app.emit("menu:about", ());
-            }
-            "quit" => {
-                std::process::exit(0);
-            }
-            _ => {}
-        },
         _ => {}
     }
 }
@@ -143,8 +127,6 @@ fn toggle_window_visibility(app: AppHandle) -> Result<bool, String> {
 #[tauri::command]
 fn minimize_to_tray(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
-        window.minimize().map_err(|e| e.to_string())?;
-        // Actually hide instead of minimize for tray behavior
         window.hide().map_err(|e| e.to_string())?;
         Ok(())
     } else {
@@ -179,22 +161,12 @@ fn get_document_dir() -> Result<String, String> {
 
 #[tauri::command]
 fn check_for_updates(app: AppHandle) -> Result<serde_json::Value, String> {
-    // Delegates to the updater plugin
     let response = serde_json::json!({
         "status": "checking",
         "message": "Update check initiated"
     });
     let _ = app.emit("update:check-started", ());
     Ok(response)
-}
-
-// ── Deep Link Handler ────────────────────────────────────
-fn handle_deep_link(app: &AppHandle, link: &str) {
-    let _ = app.emit("deep-link:received", link);
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
 }
 
 // ── Application Entry Point ──────────────────────────────
@@ -211,122 +183,203 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri_plugin_deep_link::Builder::new()
-                .on_open_url(|app, urls| {
-                    if let Some(url) = urls.first() {
-                        handle_deep_link(app, url);
-                    }
-                })
-                .build(),
-        )
-
-        // ── Application Menu ─────────────────────────────────
-        .menu(|app| {
-            let file_menu = Submenu::new(
-                "File",
-                Menu::new()
-                    .add_item(CustomMenuItem::new("preferences", "Preferences").accelerator("CmdOrCtrl+,"))
-                    .add_native_item(MenuItem::Separator)
-                    .add_item(CustomMenuItem::new("quit", "Quit").accelerator("CmdOrCtrl+Q")),
-            );
-            let edit_menu = Submenu::new(
-                "Edit",
-                Menu::new()
-                    .add_item(CustomMenuItem::new("undo", "Undo").accelerator("CmdOrCtrl+Z"))
-                    .add_item(CustomMenuItem::new("redo", "Redo").accelerator("CmdOrCtrl+Shift+Z"))
-                    .add_native_item(MenuItem::Separator)
-                    .add_item(CustomMenuItem::new("cut", "Cut").accelerator("CmdOrCtrl+X"))
-                    .add_item(CustomMenuItem::new("copy", "Copy").accelerator("CmdOrCtrl+C"))
-                    .add_item(CustomMenuItem::new("paste", "Paste").accelerator("CmdOrCtrl+V"))
-                    .add_item(CustomMenuItem::new("select_all", "Select All").accelerator("CmdOrCtrl+A")),
-            );
-            let view_menu = Submenu::new(
-                "View",
-                Menu::new()
-                    .add_item(CustomMenuItem::new("toggle_sidebar", "Toggle Sidebar").accelerator("CmdOrCtrl+B"))
-                    .add_item(CustomMenuItem::new("zoom_in", "Zoom In").accelerator("CmdOrCtrl+Plus"))
-                    .add_item(CustomMenuItem::new("zoom_out", "Zoom Out").accelerator("CmdOrCtrl+-"))
-                    .add_native_item(MenuItem::Separator)
-                    .add_item(CustomMenuItem::new("toggle_devtools", "Toggle DevTools").accelerator("CmdOrCtrl+Shift+I")),
-            );
-            let help_menu = Submenu::new(
-                "Help",
-                Menu::new()
-                    .add_item(CustomMenuItem::new("about", "About SHRANIX Krushi ERP"))
-                    .add_item(CustomMenuItem::new("check_update", "Check for Updates..."))
-                    .add_item(CustomMenuItem::new("documentation", "Documentation").accelerator("F1")),
-            );
-
-            let menu = Menu::new()
-                .add_submenu(file_menu)
-                .add_submenu(edit_menu)
-                .add_submenu(view_menu)
-                .add_submenu(help_menu);
-            app.set_menu(menu).ok();
-            menu
-        })
-        .on_menu_event(|app, event| match event.id.as_str() {
-            "quit" => std::process::exit(0),
-            "toggle_sidebar" => {
-                let _ = app.emit("menu:toggle-sidebar", ());
-            }
-            "zoom_in" => {
-                let _ = app.emit("menu:zoom-in", ());
-            }
-            "zoom_out" => {
-                let _ = app.emit("menu:zoom-out", ());
-            }
-            "toggle_devtools" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    if window.is_devtools_open() {
-                        window.close_devtools();
-                    } else {
-                        window.open_devtools();
-                    }
-                }
-            }
-            "check_update" => {
-                let _ = app.emit("menu:check-update", ());
-            }
-            "about" => {
-                let _ = app.emit("menu:about", ());
-            }
-            "documentation" => {
-                let _ = app.emit("menu:documentation", ());
-            }
-            _ => {}
-        })
+        .plugin(tauri_plugin_deep_link::init())
 
         // ── System Tray ──────────────────────────────────────
-        .system_tray(create_tray_menu())
-        .on_system_tray_event(handle_tray_event)
-
-        // ─── Application State ────────────────────────────────
-        .manage(AppState::new())
-
-        // ── IPC Commands ──────────────────────────────────────
-        .invoke_handler(tauri::generate_handler![
-            get_app_info,
-            toggle_window_visibility,
-            minimize_to_tray,
-            show_notification,
-            get_app_data_dir,
-            get_document_dir,
-            check_for_updates,
-        ])
-
-        // ── Setup ─────────────────────────────────────────────
         .setup(|app| {
+            // Create and configure tray icon
+            let tray_menu = create_tray_menu(app.handle());
+            let _tray = tauri::tray::TrayIconBuilder::with_id("main-tray")
+                .menu(&tray_menu)
+                .tooltip("SHRANIX Krushi ERP")
+                .build(app.handle())?;
+
+            // Build application menu
+            let menu = {
+                let app_handle = app.handle().clone();
+
+                let preferences = MenuItem::with_id(
+                    &app_handle,
+                    "preferences",
+                    "Preferences",
+                    true,
+                    Some("CmdOrCtrl+,"),
+                )
+                .unwrap();
+                let quit = MenuItem::with_id(
+                    &app_handle,
+                    "quit_menu",
+                    "Quit",
+                    true,
+                    Some("CmdOrCtrl+Q"),
+                )
+                .unwrap();
+                let file_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
+                let file_menu = Submenu::with_items(
+                    &app_handle,
+                    "File",
+                    true,
+                    &[&preferences, &file_separator, &quit],
+                )
+                .unwrap();
+
+                let undo = MenuItem::with_id(
+                    &app_handle,
+                    "undo",
+                    "Undo",
+                    true,
+                    Some("CmdOrCtrl+Z"),
+                )
+                .unwrap();
+                let redo = MenuItem::with_id(
+                    &app_handle,
+                    "redo",
+                    "Redo",
+                    true,
+                    Some("CmdOrCtrl+Shift+Z"),
+                )
+                .unwrap();
+                let edit_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
+                let cut = MenuItem::with_id(
+                    &app_handle,
+                    "cut",
+                    "Cut",
+                    true,
+                    Some("CmdOrCtrl+X"),
+                )
+                .unwrap();
+                let copy = MenuItem::with_id(
+                    &app_handle,
+                    "copy",
+                    "Copy",
+                    true,
+                    Some("CmdOrCtrl+C"),
+                )
+                .unwrap();
+                let paste = MenuItem::with_id(
+                    &app_handle,
+                    "paste",
+                    "Paste",
+                    true,
+                    Some("CmdOrCtrl+V"),
+                )
+                .unwrap();
+                let select_all = MenuItem::with_id(
+                    &app_handle,
+                    "select_all",
+                    "Select All",
+                    true,
+                    Some("CmdOrCtrl+A"),
+                )
+                .unwrap();
+                let edit_menu = Submenu::with_items(
+                    &app_handle,
+                    "Edit",
+                    true,
+                    &[
+                        &undo, &redo, &edit_separator, &cut, &copy, &paste, &select_all,
+                    ],
+                )
+                .unwrap();
+
+                let toggle_sidebar = MenuItem::with_id(
+                    &app_handle,
+                    "toggle_sidebar",
+                    "Toggle Sidebar",
+                    true,
+                    Some("CmdOrCtrl+B"),
+                )
+                .unwrap();
+                let zoom_in = MenuItem::with_id(
+                    &app_handle,
+                    "zoom_in",
+                    "Zoom In",
+                    true,
+                    Some("CmdOrCtrl+="),
+                )
+                .unwrap();
+                let zoom_out = MenuItem::with_id(
+                    &app_handle,
+                    "zoom_out",
+                    "Zoom Out",
+                    true,
+                    Some("CmdOrCtrl+-"),
+                )
+                .unwrap();
+                let view_separator = PredefinedMenuItem::separator(&app_handle).unwrap();
+                let toggle_devtools = MenuItem::with_id(
+                    &app_handle,
+                    "toggle_devtools",
+                    "Toggle DevTools",
+                    true,
+                    Some("CmdOrCtrl+Shift+I"),
+                )
+                .unwrap();
+                let view_menu = Submenu::with_items(
+                    &app_handle,
+                    "View",
+                    true,
+                    &[
+                        &toggle_sidebar,
+                        &zoom_in,
+                        &zoom_out,
+                        &view_separator,
+                        &toggle_devtools,
+                    ],
+                )
+                .unwrap();
+
+                let about = MenuItem::with_id(
+                    &app_handle,
+                    "about_menu",
+                    "About SHRANIX Krushi ERP",
+                    true,
+                    None::<&str>,
+                )
+                .unwrap();
+                let check_update = MenuItem::with_id(
+                    &app_handle,
+                    "check_update_menu",
+                    "Check for Updates...",
+                    true,
+                    None::<&str>,
+                )
+                .unwrap();
+                let documentation = MenuItem::with_id(
+                    &app_handle,
+                    "documentation",
+                    "Documentation",
+                    true,
+                    Some("F1"),
+                )
+                .unwrap();
+                let help_menu = Submenu::with_items(
+                    &app_handle,
+                    "Help",
+                    true,
+                    &[&about, &check_update, &documentation],
+                )
+                .unwrap();
+
+                Menu::with_items(
+                    &app_handle,
+                    &[&file_menu, &edit_menu, &view_menu, &help_menu],
+                )
+                .unwrap()
+            };
+
+            app.set_menu(menu)?;
+
+            // Setup splash screen to main window transition
+            setup_splash_to_main(app.handle());
+
             // Register deep link handler
             #[cfg(debug_assertions)]
             {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                }
             }
-
-            // Setup splash screen to main window transition
-            setup_splash_to_main(app);
 
             // Register deep link scheme
             app.deep_link().register_all().ok();
@@ -342,6 +395,56 @@ pub fn run() {
 
             Ok(())
         })
+        .on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            match id {
+                "quit_menu" => std::process::exit(0),
+                "toggle_sidebar" => {
+                    let _ = app.emit("menu:toggle-sidebar", ());
+                }
+                "zoom_in" => {
+                    let _ = app.emit("menu:zoom-in", ());
+                }
+                "zoom_out" => {
+                    let _ = app.emit("menu:zoom-out", ());
+                }
+                "toggle_devtools" => {
+                    #[cfg(debug_assertions)]
+                    if let Some(window) = app.get_webview_window("main") {
+                        if window.is_devtools_open() {
+                            window.close_devtools();
+                        } else {
+                            window.open_devtools();
+                        }
+                    }
+                }
+                "check_update_menu" => {
+                    let _ = app.emit("menu:check-update", ());
+                }
+                "about_menu" => {
+                    let _ = app.emit("menu:about", ());
+                }
+                "documentation" => {
+                    let _ = app.emit("menu:documentation", ());
+                }
+                _ => {}
+            }
+        })
+        .on_tray_icon_event(|app, event| {
+            handle_tray_event(app, event);
+        })
+        // ─── Application State ────────────────────────────────
+        .manage(AppState::new())
+        // ── IPC Commands ──────────────────────────────────────
+        .invoke_handler(tauri::generate_handler![
+            get_app_info,
+            toggle_window_visibility,
+            minimize_to_tray,
+            show_notification,
+            get_app_data_dir,
+            get_document_dir,
+            check_for_updates,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running SHRANIX Krushi ERP");
 }

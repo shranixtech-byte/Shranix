@@ -136,3 +136,8 @@ database/src/nul
 # Neon CLI artifacts
 .agents/
 skills-lock.json
+
+# Desktop (Tauri)
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/node_modules/
