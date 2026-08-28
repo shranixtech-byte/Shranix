@@ -37,13 +37,26 @@ describe('PurchasePostingEngineService (real DB)', () => {
     const client = createClient({ url: `file:${dbFile}` });
     const drizzleDb = drizzle(client as any);
 
-    // Apply the real migrations (0000 → 0015)
+    // Apply the real migrations (0000 → 0031)
     await migrate(
       drizzleDb as any,
       {
         migrationsFolder: join(process.cwd(), '..', 'database', 'src', 'migrations'),
       } as any,
     );
+
+    // Patch: some migrations (0028-0031) were added manually without drizzle snapshots.
+    // Apply them directly if not already present.
+    try {
+      await client.execute(`ALTER TABLE shranix_sales_invoices ADD COLUMN branch_id TEXT`);
+    } catch {
+      /* column already exists */
+    }
+    try {
+      await client.execute(`ALTER TABLE shranix_purchase_invoices ADD COLUMN branch_id TEXT`);
+    } catch {
+      /* column already exists */
+    }
 
     database = new DatabaseService(drizzleDb as any);
   });

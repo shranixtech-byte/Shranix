@@ -98,7 +98,7 @@ export class TransactionManager {
           this.logger.warn(
             `Transaction ${context.id} hit SQLITE_BUSY (attempt ${attempt + 1}/${maxAttempts}); retrying.`,
           );
-          await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+          await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
         }
       }
     }

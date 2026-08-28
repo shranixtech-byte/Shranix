@@ -8,7 +8,9 @@ let db: LibSQLDatabase | null = null;
 let currentUrl: string | null = null;
 
 export function createSqliteClient(config: DatabaseConfig): LibSQLDatabase {
-  if (db && currentUrl === config.url) {return db;}
+  if (db && currentUrl === config.url) {
+    return db;
+  }
 
   if (client) {
     try {
@@ -23,8 +25,13 @@ export function createSqliteClient(config: DatabaseConfig): LibSQLDatabase {
   };
 
   client = createClient(libsqlConfig);
-  db = drizzle(client);
   currentUrl = config.url;
+  db = drizzle(client);
+  // Set busy timeout to prevent SQLITE_BUSY on concurrent operations
+  // Fire-and-forget is fine here; libsql sends PRAGMA on the next round-trip
+  client.execute('PRAGMA busy_timeout = 15000;').catch(() => {
+    // Ignore — pragma may not be supported on remote/HTTP connections
+  });
   return db;
 }
 

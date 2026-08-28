@@ -495,6 +495,18 @@ export class PurchaseReturnsController {
   ) {
     return this.service.update(id, dto, u?.id);
   }
+  @Post(':id/approve')
+  @Roles('admin', 'manager')
+  @Permissions('purchase.update')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Approve purchase return (posts debit note + stock reversal + GL + GST)',
+  })
+  @ApiParam({ name: 'id', description: 'Purchase Return ID' })
+  @ApiResponse({ status: 200, description: 'Purchase return approved with debit note' })
+  async approve(@Param('id') id: string, @CurrentUser() u: { id: string }) {
+    return this.service.approve(id, u?.id);
+  }
   @Delete(':id')
   @Roles('admin')
   @Permissions('purchase.delete')

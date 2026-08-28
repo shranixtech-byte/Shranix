@@ -386,7 +386,7 @@ export class PurchaseInvoiceItemDto {
 // PURCHASE RETURN DTOs (PRM-016 Module 6)
 // ═════════════════════════════════════════════════════════
 export class CreatePurchaseReturnDto {
-  @ApiProperty() @IsString() returnNumber!: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() returnNumber?: string;
   @ApiProperty() @IsString() supplierId!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() invoiceId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() grnId?: string;
