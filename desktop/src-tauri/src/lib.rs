@@ -8,8 +8,10 @@ use tauri::{
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_notification::NotificationExt;
 
-// ── Backend Port ─────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────
 const DEFAULT_PORT: u16 = 19256;
+const PORT_RANGE_START: u16 = 19256;
+const PORT_RANGE_END: u16 = 19276;
 
 // ── Global backend PID for cleanup ───────────────────────
 static mut BACKEND_PID: Option<u32> = None;
@@ -33,6 +35,61 @@ impl AppState {
     }
 }
 
+// ── Port Management ──────────────────────────────────────
+
+/// Check if a TCP port is available on localhost.
+fn is_port_available(port: u16) -> bool {
+    use std::net::TcpListener;
+    TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+/// Kill orphan backend processes on known ports before we start.
+fn kill_orphan_backends() {
+    #[cfg(target_os = "windows")]
+    {
+        // Check each port in range and kill any process listening on it
+        for port in PORT_RANGE_START..=PORT_RANGE_END {
+            if !is_port_available(port) {
+                // Port is occupied — find and kill the process
+                let output = std::process::Command::new("netstat")
+                    .args(["-ano"])
+                    .output();
+                if let Ok(out) = output {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    for line in stdout.lines() {
+                        if line.contains(&format!(":{} ", port))
+                            && line.contains("LISTENING")
+                        {
+                            if let Some(pid_str) = line.split_whitespace().last() {
+                                if let Ok(pid) = pid_str.parse::<u32>() {
+                                    log::info!(
+                                        "[desktop] Killing orphan PID {} on port {}",
+                                        pid, port
+                                    );
+                                    let _ = std::process::Command::new("taskkill")
+                                        .args(["/F", "/PID", &pid.to_string()])
+                                        .output();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Find an available port in the range.
+fn find_available_port() -> u16 {
+    for port in PORT_RANGE_START..=PORT_RANGE_END {
+        if is_port_available(port) {
+            return port;
+        }
+    }
+    // Fallback: OS picks a free port
+    0
+}
+
 // ── Backend Process Manager ──────────────────────────────
 struct BackendManager {
     backend_dir: std::path::PathBuf,
@@ -41,46 +98,78 @@ struct BackendManager {
 
 impl BackendManager {
     fn new(port: u16) -> Result<Self, String> {
+        let backend_root = Self::find_backend_dir()?;
+        Ok(Self {
+            backend_dir: backend_root,
+            port,
+        })
+    }
+
+    /// Find the backend directory by searching multiple paths.
+    fn find_backend_dir() -> Result<std::path::PathBuf, String> {
         let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
         let exe_dir = exe_path.parent().unwrap_or(&exe_path);
 
-        // Try multiple paths for the backend dist
         let candidates = vec![
+            // Development: project root backend/
             exe_dir
                 .join("..")
                 .join("..")
                 .join("..")
                 .join("backend"),
+            // Bundled: resources/backend/
             exe_dir.join("resources").join("backend"),
+            // Same directory as exe
             exe_dir.join("backend"),
+            // CWD fallback
             std::env::current_dir()
                 .unwrap_or_default()
                 .join("backend"),
         ];
 
-        let backend_root = candidates
+        candidates
             .iter()
             .find(|p| p.join("dist").join("main.js").exists())
+            .cloned()
             .ok_or_else(|| {
-                let searched: Vec<String> =
+                let paths: Vec<String> =
                     candidates.iter().map(|p| p.display().to_string()).collect();
                 format!(
-                    "Backend not found. Searched: {}. Build backend first.",
-                    searched.join(", ")
+                    "Backend not found. Searched: {}. Build with: pnpm run build:backend",
+                    paths.join(", ")
                 )
-            })?;
+            })
+    }
 
-        Ok(Self {
-            backend_dir: backend_root.to_path_buf(),
-            port,
-        })
+    /// Find the best node executable: bundled first, then system PATH.
+    fn find_node_executable(&self) -> Result<std::path::PathBuf, String> {
+        // 1. Check for bundled node (portable or sidecar)
+        let bundled_paths = vec![
+            self.backend_dir.join("node").join("node.exe"),
+            self.backend_dir
+                .parent()
+                .unwrap_or(&self.backend_dir)
+                .join("node")
+                .join("node.exe"),
+            self.backend_dir.join("node.exe"),
+        ];
+
+        for p in &bundled_paths {
+            if p.exists() {
+                log::info!("[desktop] Using bundled Node.js: {}", p.display());
+                return Ok(p.clone());
+            }
+        }
+
+        // 2. Fallback to system node
+        Ok(std::path::PathBuf::from("node"))
     }
 
     fn start(&self) -> Result<u32, String> {
         let main_js = self.backend_dir.join("dist").join("main.js");
         if !main_js.exists() {
             return Err(format!(
-                "Backend main.js not found at {}",
+                "Backend main.js not found at {}. Build first.",
                 main_js.display()
             ));
         }
@@ -97,10 +186,14 @@ impl BackendManager {
         let db_path = app_data.join("erp.db");
         let db_url = format!("file:{}", db_path.to_string_lossy().replace('\\', "/"));
 
+        let node = self.find_node_executable()?;
+
         log::info!("[desktop] Starting backend on port {}", self.port);
         log::info!("[desktop] Database: {}", db_url);
+        log::info!("[desktop] Node: {}", node.display());
+        log::info!("[desktop] Backend dir: {}", self.backend_dir.display());
 
-        let mut cmd = std::process::Command::new("node");
+        let mut cmd = std::process::Command::new(&node);
         cmd.arg(&main_js)
             .env("APP_PORT", self.port.to_string())
             .env("NODE_ENV", "production")
@@ -129,7 +222,9 @@ impl BackendManager {
 
         let child = cmd.spawn().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
-                "Node.js is not installed. Install Node.js v20+ from https://nodejs.org/ and add it to PATH.".to_string()
+                "Node.js is not installed and no bundled runtime found. \
+                 Install Node.js v20+ from https://nodejs.org/ and add it to PATH."
+                    .to_string()
             } else {
                 format!("Failed to start backend: {}", e)
             }
@@ -194,6 +289,20 @@ fn wait_for_backend(port: u16, max_wait_secs: u64) -> bool {
         std::thread::sleep(Duration::from_millis(100));
     }
     false
+}
+
+/// Check if the backend has any users (first-run detection).
+fn is_first_run(port: u16) -> bool {
+    let url = format!("http://127.0.0.1:{}/v1/health/ready", port);
+    match ureq::get(&url).call() {
+        Ok(resp) => {
+            let body = resp.into_string().unwrap_or_default();
+            // If health says "unhealthy" or DB not ready, it's likely first run
+            // with empty DB. Also check users endpoint.
+            !body.contains("healthy")
+        }
+        Err(_) => true,
+    }
 }
 
 // ── Window Manager ───────────────────────────────────────
@@ -358,13 +467,23 @@ fn get_backend_status(state: State<AppState>) -> Result<serde_json::Value, Strin
 pub fn run() {
     env_logger::init();
 
+    // ── Kill orphan backend processes from previous crashes ──
+    kill_orphan_backends();
+
+    // ── Find available port ──
+    let port = find_available_port();
+    if port == 0 {
+        log::error!("[desktop] No available port found in range {}-{}", PORT_RANGE_START, PORT_RANGE_END);
+    }
+    log::info!("[desktop] Using port {}", port);
+
     // ── Start local backend process ──
-    let backend_started = match BackendManager::new(DEFAULT_PORT) {
+    let backend_started = match BackendManager::new(port) {
         Ok(mgr) => match mgr.start() {
             Ok(pid) => {
                 log::info!("[desktop] Backend started PID={}", pid);
-                if wait_for_backend(DEFAULT_PORT, 30) {
-                    log::info!("[desktop] Backend healthy on port {}", DEFAULT_PORT);
+                if wait_for_backend(port, 30) {
+                    log::info!("[desktop] Backend healthy on port {}", port);
                 } else {
                     log::warn!("[desktop] Backend health check timed out — continuing");
                 }
@@ -382,9 +501,11 @@ pub fn run() {
     };
 
     let app_state = AppState::new();
-    if let Ok(mut port) = app_state.backend_port.lock() {
-        *port = DEFAULT_PORT;
+    if let Ok(mut port_lock) = app_state.backend_port.lock() {
+        *port_lock = port;
     }
+
+    let final_port = port;
 
     tauri::Builder::default()
         // ── Plugins ──────────────────────────────────────────
@@ -410,17 +531,34 @@ pub fn run() {
             let menu = {
                 let ah = app.handle().clone();
 
-                let preferences =
-                    MenuItem::with_id(&ah, "preferences", "Preferences", true, Some("CmdOrCtrl+,"))
-                        .unwrap();
-                let quit =
-                    MenuItem::with_id(&ah, "quit_menu", "Quit", true, Some("CmdOrCtrl+Q")).unwrap();
+                let preferences = MenuItem::with_id(
+                    &ah,
+                    "preferences",
+                    "Preferences",
+                    true,
+                    Some("CmdOrCtrl+,"),
+                )
+                .unwrap();
+                let quit = MenuItem::with_id(
+                    &ah,
+                    "quit_menu",
+                    "Quit",
+                    true,
+                    Some("CmdOrCtrl+Q"),
+                )
+                .unwrap();
                 let sep = PredefinedMenuItem::separator(&ah).unwrap();
                 let file_menu =
                     Submenu::with_items(&ah, "File", true, &[&preferences, &sep, &quit]).unwrap();
 
-                let undo =
-                    MenuItem::with_id(&ah, "undo", "Undo", true, Some("CmdOrCtrl+Z")).unwrap();
+                let undo = MenuItem::with_id(
+                    &ah,
+                    "undo",
+                    "Undo",
+                    true,
+                    Some("CmdOrCtrl+Z"),
+                )
+                .unwrap();
                 let redo = MenuItem::with_id(
                     &ah,
                     "redo",
@@ -430,12 +568,30 @@ pub fn run() {
                 )
                 .unwrap();
                 let sep2 = PredefinedMenuItem::separator(&ah).unwrap();
-                let cut =
-                    MenuItem::with_id(&ah, "cut", "Cut", true, Some("CmdOrCtrl+X")).unwrap();
-                let copy =
-                    MenuItem::with_id(&ah, "copy", "Copy", true, Some("CmdOrCtrl+C")).unwrap();
-                let paste =
-                    MenuItem::with_id(&ah, "paste", "Paste", true, Some("CmdOrCtrl+V")).unwrap();
+                let cut = MenuItem::with_id(
+                    &ah,
+                    "cut",
+                    "Cut",
+                    true,
+                    Some("CmdOrCtrl+X"),
+                )
+                .unwrap();
+                let copy = MenuItem::with_id(
+                    &ah,
+                    "copy",
+                    "Copy",
+                    true,
+                    Some("CmdOrCtrl+C"),
+                )
+                .unwrap();
+                let paste = MenuItem::with_id(
+                    &ah,
+                    "paste",
+                    "Paste",
+                    true,
+                    Some("CmdOrCtrl+V"),
+                )
+                .unwrap();
                 let select_all = MenuItem::with_id(
                     &ah,
                     "select_all",
@@ -517,9 +673,14 @@ pub fn run() {
                     None::<&str>,
                 )
                 .unwrap();
-                let documentation =
-                    MenuItem::with_id(&ah, "documentation", "Documentation", true, Some("F1"))
-                        .unwrap();
+                let documentation = MenuItem::with_id(
+                    &ah,
+                    "documentation",
+                    "Documentation",
+                    true,
+                    Some("F1"),
+                )
+                .unwrap();
                 let help_menu = Submenu::with_items(
                     &ah,
                     "Help",
@@ -537,7 +698,7 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let js = format!(
                     "window.__SHRANIX_BACKEND_PORT__='{}';localStorage.setItem('shranix_backend_port','{}');",
-                    DEFAULT_PORT, DEFAULT_PORT
+                    final_port, final_port
                 );
                 window.eval(&js).ok();
             }
@@ -559,7 +720,7 @@ pub fn run() {
                     "version": state.app_version,
                     "platform": std::env::consts::OS,
                     "mode": "offline",
-                    "backendPort": DEFAULT_PORT,
+                    "backendPort": final_port,
                     "backendStarted": backend_started,
                 })
             });
@@ -570,7 +731,6 @@ pub fn run() {
             let id = event.id().as_ref();
             match id {
                 "quit_menu" => {
-                    // Kill backend before exit
                     if let Some(pid) = unsafe { BACKEND_PID } {
                         #[cfg(target_os = "windows")]
                         {

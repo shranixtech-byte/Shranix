@@ -414,6 +414,67 @@ export class AuthService {
     this.logger.log(`User ${userId} logged out from all devices`);
   }
 
+  // ── First-Run Setup (Offline V1) ──────────────────────
+
+  async getSetupStatus(): Promise<number> {
+    const result = await this.database.users.findAll({ page: 1, pageSize: 1 });
+    return result.total;
+  }
+
+  async firstRunSetup(dto: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    companyName: string;
+  }): Promise<AuthResponse> {
+    // Reject if users already exist (not first run)
+    const existingCount = await this.getSetupStatus();
+    if (existingCount > 0) {
+      throw new ConflictException('Setup already completed. Users already exist.');
+    }
+
+    // Create admin user
+    const passwordHash = await argon2.hash(dto.password, {
+      type: argon2.argon2id,
+      memoryCost: 19456,
+      timeCost: 1,
+      parallelism: 1,
+    });
+
+    const user = await this.database.users.create({
+      email: dto.email,
+      passwordHash,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: null,
+      isActive: true,
+      isEmailVerified: true,
+      failedLoginAttempts: 0,
+      refreshTokenVersion: 0,
+      lastLoginAt: null,
+      lockedUntil: null,
+    });
+
+    // Create company if company name provided
+    if (dto.companyName) {
+      try {
+        await this.database.companies.create({
+          name: dto.companyName,
+          isActive: true,
+        } as any);
+      } catch (err) {
+        this.logger.warn(`Company creation during setup failed: ${(err as Error).message}`);
+      }
+    }
+
+    const tokens = await this.generateTokens(user);
+
+    this.logger.log(`First-run setup completed: admin user ${dto.email} created`);
+
+    return { user: this.sanitizeUser(user), tokens };
+  }
+
   async validateUser(payload: JwtPayload): Promise<UserRecord | null> {
     const user = await this.database.users.findById(payload.sub);
     if (!user || !user.isActive) {

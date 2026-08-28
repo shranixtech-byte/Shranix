@@ -142,6 +142,42 @@ export class AuthController {
     return { csrfToken };
   }
 
+  // ── First-Run Setup (Offline V1) ──────────────────────
+
+  @Get('setup/status')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check if first-run setup is needed' })
+  async setupStatus() {
+    const users = await this.authService.getSetupStatus();
+    return {
+      needsSetup: users === 0,
+      userCount: users,
+    };
+  }
+
+  @Post('setup')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'First-run setup: create admin user + company' })
+  async setup(
+    @Body()
+    dto: {
+      email: string;
+      password: string;
+      firstName: string;
+      lastName: string;
+      companyName: string;
+    },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.firstRunSetup(dto);
+    this.setRefreshCookie(res, result.tokens.refreshToken);
+    const csrfToken = this.csrfService.generateToken();
+    res.cookie('csrf_token', csrfToken, this.csrfService.getCookieOptions());
+    return result;
+  }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')

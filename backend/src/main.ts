@@ -24,6 +24,32 @@ import { ResponseInterceptor } from './interceptors/response.interceptor';
 import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
 
 async function bootstrap() {
+  // ── Auto-migration: run drizzle-kit push for SQLite offline mode ──
+  const provider = process.env.DATABASE_PROVIDER || 'sqlite';
+  if (provider === 'sqlite') {
+    const logger = new Logger('Migrate');
+    try {
+      const { execSync } = await import('child_process');
+      logger.log('Running auto-migration (drizzle-kit push)...');
+      execSync('npx drizzle-kit push --config=./drizzle.config.ts', {
+        cwd: process.cwd().includes('backend')
+          ? process.cwd().replace(/backend$/, 'database')
+          : undefined,
+        timeout: 60000,
+        stdio: 'pipe',
+      });
+      logger.log('Auto-migration completed successfully');
+    } catch (err) {
+      const msg = (err as Error).message || String(err);
+      // drizzle-kit push may fail if schema is already up to date — that's fine
+      if (msg.includes('Already up to date') || msg.includes('No changes')) {
+        logger.log('Database schema is up to date');
+      } else {
+        logger.warn(`Auto-migration warning: ${msg.slice(0, 500)}`);
+      }
+    }
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     abortOnError: false,
