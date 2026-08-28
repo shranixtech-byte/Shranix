@@ -111,14 +111,14 @@ impl BackendManager {
         let exe_dir = exe_path.parent().unwrap_or(&exe_path);
 
         let candidates = vec![
+            // Production: runtime/backend-dist/ next to the EXE
+            exe_dir.join("../../runtime/backend-dist"),
+            exe_dir.join("runtime/backend-dist"),
+            exe_dir.join("../runtime/backend-dist"),
             // Development: project root backend/
             exe_dir
-                .join("..")
-                .join("..")
-                .join("..")
+                .join("../../..")
                 .join("backend"),
-            // Bundled: resources/backend/
-            exe_dir.join("resources").join("backend"),
             // Same directory as exe
             exe_dir.join("backend"),
             // CWD fallback
@@ -129,7 +129,7 @@ impl BackendManager {
 
         candidates
             .iter()
-            .find(|p| p.join("dist").join("main.js").exists())
+            .find(|p| p.join("main.js").exists() || p.join("dist").join("main.js").exists())
             .cloned()
             .ok_or_else(|| {
                 let paths: Vec<String> =
@@ -143,16 +143,23 @@ impl BackendManager {
 
     /// Find the best node executable: bundled first, then system PATH.
     fn find_node_executable(&self) -> Result<std::path::PathBuf, String> {
-        // 1. Check for bundled node (portable or sidecar)
-        let bundled_paths = vec![
-            self.backend_dir.join("node").join("node.exe"),
-            self.backend_dir
-                .parent()
-                .unwrap_or(&self.backend_dir)
-                .join("node")
-                .join("node.exe"),
-            self.backend_dir.join("node.exe"),
-        ];
+        let exe_path = std::env::current_exe().ok();
+        let exe_dir = exe_path.as_ref().and_then(|p| p.parent());
+
+        // 1. Bundled node in the runtime directory
+        let mut bundled_paths: Vec<std::path::PathBuf> = vec![];
+        if let Some(ed) = exe_dir {
+            // Production: runtime/node/node.exe next to the EXE
+            bundled_paths.push(ed.join("../../runtime/node/node.exe"));
+            bundled_paths.push(ed.join("runtime/node/node.exe"));
+            bundled_paths.push(ed.join("../runtime/node/node.exe"));
+        }
+        // Dev: relative to backend dir
+        bundled_paths.push(self.backend_dir.join("../../desktop/runtime/node/node.exe"));
+        // Desktop node directory
+        if let Some(ed) = exe_dir {
+            bundled_paths.push(ed.join("../../../desktop/node/win-x64/node.exe"));
+        }
 
         for p in &bundled_paths {
             if p.exists() {
@@ -162,17 +169,22 @@ impl BackendManager {
         }
 
         // 2. Fallback to system node
+        log::warn!("[desktop] No bundled Node.js found, using system PATH");
         Ok(std::path::PathBuf::from("node"))
     }
 
     fn start(&self) -> Result<u32, String> {
-        let main_js = self.backend_dir.join("dist").join("main.js");
-        if !main_js.exists() {
+        // Try multiple paths for main.js: dist/main.js or just main.js
+        let main_js = if self.backend_dir.join("dist").join("main.js").exists() {
+            self.backend_dir.join("dist").join("main.js")
+        } else if self.backend_dir.join("main.js").exists() {
+            self.backend_dir.join("main.js")
+        } else {
             return Err(format!(
-                "Backend main.js not found at {}. Build first.",
-                main_js.display()
+                "Backend main.js not found in {}. Build first.",
+                self.backend_dir.display()
             ));
-        }
+        };
 
         // Database path in app data directory
         let app_data = dirs_next::data_local_dir()
@@ -209,6 +221,16 @@ impl BackendManager {
             )
             .env("SWAGGER_ENABLED", "false")
             .env("DATABASE_LOG_LEVEL", "error")
+            // Set NODE_PATH so the backend can find bundled node_modules
+            .env(
+                "NODE_PATH",
+                self.backend_dir
+                    .parent()
+                    .unwrap_or(&self.backend_dir)
+                    .join("node_modules")
+                    .to_string_lossy()
+                    .to_string(),
+            )
             .current_dir(&self.backend_dir)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());

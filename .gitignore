@@ -141,3 +141,12 @@ skills-lock.json
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/node_modules/
+
+# Desktop bundled runtime
+desktop/node/
+desktop/runtime/
+desktop/resources/
+
+# Debug files
+backend/*debug*.txt
+backend/e2e-debug-*.json
