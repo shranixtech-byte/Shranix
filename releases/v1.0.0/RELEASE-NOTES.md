@@ -1,86 +1,108 @@
-# SHRANIX Krushi ERP — v1.0.0 Release Notes
+# SHRANIX Krushi ERP — V1.0.0 Release Notes
 
 **Release Date:** August 28, 2026
 **Version:** 1.0.0
-**Platform:** Windows x64
+**Status:** 🟡 RELEASE CANDIDATE — CONDITIONALLY READY
 
 ---
 
-## What's New
+## What Is SHRANIX Krushi ERP
+
+SHRANIX Krushi ERP is an **offline-first Windows desktop ERP** designed for agricultural businesses. It runs entirely on your local computer with no internet connection required for daily business operations.
+
+## Key Features
+
+### Offline-First Architecture
+
+- **No internet required** for normal ERP operations
+- Local SQLite database stored on your computer
+- Local backend server (bundled with the application)
+- Bundled Node.js runtime — no external software installation needed
+
+### Complete ERP Modules
+
+- **Sales:** Quotations → Orders → Delivery Challans → Invoices → Payments → Returns → Credit Notes
+- **Purchase:** Quotations → Orders → GRN → Invoices → Payments → Returns → Debit Notes
+- **Inventory:** Products, Stock, Warehouses, Batch Tracking
+- **Finance:** Chart of Accounts, Journal Entries, GL, Cash/Bank Books
+- **GST:** CGST, SGST, IGST, GST Returns
+- **HR:** Employees, Payroll, Departments, Designations
+- **CRM:** Contacts, Leads, Activities
+- **Assets:** Asset Register, Depreciation
+- **DMS:** Document Management, OCR, Digital Signatures
+- **Reports:** Sales, Purchase, Inventory, Finance, GST, HR Reports
+- **PDF Generation:** Quotations, Invoices, Credit/Debit Notes
 
 ### Desktop Application
 
-- First production Windows desktop application built with Tauri v2
-- Native Windows installer (NSIS) with Start Menu integration
-- System tray support with minimize-to-tray
-- Application menu (File, Edit, View, Help)
-- Splash screen on launch
+- Native Windows desktop application (Tauri + React)
+- System tray integration
+- Automatic backend startup
+- Local backup and restore
+- First-run setup wizard
 
-### ERP Modules (Verified & Frozen)
+### License Activation
 
-- **Dashboard** — Real-time KPIs, charts, alerts, recent transactions
-- **Sales** — Quotation → Sales Order → Delivery Challan → Invoice → Payment → Returns/Credit Notes
-- **Purchase** — Purchase Order → GRN → Purchase Invoice → Payment → Returns/Debit Notes
-- **Inventory** — Stock management, warehouse tracking, batch/expiry, adjustments, transfers
-- **Finance** — Chart of Accounts, Journal Entries, Cash/Bank Book, Trial Balance, P&L, Balance Sheet
-- **GST** — Tax calculations, CGST/SGST/IGST, GST returns, audit
-- **HR** — Employees, Payroll, Attendance, Leave, Expenses
-- **Assets** — Asset management, Depreciation, Disposal
-- **DMS** — Document management, OCR, Signatures
-
-### Cross-Module Integration
-
-- Purchase → Stock IN verified
-- Sales → Stock OUT verified
-- Sales Return → Stock reversal verified
-- Purchase Return → Stock reversal verified
-- Financial integrity (GL balanced, Debit = Credit) verified
-- Stock reconciliation verified
-
----
+- One-time online activation required
+- RSA-2048 signed license tokens
+- Offline verification after activation
+- Grace periods for temporary internet loss
 
 ## System Requirements
 
-- **OS:** Windows 10 (64-bit) or later
-- **RAM:** 4 GB minimum, 8 GB recommended
-- **Disk:** 100 MB for application
-- **Network:** Internet connection required (connects to ERP backend)
-- **Backend:** SHRANIX Krushi ERP backend must be running and accessible
+| Requirement | Specification                                |
+| ----------- | -------------------------------------------- |
+| OS          | Windows 10/11 x64                            |
+| RAM         | 4 GB minimum, 8 GB recommended               |
+| Disk        | 500 MB for application + data space          |
+| Display     | 1024x600 minimum, 1280x800 recommended       |
+| Internet    | Required only for initial license activation |
+| Node.js     | **NOT REQUIRED** — bundled with installer    |
+| PostgreSQL  | **NOT REQUIRED** — uses local SQLite         |
 
----
+## What's Included
 
-## Installation
+| Component   | Details                                           |
+| ----------- | ------------------------------------------------- |
+| Application | Tauri EXE (37.1 MB)                               |
+| Installer   | NSIS Installer (138.5 MB)                         |
+| Runtime     | Bundled Node.js v24.18.0 + backend + dependencies |
+| Database    | Local SQLite (auto-created)                       |
+| License     | RSA-2048 signed activation system                 |
 
-See [INSTALLATION-GUIDE.md](./INSTALLATION-GUIDE.md) for detailed instructions.
+## Verification Status
 
----
+| Area                       | Status                                      |
+| -------------------------- | ------------------------------------------- |
+| Sales workflows            | ✅ VERIFIED & FROZEN                        |
+| Purchase workflows         | ✅ VERIFIED & FROZEN                        |
+| Finance/GL/GST             | ✅ VERIFIED & FROZEN                        |
+| Cross-module integration   | ✅ VERIFIED                                 |
+| Data consistency           | ✅ VERIFIED                                 |
+| Dashboard                  | ✅ VERIFIED & FROZEN                        |
+| Offline-first architecture | ✅ VERIFIED                                 |
+| Bundled Node.js            | ✅ VERIFIED                                 |
+| License activation         | ✅ VERIFIED                                 |
+| Local backup/restore       | ✅ VERIFIED                                 |
+| Frontend tests             | ✅ 135/135 PASS                             |
+| Clean Windows machine      | ⏳ NOT TESTED (Windows Sandbox unavailable) |
 
-## Known Limitations (V1)
+## Known Limitations
 
-- Desktop requires backend connectivity — no offline mode
-- Auto-update not yet enabled (pending signing key)
-- OCR uses basic implementation
-- AI features are placeholder
-- Payment gateway integration deferred
-- Multi-tenant architecture deferred
-
----
+1. **Clean Windows machine test not performed** — Windows Sandbox is unavailable on the current Windows Home development machine
+2. **Auto-updater** — Not enabled pending real signing key
+3. **Cloud backup** — Future paid add-on
+4. **Cloud sync** — Future paid add-on
+5. **Payment gateway** — Future integration (Razorpay/etc.)
+6. **Multi-device sync** — Future feature
 
 ## SHA-256 Checksums
 
 ```
-ce64aefaacd07a4a14a22553b3ac0af8abe3a69bbf7514efd77fb891654efa17  shranix-krushi-erp.exe
-f5c4f4b02f3fd5320dfc975905b52166ab6f00ecac6d11fb27038f125c3a0151  SHRANIX Krushi ERP_1.0.0_x64-setup.exe
+5cce5d49db58fb1064625c8b9888cbef947584765fc9e49ad3d659779daccfb0  shranix-krushi-erp.exe
+b8d517c9abea82909a9ee5766279cefea03bc5592640a9227ed24c2401f2e703  SHRANIX Krushi ERP_1.0.0_x64-setup.exe
 ```
 
 ---
 
-## Support
-
-- **Email:** support@shranix.com
-- **Website:** https://shranix.com
-- **Documentation:** https://docs.shranix.com
-
----
-
-_Built with Tauri v2 + React + NestJS + SQLite_
+_SHRANIX Krushi ERP — Built with Codebuff_
